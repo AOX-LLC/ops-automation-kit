@@ -12,7 +12,7 @@ Three standalone n8n + Claude workflows for small businesses, runnable from one
 - **n8n orchestrates.** It owns triggers, schedules, fan-out and branching (IF, Switch), waiting for approvals (Wait), sending approved email (Send Email) and writing output files.
 - **The helper API (`src/opskit`, FastAPI) does the work.** It owns file and mailbox reads, extraction, reconciliation math, research, drafting, approvals and audit.
 - **No Code nodes.** If a node needs more than a field lookup, the logic belongs in Python.
-- **One door to models, approvals and audit:** `opskit.core`. Nothing else imports a model SDK or writes to `core.approvals`, `core.audit_log` or `core.model_calls`. import-linter enforces this.
+- **One door to models, approvals and audit:** `opskit.core`. Nothing else imports a model SDK (import-linter enforces this) or writes to `core.approvals`, `core.audit_log` or `core.model_calls` (a rule reviewers check).
 
 ## Layout
 

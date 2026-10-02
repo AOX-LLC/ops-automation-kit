@@ -48,7 +48,7 @@ kit-secrets ──► postgres ──► migrate ──► seed ◄── mailpi
 
 Each secret lives in its own `kit-secrets` volume subpath per consumer (`postgres/`, `n8n/`, `api/`). Each service mounts only its own subpath, read-only, with files at mode 0400 owned by that service's uid. Compose volume `subpath` needs Docker ≥ 26 and Compose ≥ 2.30; the node has 29.1 and 2.40.
 
-Hardening for every service except Postgres: `read_only: true` where the image allows it, `tmpfs: /tmp`, `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]`, non-root user, and a memory limit (n8n 1 GB, Postgres 512 MB, api 512 MB, Mailpit 128 MB). Postgres gets `no-new-privileges` and a memory limit. Dropping its capabilities is tested in the spike and kept only if initdb still works.
+Hardening for every service except Postgres: `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]` and a memory limit; `read_only: true` with a `/tmp` tmpfs and a non-root user where the image allows it (Mailpit still runs as root in Phase 1). Memory limits (n8n 1 GB, Postgres 512 MB, api 512 MB, Mailpit 128 MB). Postgres gets `no-new-privileges` and a memory limit. Dropping its capabilities is tested in the spike and kept only if initdb still works.
 
 ## A3. Secrets (no `.env` required to boot)
 
@@ -275,14 +275,14 @@ IF decision == approved               2xx → delivered_at; audit approval.resum
 
 1. **Signed resume URL.** n8n 2.x appends `?signature=<HMAC>` to `$execution.resumeUrl`, so execution IDs cannot be guessed. The helper stores the whole URL and never builds one itself.
 2. **SSRF guard.** `opskit.approvals.resume.internal_resume_target(url)` accepts only an origin in `{N8N_PUBLIC_URL, N8N_INTERNAL_URL}` with a path matching `^/webhook-waiting/[0-9]+$` and a `signature` query. It always dispatches to `N8N_INTERNAL_URL` (`http://n8n:5678`) plus that path and query. Anything else gets a 422 at creation time.
-3. **Secret handling.** The resume URL is a bearer capability. It is excluded from API responses, the approver page, audit details and logs, and log formatters redact `signature=`.
+3. **Secret handling.** The resume URL is a bearer capability. It is excluded from API responses, the approver page, audit details and logs, and the `httpx` logger is held at WARNING so request URLs are never logged.
 4. **The approver page is a separate door.** It lives in the helper under `/approver/`. It is server-rendered with Jinja: no JavaScript build and no client-side state.
    - **Login:** one approver account. The password is generated (A3), checked against its bcrypt hash, and shown only by `make login`. After 5 failures in 5 minutes, logins lock out for 5 minutes.
-   - **Session cookie:** signed with `approver_session_secret`. `HttpOnly`, `SameSite=Strict`, `Path=/approver`, 8-hour lifetime. `Secure` is off because the page is plain HTTP on 127.0.0.1, and the README says so.
+   - **Session cookie:** signed with `approver_session_secret`. `HttpOnly`, `SameSite=Strict`, `Path=/approver`, 8-hour lifetime. `Secure` is off because the page is plain HTTP on 127.0.0.1; the README says so.
    - **CSRF:** a per-session synchronizer token in a hidden field, compared with `hmac.compare_digest` on every POST: login, decision and logout. A missing or wrong token gets a 403.
    - **Audit:** every decision writes `approval.decided` with `actor='approver'`. Every login success and failure writes `approver.login` with the outcome, never the password.
    - **n8n's token cannot reach it.** `/approver/*` accepts only the session cookie. A Bearer service token there gets a 401. The service routes under `/v1/*` never accept the session cookie, and no `/v1` route can decide an approval.
-5. **Defense in depth.** Every side-effect endpoint loads the approval and requires `status='approved'` before handing anything over. n8n skipping the Wait node changes nothing.
+5. **Defense in depth.** After the Wait node resumes, the workflow reads the decision from `GET /v1/approvals/{id}` and branches on that, never on the resume body, since holding the resume URL is not approval. From Phase 3, the endpoint that hands over a draft for sending also requires `status='approved'`.
 6. **Timeout.** When the Wait limit elapses, n8n resumes with no body. The workflow then calls `POST /v1/approvals/{id}/expire`. A helper sweeper also expires overdue rows every 60 s. A decision after expiry gets a 409, shown on the page as "expired".
 7. **Race.** If a decision lands before n8n has parked the execution, the resume call fails and the outbox retries it. Delivery is at-least-once; the IF branch keys on `approval_id`, and side effects are idempotent per approval.
 

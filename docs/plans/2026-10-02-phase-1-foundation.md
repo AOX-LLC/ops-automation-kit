@@ -1,6 +1,6 @@
 # Phase 1 — Foundation: Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> Execution notes: tasks are worked one at a time; steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the kit's skeleton. One `docker compose up` brings up n8n, the helper API, Postgres and Mailpit. Synthetic sample data for all three workflows is seeded and visible, mock mode is on by default, and every model call, approval and audit write goes through a single adapter that Phase 2 swaps for agent-core.
 
@@ -20,14 +20,14 @@
 - n8n and the app get separate databases (`n8n`, `opskit`) with separate roles. Neither role can connect to the other's database.
 - `MOCK_MODE=true` by default. Live mode reads the viewer's key from `.env` as `AGENT_CORE_ANTHROPIC_API_KEY` (the name agent-core uses), never `ANTHROPIC_API_KEY`.
 - Model IDs never appear in code. Routing tiers (`small`, `mid`, `large`) map to model IDs in config.
-- Every model call, approval and audit write goes through `opskit.core` (the adapter). import-linter enforces it.
+- Every model call, approval and audit write goes through `opskit.core` (the adapter). import-linter enforces the model-SDK boundary.
 - No agent-core import in this phase.
 - `.env.example` only. A gitleaks pre-commit hook runs, and gitleaks also runs in CI.
 - MIT license for this repo's own code. n8n stays under its own Sustainable Use License; the repo never redistributes it.
 - One commit per concern. No attribution trailers or co-author lines in commits or the PR description. Refactors and behavior changes go in separate commits.
 - Work only in `.worktrees/phase-1-foundation` on branch `phase-1-foundation`. Never edit the main folder.
 - Time box about 2.5 hours. See Task 16 for what ships if it hits.
-- AOX house standard applies. Run the Definition of Done for `the-craft-of-readable-code` and `secure-software` on every task, and for `fast-software` on the DB and seed tasks.
+- The house engineering standard applies: run its readable-code and security checklists on every task, and its performance checklist on the DB and seed tasks.
 
 ## Review Focus
 
@@ -89,7 +89,7 @@ kit-secrets ──► postgres ──► migrate ──► seed ◄── mailpi
 
 Each secret lives in its own `kit-secrets` volume subpath per consumer (`postgres/`, `n8n/`, `api/`). Each service mounts only its own subpath, read-only, with files at mode 0400 owned by that service's uid. Compose volume `subpath` needs Docker ≥ 26 and Compose ≥ 2.30; the node has 29.1 and 2.40.
 
-Hardening for every service except Postgres: `read_only: true` where the image allows it, `tmpfs: /tmp`, `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]`, non-root user, and a memory limit (n8n 1 GB, Postgres 512 MB, api 512 MB, Mailpit 128 MB). Postgres gets `no-new-privileges` and a memory limit. Dropping its capabilities is tested in the spike and kept only if initdb still works.
+Hardening for every service except Postgres: `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]` and a memory limit; `read_only: true` with a `/tmp` tmpfs and a non-root user where the image allows it (Mailpit still runs as root in Phase 1). Memory limits (n8n 1 GB, Postgres 512 MB, api 512 MB, Mailpit 128 MB). Postgres gets `no-new-privileges` and a memory limit. Dropping its capabilities is tested in the spike and kept only if initdb still works.
 
 ### A3. Secrets (no `.env` required to boot)
 
@@ -316,14 +316,14 @@ IF decision == approved               2xx → delivered_at; audit approval.resum
 
 1. **Signed resume URL.** n8n 2.x appends `?signature=<HMAC>` to `$execution.resumeUrl`, so execution IDs cannot be guessed. The helper stores the whole URL and never builds one itself.
 2. **SSRF guard.** `opskit.approvals.resume.internal_resume_target(url)` accepts only an origin in `{N8N_PUBLIC_URL, N8N_INTERNAL_URL}` with a path matching `^/webhook-waiting/[0-9]+$` and a `signature` query. It always dispatches to `N8N_INTERNAL_URL` (`http://n8n:5678`) plus that path and query. Anything else gets a 422 at creation time.
-3. **Secret handling.** The resume URL is a bearer capability. It is excluded from API responses, the approver page, audit details and logs, and log formatters redact `signature=`.
+3. **Secret handling.** The resume URL is a bearer capability. It is excluded from API responses, the approver page, audit details and logs, and the `httpx` logger is held at WARNING so request URLs are never logged.
 4. **The approver page is a separate door.** It lives in the helper under `/approver/`. It is server-rendered with Jinja: no JavaScript build and no client-side state.
    - **Login:** one approver account. The password is generated (A3), checked against its bcrypt hash, and shown only by `make login`. After 5 failures in 5 minutes, logins lock out for 5 minutes.
-   - **Session cookie:** signed with `approver_session_secret`. `HttpOnly`, `SameSite=Strict`, `Path=/approver`, 8-hour lifetime. `Secure` is off because the page is plain HTTP on 127.0.0.1, and the README says so.
+   - **Session cookie:** signed with `approver_session_secret`. `HttpOnly`, `SameSite=Strict`, `Path=/approver`, 8-hour lifetime. `Secure` is off because the page is plain HTTP on 127.0.0.1; the README says so.
    - **CSRF:** a per-session synchronizer token in a hidden field, compared with `hmac.compare_digest` on every POST: login, decision and logout. A missing or wrong token gets a 403.
    - **Audit:** every decision writes `approval.decided` with `actor='approver'`. Every login success and failure writes `approver.login` with the outcome, never the password.
    - **n8n's token cannot reach it.** `/approver/*` accepts only the session cookie. A Bearer service token there gets a 401. The service routes under `/v1/*` never accept the session cookie, and no `/v1` route can decide an approval.
-5. **Defense in depth.** Every side-effect endpoint loads the approval and requires `status='approved'` before handing anything over. n8n skipping the Wait node changes nothing.
+5. **Defense in depth.** After the Wait node resumes, the workflow reads the decision from `GET /v1/approvals/{id}` and branches on that, never on the resume body, since holding the resume URL is not approval. From Phase 3, the endpoint that hands over a draft for sending also requires `status='approved'`.
 6. **Timeout.** When the Wait limit elapses, n8n resumes with no body. The workflow then calls `POST /v1/approvals/{id}/expire`. A helper sweeper also expires overdue rows every 60 s. A decision after expiry gets a 409, shown on the page as "expired".
 7. **Race.** If a decision lands before n8n has parked the execution, the resume call fails and the outbox retries it. Delivery is at-least-once; the IF branch keys on `approval_id`, and side effects are idempotent per approval.
 
@@ -439,7 +439,7 @@ class Core:
 
 ## Part B — Tasks
 
-Each task names who does it. **Main** = this Opus session (architecture, security-relevant config, review). **Sonnet** = a subagent with this plan section and the Global Constraints pasted in. Every Sonnet task is reviewed in the main session before its commit.
+Each task names who does it. **Main** = the lead session (architecture, security-relevant config, review). **Sonnet** = a delegated session with this plan section and the Global Constraints pasted in. Every Sonnet task is reviewed in the main session before its commit.
 
 ### Task 0: Spike — verify the n8n assumptions on the pinned version (Main, not committed)
 
@@ -463,7 +463,7 @@ Done in the scratchpad with a throwaway compose file. Nothing goes in the repo e
 **Files:**
 - Create: `CLAUDE.md`, `LICENSE` (MIT, AOX LLC, 2026), `.pre-commit-config.yaml`, `.env.example`, `.gitattributes`, `Makefile`, `.github/dependabot.yml`
 - Modify: `.gitignore` (add `CLAUDE.local.md`, `.claude/agent-memory/`, `.claude/settings.local.json`, `dropbox/`, `exports/`, `.denylist.local`)
-- Create `CLAUDE.local.md` in the worktree, gitignored and never committed, as agent-core does. It holds the roadmap and master-plan links and the delegation and shipping rules.
+- Create `CLAUDE.local.md` in the worktree, gitignored and never committed. It holds private links and the delegation and shipping rules.
 
 **`CLAUDE.md` contents** (public-safe, with no hosts, internal product names or private links):
 - What the kit is; the n8n/helper split (A1) and the "no Code nodes, real n8n orchestration" rule.
@@ -862,7 +862,7 @@ Placeholders for the GIF and scorecards are left for Phase 4.
 
 ### Task 16: Verify, review, ship (Main)
 
-**Time box:** if Task 0 or the running estimate points past about 2.5 hours, stop as soon as the stack boots clean with seeded data and CI passes. Then run the gatekeeper on what is built, open the PR, and list what is left in the PR body. The project chat places the remaining work.
+**Time box:** if Task 0 or the running estimate points past about 2.5 hours, stop as soon as the stack boots clean with seeded data and CI passes. Then run the review pass on what is built, open the PR, and list what is left in the PR body. The remaining work is scheduled separately.
 
 - [ ] **Clean run:** `docker compose down -v && docker compose up -d --wait`. Check by hand:
   - n8n at `127.0.0.1:4300` logs in with the password from `make login`; the 4 workflows are listed and the smoke one is published;
@@ -870,10 +870,10 @@ Placeholders for the GIF and scorecards are left for Phase 4.
   - `docker compose exec postgres psql -U opskit_app -d opskit -c 'select workflow, kind, count(*) from core.sample_files group by 1,2'` returns the expected counts, and `crm.accounts` has 5;
   - the approver page at `127.0.0.1:4301/approver/` logs in with the approver password from `make login`.
 - [ ] Run each CI job's commands locally (Task 13) and paste the outputs into the session.
-- [ ] Run `@agent-gatekeeper` on the branch with the security, readable-code, performance and compliance checklists. Fix each finding in its own commit. Re-run until clean.
+- [ ] Run the independent review pass on the branch with the security, readable-code, performance and compliance checklists. Fix each finding in its own commit. Re-run until clean.
 - [ ] `git push -u origin phase-1-foundation`. The branch currently tracks `origin/main`, so set the upstream explicitly.
-- [ ] Open the PR with `gh pr create`. The body has a summary, the verification evidence, gatekeeper results, which sample comparison is in use, what is left if the time box hit, "not verified", and **no attribution line**. Then run `gh pr checks --watch` and report the real GitHub CI result.
-- [ ] Roadmap doc edits, through Claude Docs. Only these two; the project chat owns the phase table and decisions.
+- [ ] Open the PR with `gh pr create`. The body has a summary, the verification evidence, review results, which sample comparison is in use, what is left if the time box hit, "not verified", and **no attribution line**. Then run `gh pr checks --watch` and report the real GitHub CI result.
+- [ ] Roadmap edits. Only these two; the phase table and decisions are owned elsewhere.
   1. Port row → `4300–4399 on localhost: n8n 4300, helper API 4301, Postgres 4302, Mailpit web 4303, Mailpit SMTP 4304 (overridable from .env for parallel stacks)`.
   2. Replace "No entries yet." with one build-log line: `<date> · Phase 1 · <what landed> · <PR link> · <not verified>`.
 - [ ] `docker compose down` and confirm `docker compose ps` is empty.
@@ -942,7 +942,7 @@ The ops kit drives runs from n8n, so they are long-lived, cross-process, and res
 12. **Tag timing.** Phase 2 pins `v0.1.0a1` as soon as agent-core tags it, then moves to `v0.1.0`. Where agent-core's names differ from §A9, the shim lives in `opskit/core/factory.py`.
 ## Decisions recorded 2026-10-02 (plan approval)
 
-- Phase 1 does not depend on agent-core. The project chat updates the roadmap's phase table and decisions. This session updates only the port row and the build log.
+- Phase 1 does not depend on agent-core. The roadmap's phase table and decisions are updated separately. This phase updates only the port row and the build log.
 - The approver page lives in the helper. It is minimal and server-rendered, with its own generated login, CSRF on every decision, an audit entry per decision, and no access with n8n's token.
 - Workflow re-import is hash-gated, with a warning when a change replaces editor work. `make reimport` forces it and `make export` writes editor changes back.
 - n8n's own nodes do the orchestration: IF and Switch, Wait, Send Email, and the file nodes. Python keeps the logic.

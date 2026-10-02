@@ -30,7 +30,6 @@ The first boot takes a few minutes. n8n runs its database migrations before it r
 | --- | --- |
 | n8n editor | http://localhost:4300 |
 | Approver page | http://localhost:4301/approver/ |
-| API docs | http://localhost:4301/docs |
 | Mailpit (caught email) | http://localhost:4303 |
 
 Passwords are generated on first boot and never logged. `make login` prints the n8n owner password and the approver password. It is the only way to see them.
@@ -54,7 +53,7 @@ Passwords are generated on first boot and never logged. `make login` prints the 
 
 **No Code nodes.** If a node needs more than a field lookup, the logic belongs in Python. `scripts/lint_workflows.py` rejects Code and Execute Command nodes.
 
-All model calls, approvals and audit writes go through one module, `opskit.core`. import-linter enforces this.
+All model calls, approvals and audit writes go through one module, `opskit.core`. import-linter keeps model SDKs out of everything else.
 
 ### The approval round-trip
 
@@ -64,7 +63,9 @@ All model calls, approvals and audit writes go through one module, `opskit.core`
 4. The decision is saved in one transaction with an audit row. A dispatcher then calls the resume URL.
 5. n8n continues: an IF node checks the decision, and only an approved reply goes to Send Email.
 
-n8n's service token cannot approve anything. The approver page accepts only the session cookie, and no `/v1` route can decide an approval. Every side-effect endpoint also checks that the approval is approved.
+n8n's service token cannot approve anything. The approver page accepts only the session cookie, and no `/v1` route can decide an approval. After resuming, the workflow reads the recorded decision from `GET /v1/approvals/{id}` and branches on it, never on the resume request's body.
+
+**Local-only cookies.** The stack serves plain HTTP on 127.0.0.1, so the approver cookie is sent without `Secure` and n8n runs with `N8N_SECURE_COOKIE=false`. Put TLS in front and turn both back on before exposing either beyond your machine.
 
 ## Mock mode and live mode
 
