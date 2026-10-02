@@ -22,6 +22,8 @@ from opskit.core.ports import Core
 from opskit.db.engine import make_engine, make_session_factory
 
 log = logging.getLogger(__name__)
+# httpx logs full request URLs at INFO; a resume URL's signature must never reach a log.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 SWEEP_INTERVAL_S = 60
 
 
@@ -70,8 +72,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         title="ops-automation-kit helper API",
         version="0.1.0",
         lifespan=lifespan,
-        docs_url="/docs",
+        docs_url=None,
         redoc_url=None,
+        openapi_url=None,
     )
     app.add_middleware(SecurityHeaders)
     app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")

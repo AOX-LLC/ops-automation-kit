@@ -23,6 +23,7 @@ from opskit.core.ports import Core, Decision
 router = APIRouter(prefix="/approver", include_in_schema=False)
 templates = Jinja2Templates(directory=Path(__file__).parents[1] / "templates")
 ACTOR = "approver"
+BCRYPT_MAX_BYTES = 72
 
 
 def _refuse_bearer(request: Request) -> None:
@@ -92,7 +93,9 @@ async def login(
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "too many attempts; try later")
 
     expected_hash: bytes = request.app.state.approver_password_hash
-    if not bcrypt.checkpw(password.encode(), expected_hash):
+    candidate = password.encode()
+    # bcrypt rejects inputs over 72 bytes; such a password can never match, so it is a failure.
+    if len(candidate) > BCRYPT_MAX_BYTES or not bcrypt.checkpw(candidate, expected_hash):
         throttle.record_failure()
         await audit.append(
             ctx=None,
