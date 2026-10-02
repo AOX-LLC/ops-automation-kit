@@ -2,6 +2,7 @@
 .PHONY: up down clean login check test smoke samples export reimport
 
 up:
+	@export KIT_GIT_COMMIT="$$(git rev-parse HEAD 2>/dev/null)" KIT_GIT_BRANCH="$$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"; \
 	docker compose up -d --build --wait
 
 down:

@@ -12,6 +12,9 @@ x-api-image: &api-image
     context: .
     dockerfile: docker/api.Dockerfile
     target: runtime
+    args:
+      GIT_COMMIT: "${KIT_GIT_COMMIT:-}"
+      GIT_BRANCH: "${KIT_GIT_BRANCH:-}"
 
 x-n8n-env: &n8n-env
   DB_TYPE: postgresdb

@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from opskit.api.approver_session import LoginThrottle, SessionCodec, SessionStore
 from opskit.api.middleware import SecurityHeaders
 from opskit.api.routers import approvals, approver, health, inputs, runs, smoke
+from opskit.api.routers.health import load_build_info
 from opskit.approvals.resume import N8nResumeSender
 from opskit.config import Settings
 from opskit.core.factory import build_core, build_resume_worker
@@ -79,6 +80,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url=None,
         openapi_url=None,
     )
+    app.state.build_info = load_build_info()
     app.add_middleware(SecurityHeaders)
     app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
     for module in (health, runs, approvals, smoke, inputs, approver):
