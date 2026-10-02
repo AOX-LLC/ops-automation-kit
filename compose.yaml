@@ -12,9 +12,6 @@ x-api-image: &api-image
     context: .
     dockerfile: docker/api.Dockerfile
     target: runtime
-  env_file:
-    - path: .env
-      required: false
 
 x-n8n-env: &n8n-env
   DB_TYPE: postgresdb
@@ -193,6 +190,10 @@ services:
 
   api:
     <<: [*api-image, *hardened]
+    # Only the api reads .env: MOCK_MODE and, in live mode, the viewer's own key.
+    env_file:
+      - path: .env
+        required: false
     depends_on:
       migrate: { condition: service_completed_successfully }
       seed: { condition: service_completed_successfully }
