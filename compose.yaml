@@ -100,6 +100,9 @@ services:
     cap_add: [CHOWN]
     command: ["chown", "-R", "10002:10002", "/data"]
     healthcheck: { disable: true }
+    read_only: true
+    mem_limit: 64m
+    pids_limit: 32
     volumes:
       - mailpit-data:/data
     restart: "no"
