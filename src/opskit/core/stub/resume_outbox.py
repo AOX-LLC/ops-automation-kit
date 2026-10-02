@@ -26,8 +26,9 @@ log = logging.getLogger(__name__)
 MAX_ATTEMPTS = 10
 MAX_BACKOFF_SECONDS = 300
 BATCH_SIZE = 10
-# Longer than one batch of sends can take (10 rows x 5 s timeout), so a live worker's
-# claim never lapses while it is still sending.
+# Each send gets a hard deadline, and a whole batch (BATCH_SIZE x SEND_DEADLINE_S = 100 s)
+# fits inside the lease, so a live worker's claim never lapses while it is still sending.
+SEND_DEADLINE_S = 10.0
 CLAIM_LEASE = timedelta(seconds=120)
 
 # (stored resume url, payload) -> HTTP status code; raises on transport errors
@@ -93,7 +94,8 @@ async def claim_due(session_factory: SessionFactory) -> list[Claim]:
 async def _send(claim: Claim, send: ResumeSender) -> str | None:
     """Deliver one decision. Returns None on success, else a short error description."""
     try:
-        status = await send(claim.resume_url, claim.payload)
+        async with asyncio.timeout(SEND_DEADLINE_S):
+            status = await send(claim.resume_url, claim.payload)
     except Exception as exc:
         return type(exc).__name__
     return None if 200 <= status < 300 else f"n8n answered HTTP {status}"
