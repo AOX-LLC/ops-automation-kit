@@ -24,7 +24,8 @@ def upgrade() -> None:
             expires_at  timestamptz NOT NULL,
             revoked_at  timestamptz
         );
-        GRANT SELECT, INSERT, UPDATE ON core.approver_sessions TO {APP_ROLE};
+        -- The app may only revoke a session, never extend or un-revoke one.
+        GRANT SELECT, INSERT, UPDATE (revoked_at) ON core.approver_sessions TO {APP_ROLE};
 
         -- /healthz reports the applied migration heads.
         GRANT USAGE ON SCHEMA public TO {APP_ROLE};
@@ -34,5 +35,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute("REVOKE SELECT ON public.alembic_version FROM opskit_app")
+    op.execute(f"REVOKE SELECT ON public.alembic_version FROM {APP_ROLE}")  # noqa: S608
+    op.execute(f"REVOKE USAGE ON SCHEMA public FROM {APP_ROLE}")
     op.execute("DROP TABLE core.approver_sessions")

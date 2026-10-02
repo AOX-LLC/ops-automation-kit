@@ -144,6 +144,14 @@ async def logout(
     session = _require_csrf(await _require_login(request), csrf_token)
     if session.session_id is not None:
         await request.app.state.session_store.revoke(session.session_id)
+        await _core(request).audit.append(
+            ctx=None,
+            actor=ACTOR,
+            action="approver.logout",
+            subject_type=None,
+            subject_id=None,
+            details={},
+        )
     redirect = RedirectResponse("/approver/login", status_code=status.HTTP_303_SEE_OTHER)
     redirect.delete_cookie(COOKIE_NAME, path=COOKIE_PATH)
     return redirect
