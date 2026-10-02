@@ -8,10 +8,13 @@ from tests.integration.conftest import psql
 
 pytestmark = pytest.mark.integration
 
+# Each probe rolls back: if a control were ever missing, the test fails on the exit code and
+# nothing is lost.
 MUTATIONS = [
-    "update core.audit_log set action = 'tampered' where id = (select min(id) from core.audit_log)",
-    "delete from core.audit_log where id = (select min(id) from core.audit_log)",
-    "truncate core.audit_log",
+    "begin; update core.audit_log set action = 'tampered' "
+    "where id = (select min(id) from core.audit_log); rollback;",
+    "begin; delete from core.audit_log where id = (select min(id) from core.audit_log); rollback;",
+    "begin; truncate core.audit_log; rollback;",
 ]
 
 
@@ -33,7 +36,10 @@ def test_even_owner_and_superuser_hit_the_append_only_trigger(role: str, sql: st
 
 
 def test_app_role_can_append() -> None:
-    sql = "insert into core.audit_log (actor, action) values ('itest', 'itest.append') returning id"
+    sql = (
+        "begin; insert into core.audit_log (actor, action) values ('itest', 'itest.append'); "
+        "rollback;"
+    )
     assert psql(sql, role="opskit_app").returncode == 0
 
 
@@ -50,10 +56,10 @@ def test_roles_cannot_cross_into_the_other_database(role: str, db: str) -> None:
 @pytest.mark.parametrize(
     "sql",
     [
-        "create table core.itest_intruder (id int)",
-        "create table public.itest_intruder (id int)",
-        "drop table core.approvals",
-        "alter table core.audit_log disable trigger audit_log_no_update_delete",
+        "begin; create table core.itest_intruder (id int); rollback;",
+        "begin; create table public.itest_intruder (id int); rollback;",
+        "begin; drop table core.approvals; rollback;",
+        "begin; alter table core.audit_log disable trigger audit_log_no_update_delete; rollback;",
     ],
 )
 def test_app_role_has_no_ddl(sql: str) -> None:

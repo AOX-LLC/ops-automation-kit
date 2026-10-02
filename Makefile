@@ -26,7 +26,7 @@ check:
 # Integration tests need the stack running (make up).
 test:
 	uv run pytest tests/unit -q
-	uv run pytest tests/integration -v
+	KIT_INTEGRATION=1 uv run pytest tests/integration -v -rs
 
 smoke:
 	scripts/smoke.sh --clean

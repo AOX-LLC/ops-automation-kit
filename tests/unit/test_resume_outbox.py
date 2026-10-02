@@ -75,13 +75,16 @@ async def test_send_happens_with_no_transaction_open(status: int) -> None:
 
 async def test_claim_pushes_the_row_out_by_a_lease_before_sending() -> None:
     factory = FakeFactory()
+    statements_at_send: list[str] = []
 
     async def send(url: str, payload: dict[str, Any]) -> int:
-        # By the time we send, the claim transaction has already written the lease.
-        assert any(s.startswith("UPDATE core.outbox") for s in factory.statements)
+        statements_at_send.extend(factory.statements)
         return 200
 
-    await resume_outbox.deliver_due(factory, send)  # type: ignore[arg-type]
+    # Assert after the call: the sender's own exceptions are caught as failed deliveries.
+    assert await resume_outbox.deliver_due(factory, send) == 1  # type: ignore[arg-type]
+    assert statements_at_send[0].startswith("SELECT")
+    assert any(s.startswith("UPDATE core.outbox") for s in statements_at_send), "no lease"
 
 
 async def test_transport_errors_are_recorded_not_raised() -> None:

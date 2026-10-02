@@ -57,10 +57,15 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 
 @pytest.fixture(scope="session", autouse=True)
 def _stack_is_up() -> None:
+    """These tests write audit rows and restart the api, so they only run when asked to.
+
+    With KIT_INTEGRATION=1 (set by `make test` and CI) an unready stack is a failure, never a
+    skip: a broken /readyz must not turn the whole suite green.
+    """
+    if os.environ.get("KIT_INTEGRATION") != "1":
+        pytest.skip("integration tests are opt-in: run them with KIT_INTEGRATION=1 (make test)")
     if _readyz_status() != 200:
-        pytest.skip(
-            f"compose stack not ready: GET {API_URL}/readyz is not 200", allow_module_level=False
-        )
+        pytest.fail(f"compose stack not ready: GET {API_URL}/readyz is not 200", pytrace=False)
 
 
 @pytest.fixture(scope="session")

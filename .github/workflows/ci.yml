@@ -73,7 +73,9 @@ jobs:
       - run: uv sync
       - run: scripts/smoke.sh --clean
       - name: Integration tests against the running stack
-        run: uv run pytest tests/integration -v
+        env:
+          KIT_INTEGRATION: "1"
+        run: uv run pytest tests/integration -v -rs
       - if: failure()
         run: docker compose logs --no-color > smoke-logs.txt 2>&1 || true
       - if: failure()

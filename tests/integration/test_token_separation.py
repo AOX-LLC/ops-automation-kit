@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 import pytest
 
-from tests.integration.conftest import ApproverClient
+from tests.integration.conftest import ApproverClient, psql
 
 pytestmark = pytest.mark.integration
 
@@ -86,3 +86,37 @@ def test_logout_revokes_the_session_server_side(
         response = replay.get("/approver/")
         assert response.status_code == 303
         assert response.headers["location"] == "/approver/login"
+
+
+def test_session_past_its_absolute_expiry_is_refused(
+    new_approver_client: Callable[[], ApproverClient], approver_password: str
+) -> None:
+    client = new_approver_client()
+    assert client.login(approver_password).status_code == 303
+    assert client.client.get("/approver/").status_code == 200
+    # Age this client's session (the newest row) past its absolute expiry.
+    aged = psql(
+        "update core.approver_sessions set expires_at = now() - interval '1 second' "
+        "where id = (select id from core.approver_sessions order by created_at desc limit 1)"
+    )
+    assert aged.returncode == 0, aged.stderr
+    response = client.client.get("/approver/")
+    assert response.status_code == 303
+    assert response.headers["location"] == "/approver/login"
+
+
+def test_login_form_token_dies_at_login(
+    new_approver_client: Callable[[], ApproverClient],
+    approver_password: str,
+    make_approval: MakeApproval,
+) -> None:
+    client = new_approver_client()
+    pre_login_token = client.open_login()
+    assert (
+        client.client.post(
+            "/approver/login", data={"password": approver_password, "csrf_token": pre_login_token}
+        ).status_code
+        == 303
+    )
+    approval_id = make_approval()["approval_id"]
+    assert client.decide(approval_id, "approved", csrf=pre_login_token).status_code == 403
