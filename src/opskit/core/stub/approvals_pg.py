@@ -116,6 +116,22 @@ class PgApprovalQueue:
             )
             .returning(*PUBLIC_COLUMNS)
         )
+        try:
+            return await self._decide(statement, approval_id, decision, actor, edited_subject)
+        except ApprovalExpired:
+            # Record what the refusal found, so the row reads "expired" without waiting for
+            # the sweeper. Done after the refused transaction has rolled back.
+            await self.expire(approval_id)
+            raise
+
+    async def _decide(
+        self,
+        statement: Any,
+        approval_id: UUID,
+        decision: Decision,
+        actor: str,
+        edited_subject: JsonObject | None,
+    ) -> Approval:
         async with self._session_factory.begin() as session:
             row = (await session.execute(statement)).one_or_none()
             if row is None:

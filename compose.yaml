@@ -12,6 +12,9 @@ x-api-image: &api-image
     context: .
     dockerfile: docker/api.Dockerfile
     target: runtime
+    args:
+      GIT_COMMIT: "${KIT_GIT_COMMIT:-}"
+      GIT_BRANCH: "${KIT_GIT_BRANCH:-}"
 
 x-n8n-env: &n8n-env
   DB_TYPE: postgresdb
@@ -67,6 +70,7 @@ services:
       timeout: 3s
       retries: 40
     mem_limit: 512m
+    pids_limit: 256
     networks: [kit]
 
   migrate:
@@ -88,9 +92,30 @@ services:
     restart: "no"
     networks: [kit]
 
+  # The Mailpit image has no shell, so the already-built api image fixes ownership of the
+  # volume root (created root-owned) for Mailpit's non-root user, then exits.
+  mailpit-init:
+    <<: [*api-image, *hardened]
+    user: "0:0"
+    cap_add: [CHOWN]
+    command: ["chown", "-R", "10002:10002", "/data"]
+    healthcheck: { disable: true }
+    read_only: true
+    mem_limit: 64m
+    pids_limit: 32
+    volumes:
+      - mailpit-data:/data
+    restart: "no"
+    network_mode: none
+
   mailpit:
     image: axllent/mailpit:v1.31.3@sha256:ed9b00c609e77e99c79b93f1178255ebc271868920f2c69a8d166bd5634ed10d
     <<: *hardened
+    user: "10002:10002"
+    depends_on:
+      mailpit-init: { condition: service_completed_successfully }
+    read_only: true
+    tmpfs: [/tmp]
     environment:
       MP_DATABASE: /data/mailpit.db
       MP_MAX_MESSAGES: "2000"
@@ -106,6 +131,7 @@ services:
       timeout: 3s
       retries: 20
     mem_limit: 128m
+    pids_limit: 256
     networks: [kit]
 
   seed:
@@ -186,6 +212,7 @@ services:
       retries: 60
       start_period: 30s
     mem_limit: 1g
+    pids_limit: 256
     networks: [kit]
 
   api:
@@ -212,6 +239,7 @@ services:
     ports:
       - "127.0.0.1:${KIT_API_PORT:-4301}:8000"
     mem_limit: 512m
+    pids_limit: 256
     networks: [kit]
 
   # `make login` runs this; it is the only way to read the generated human passwords.

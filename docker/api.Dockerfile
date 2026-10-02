@@ -18,6 +18,10 @@ COPY --from=build /opt/venv /opt/venv
 COPY alembic.ini /app/alembic.ini
 COPY config /app/config
 ENV PATH=/opt/venv/bin:$PATH PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+# Build identity for /healthz; empty when the build is not from a git checkout.
+ARG GIT_COMMIT=""
+ARG GIT_BRANCH=""
+ENV OPSKIT_BUILD_COMMIT=$GIT_COMMIT OPSKIT_BUILD_BRANCH=$GIT_BRANCH
 WORKDIR /app
 USER 10001
 EXPOSE 8000

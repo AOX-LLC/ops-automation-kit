@@ -6,15 +6,16 @@ import asyncio
 import contextlib
 import logging
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from opskit.api.approver_session import LoginThrottle, SessionCodec
+from opskit.api.approver_session import LoginThrottle, SessionCodec, SessionStore
 from opskit.api.middleware import SecurityHeaders
 from opskit.api.routers import approvals, approver, health, inputs, runs, smoke
+from opskit.api.routers.health import load_build_info
 from opskit.approvals.resume import N8nResumeSender
 from opskit.config import Settings
 from opskit.core.factory import build_core, build_resume_worker
@@ -54,6 +55,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             settings.read_secret("approver_session_secret"),
             max_age_s=settings.approver_session_hours * 3600,
         )
+        app.state.session_store = SessionStore(
+            session_factory, lifetime=timedelta(hours=settings.approver_session_hours)
+        )
         app.state.login_throttle = LoginThrottle()
         workers = [
             asyncio.create_task(build_resume_worker(session_factory, sender)),
@@ -76,6 +80,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url=None,
         openapi_url=None,
     )
+    app.state.build_info = load_build_info()
     app.add_middleware(SecurityHeaders)
     app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
     for module in (health, runs, approvals, smoke, inputs, approver):

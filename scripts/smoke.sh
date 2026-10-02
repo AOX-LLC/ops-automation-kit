@@ -43,6 +43,7 @@ if [ "${1:-}" = "--clean" ]; then
 fi
 
 step "boot"
+eval "$(scripts/build_identity.sh)"
 docker compose up -d --wait $([ "${KIT_SKIP_BUILD:-0}" = "1" ] || echo --build) || fail "stack did not become healthy"
 curl -sf "$API/healthz" >/dev/null || fail "helper API is not answering"
 curl -sf "$N8N/healthz/readiness" >/dev/null || fail "n8n is not ready"

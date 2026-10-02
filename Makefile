@@ -2,6 +2,7 @@
 .PHONY: up down clean login check test smoke samples export reimport
 
 up:
+	@eval "$$(scripts/build_identity.sh)"; \
 	docker compose up -d --build --wait
 
 down:
@@ -22,8 +23,10 @@ check:
 	uv run python scripts/lint_workflows.py n8n/workflows
 	uv run pytest tests/unit -q
 
+# Integration tests need the stack running (make up).
 test:
-	uv run pytest -q
+	uv run pytest tests/unit -q
+	KIT_INTEGRATION=1 uv run pytest tests/integration -v -rs
 
 smoke:
 	scripts/smoke.sh --clean

@@ -103,6 +103,17 @@ model_calls = Table(
     schema="core",
 )
 
+approver_sessions = Table(
+    "approver_sessions",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()),
+    Column("csrf_token", Text, nullable=False),
+    _created_at(),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    Column("revoked_at", DateTime(timezone=True)),
+    schema="core",
+)
+
 sample_files = Table(
     "sample_files",
     metadata,

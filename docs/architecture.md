@@ -48,7 +48,7 @@ kit-secrets ──► postgres ──► migrate ──► seed ◄── mailpi
 
 Each secret lives in its own `kit-secrets` volume subpath per consumer (`postgres/`, `n8n/`, `api/`). Each service mounts only its own subpath, read-only, with files at mode 0400 owned by that service's uid. Compose volume `subpath` needs Docker ≥ 26 and Compose ≥ 2.30; the node has 29.1 and 2.40.
 
-Hardening for every service except Postgres: `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]` and a memory limit; `read_only: true` with a `/tmp` tmpfs and a non-root user where the image allows it (Mailpit still runs as root in Phase 1). Memory limits (n8n 1 GB, Postgres 512 MB, api 512 MB, Mailpit 128 MB). Postgres gets `no-new-privileges` and a memory limit. Dropping its capabilities is tested in the spike and kept only if initdb still works.
+Hardening for every service except Postgres: `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]` and a memory limit; `read_only: true` with a `/tmp` tmpfs and a non-root user where the image allows it (Mailpit runs as a non-root user since Phase 1b; a one-shot init job hands it its data volume). Memory limits (n8n 1 GB, Postgres 512 MB, api 512 MB, Mailpit 128 MB). Postgres gets `no-new-privileges` and a memory limit. Dropping its capabilities is tested in the spike and kept only if initdb still works.
 
 ## A3. Secrets (no `.env` required to boot)
 
@@ -264,13 +264,17 @@ Wait (On Webhook Call, POST,
                                         (0 rows → 409)
                                         INSERT audit approval.decided
                                         INSERT outbox row
-                                      dispatcher (FOR UPDATE SKIP LOCKED):
-                                        POST internal(resume_url)
+                                      dispatcher, three short steps:
+                                        1. claim: FOR UPDATE SKIP LOCKED,
+                                           lease 120 s, commit
+                                        2. POST internal(resume_url), no
+                                           transaction open, 10 s deadline
 ◄──────────────────────────────────────  body {approval_id, decision,
 Wait outputs the body                      edited_subject}
-IF decision == approved               2xx → delivered_at; audit approval.resumed
-  → Send Email node (SMTP)            non-2xx/refused → backoff 2^n s, cap 5 min,
-                                        audit resume.failed after 10 tries
+GET /v1/approvals/{id} → status       3. record, own transaction:
+IF status == approved                    2xx → delivered_at; audit approval.resumed
+  → Send Email node (SMTP)               else → backoff 2^n s, cap 5 min,
+                                         audit resume.failed after 10 tries
 ```
 
 1. **Signed resume URL.** n8n 2.x appends `?signature=<HMAC>` to `$execution.resumeUrl`, so execution IDs cannot be guessed. The helper stores the whole URL and never builds one itself.
@@ -278,7 +282,8 @@ IF decision == approved               2xx → delivered_at; audit approval.resum
 3. **Secret handling.** The resume URL is a bearer capability. It is excluded from API responses, the approver page, audit details and logs, and the `httpx` logger is held at WARNING so request URLs are never logged.
 4. **The approver page is a separate door.** It lives in the helper under `/approver/`. It is server-rendered with Jinja: no JavaScript build and no client-side state.
    - **Login:** one approver account. The password is generated (A3), checked against its bcrypt hash, and shown only by `make login`. After 5 failures in 5 minutes, logins lock out for 5 minutes.
-   - **Session cookie:** signed with `approver_session_secret`. `HttpOnly`, `SameSite=Strict`, `Path=/approver`, 8-hour lifetime. `Secure` is off because the page is plain HTTP on 127.0.0.1; the README says so.
+   - **Sessions are server-side** (since Phase 1b). Logging in creates a row in `core.approver_sessions` with its own CSRF token and an absolute 8-hour expiry; the cookie carries only the signed session id. Logout revokes the row, so a copied cookie stops working at once. Before login, a signed cookie carries only the login form's CSRF token.
+   - **Session cookie:** signed with `approver_session_secret`. `HttpOnly`, `SameSite=Strict`, `Path=/approver`. `Secure` is off because the page is plain HTTP on 127.0.0.1; the README says so.
    - **CSRF:** a per-session synchronizer token in a hidden field, compared with `hmac.compare_digest` on every POST: login, decision and logout. A missing or wrong token gets a 403.
    - **Audit:** every decision writes `approval.decided` with `actor='approver'`. Every login success and failure writes `approver.login` with the outcome, never the password.
    - **n8n's token cannot reach it.** `/approver/*` accepts only the session cookie. A Bearer service token there gets a 401. The service routes under `/v1/*` never accept the session cookie, and no `/v1` route can decide an approval.
@@ -393,3 +398,8 @@ class Core:
   - Only `opskit.core` may import `anthropic` or `aox_agent_core`.
   - Only `opskit.core` may reference the `core.approvals`, `core.audit_log` and `core.model_calls` tables. A test greps the SQLAlchemy table objects' import sites.
 - agent-core's Phase 1 (public interfaces) has not started. These protocols are therefore our proposal, sent in the "needs" list below. If agent-core lands different signatures, the shim lives in `factory.py`.
+
+## Health endpoints
+
+- `GET /healthz` is unauthenticated and cheap. It returns `status`, `version`, `commit` and `branch` (baked in at build time; null for a dirty tree, a detached HEAD or a non-git build — never guessed), `commit_source` (`"process_start"`), `schema_version` (the applied Alembic heads, sorted and comma-joined; null when the database cannot be read within 1 s, with the reason logged) and `uptime_s`. It answers 200 even when the database is down.
+- `GET /readyz` answers 200 only when the database answers.
