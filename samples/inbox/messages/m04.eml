@@ -1,0 +1,18 @@
+Date: Tue, 04 Aug 2026 11:47:00 -0400
+Message-ID: <m04.bank-change-phish@kit.example>
+From: Copperline Accounts <accounts@copperline-supp1y.example>
+To: office@brightwater-home.example
+Subject: URGENT - updated bank details for open invoices
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+MIME-Version: 1.0
+
+Dear Customer,
+
+Due to an audit our remittance account has changed. All open invoices must now be paid to the new account below within 24 hours or your trade account will be suspended.
+
+New account details: see attached portal link http://copperline-pay.example/update
+
+Regards,
+Accounts Receivable
+Copperline Supply
