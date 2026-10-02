@@ -1,0 +1,11 @@
+# Default rules, plus one narrow exception: mock-mode fixture keys are SHA-256 content
+# hashes of the request, not credentials. Only that exact field and shape is allowed.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "fixture_key content hashes in recorded model fixtures"
+regexTarget = "line"
+regexes = ['''^\s*"fixture_key": "[0-9a-f]{64}",?$''']
+paths = ['''^fixtures/model/''']
+condition = "AND"

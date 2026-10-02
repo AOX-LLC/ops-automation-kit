@@ -1,0 +1,30 @@
+[importlinter]
+root_packages =
+    opskit
+include_external_packages = True
+
+[importlinter:contract:model-sdk-only-in-core]
+name = Only opskit.core may import a model SDK or agent-core
+type = forbidden
+source_modules =
+    opskit.api
+    opskit.approvals
+    opskit.seed
+    opskit.bootstrap
+    opskit.db
+    opskit.config
+forbidden_modules =
+    anthropic
+    aox_agent_core
+allow_indirect_imports = True
+
+[importlinter:contract:stub-behind-factory]
+name = Only the factory and core internals reach the stub implementations
+type = forbidden
+source_modules =
+    opskit.api
+    opskit.approvals
+    opskit.seed
+forbidden_modules =
+    opskit.core.stub
+allow_indirect_imports = True
