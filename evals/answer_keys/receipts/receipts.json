@@ -1,0 +1,899 @@
+{
+  "business": "Alderwick Field Services LLC",
+  "cards": [
+    {
+      "brand": "VISA",
+      "last4": "4417"
+    },
+    {
+      "brand": "MASTERCARD",
+      "last4": "5528"
+    },
+    {
+      "brand": "VISA",
+      "last4": "0193"
+    },
+    {
+      "brand": "AMEX",
+      "last4": "3006"
+    }
+  ],
+  "receipts": [
+    {
+      "card_brand": "VISA",
+      "card_last4": "4417",
+      "date": "2026-08-03",
+      "file": "r01.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Oat latte",
+          "line_total_cents": 1150,
+          "quantity": 2,
+          "unit_price_cents": 575
+        },
+        {
+          "description": "Almond croissant",
+          "line_total_cents": 425,
+          "quantity": 1,
+          "unit_price_cents": 425
+        }
+      ],
+      "receipt_number": "HB-20417",
+      "subtotal_cents": 1575,
+      "tax_cents": 100,
+      "tip_cents": 200,
+      "total_cents": 1875,
+      "vendor": "Harbor Bean Co",
+      "vendor_address": "14 Alder Row, Quillbrook",
+      "vendor_phone": "555-0114"
+    },
+    {
+      "card_brand": "VISA",
+      "card_last4": "4417",
+      "date": "2026-08-04",
+      "file": "r02.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Copier paper 10 ream",
+          "line_total_cents": 4890,
+          "quantity": 1,
+          "unit_price_cents": 4890
+        },
+        {
+          "description": "Gel pens 12 pack",
+          "line_total_cents": 1498,
+          "quantity": 2,
+          "unit_price_cents": 749
+        },
+        {
+          "description": "Label sheets",
+          "line_total_cents": 3897,
+          "quantity": 3,
+          "unit_price_cents": 1299
+        }
+      ],
+      "receipt_number": "TG-88213",
+      "subtotal_cents": 10285,
+      "tax_cents": 653,
+      "tip_cents": 0,
+      "total_cents": 10938,
+      "vendor": "Tallgrass Office Supply",
+      "vendor_address": "220 Mill Street, Quillbrook",
+      "vendor_phone": "555-0121"
+    },
+    {
+      "card_brand": "MASTERCARD",
+      "card_last4": "5528",
+      "date": "2026-08-05",
+      "file": "r03.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Regular fuel 14.2 gal",
+          "line_total_cents": 5183,
+          "quantity": 1,
+          "unit_price_cents": 5183
+        }
+      ],
+      "receipt_number": "CF-0412-6619",
+      "subtotal_cents": 5183,
+      "tax_cents": 0,
+      "tip_cents": 0,
+      "total_cents": 5183,
+      "vendor": "Copperline Fuel Stop",
+      "vendor_address": "1800 Route 9, Quillbrook",
+      "vendor_phone": "555-0108"
+    },
+    {
+      "card_brand": "VISA",
+      "card_last4": "4417",
+      "date": "2026-08-05",
+      "file": "r04.pdf",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Managed server plan",
+          "line_total_cents": 4800,
+          "quantity": 1,
+          "unit_price_cents": 4800
+        },
+        {
+          "description": "Backup storage 200 GB",
+          "line_total_cents": 1000,
+          "quantity": 1,
+          "unit_price_cents": 1000
+        }
+      ],
+      "receipt_number": "LF-INV-30871",
+      "subtotal_cents": 5800,
+      "tax_cents": 0,
+      "tip_cents": 0,
+      "total_cents": 5800,
+      "vendor": "Lumenfield Cloud Hosting",
+      "vendor_address": "3 Beacon Plaza, Quillbrook",
+      "vendor_phone": "555-0166"
+    },
+    {
+      "card_brand": "VISA",
+      "card_last4": "0193",
+      "date": "2026-08-06",
+      "file": "r05.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Club sandwich",
+          "line_total_cents": 2390,
+          "quantity": 2,
+          "unit_price_cents": 1195
+        },
+        {
+          "description": "Iced tea",
+          "line_total_cents": 650,
+          "quantity": 2,
+          "unit_price_cents": 325
+        },
+        {
+          "description": "Pie slice",
+          "line_total_cents": 650,
+          "quantity": 1,
+          "unit_price_cents": 650
+        }
+      ],
+      "receipt_number": "PD-7731",
+      "subtotal_cents": 3690,
+      "tax_cents": 258,
+      "tip_cents": 500,
+      "total_cents": 4448,
+      "vendor": "Pebble Street Diner",
+      "vendor_address": "31 Pebble Street, Quillbrook",
+      "vendor_phone": "555-0172"
+    },
+    {
+      "card_brand": "MASTERCARD",
+      "card_last4": "5528",
+      "date": "2026-08-07",
+      "file": "r06.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Sparkling water 12pk",
+          "line_total_cents": 699,
+          "quantity": 1,
+          "unit_price_cents": 699
+        },
+        {
+          "description": "Granola bars",
+          "line_total_cents": 1098,
+          "quantity": 2,
+          "unit_price_cents": 549
+        },
+        {
+          "description": "Apples 3 lb",
+          "line_total_cents": 597,
+          "quantity": 1,
+          "unit_price_cents": 597
+        }
+      ],
+      "receipt_number": "FM-205518",
+      "subtotal_cents": 2394,
+      "tax_cents": 0,
+      "tip_cents": 0,
+      "total_cents": 2394,
+      "vendor": "Fernhollow Market",
+      "vendor_address": "52 Orchard Court, Quillbrook",
+      "vendor_phone": "555-0145"
+    },
+    {
+      "card_brand": "VISA",
+      "card_last4": "4417",
+      "date": "2026-08-08",
+      "file": "r07.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Color copies",
+          "line_total_cents": 4200,
+          "quantity": 120,
+          "unit_price_cents": 35
+        },
+        {
+          "description": "Spiral binding",
+          "line_total_cents": 1800,
+          "quantity": 4,
+          "unit_price_cents": 450
+        },
+        {
+          "description": "Courier label",
+          "line_total_cents": 1275,
+          "quantity": 1,
+          "unit_price_cents": 1275
+        }
+      ],
+      "receipt_number": "BP-41190",
+      "subtotal_cents": 7275,
+      "tax_cents": 462,
+      "tip_cents": 0,
+      "total_cents": 7737,
+      "vendor": "Brightwick Print & Ship",
+      "vendor_address": "9 Ferry Lane, Quillbrook",
+      "vendor_phone": "555-0132"
+    },
+    {
+      "card_brand": "AMEX",
+      "card_last4": "3006",
+      "date": "2026-08-10",
+      "file": "r08.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Cable ties 100 pk",
+          "line_total_cents": 1798,
+          "quantity": 2,
+          "unit_price_cents": 899
+        },
+        {
+          "description": "Work gloves",
+          "line_total_cents": 1649,
+          "quantity": 1,
+          "unit_price_cents": 1649
+        },
+        {
+          "description": "Utility knife",
+          "line_total_cents": 1199,
+          "quantity": 1,
+          "unit_price_cents": 1199
+        }
+      ],
+      "receipt_number": "CP-93021",
+      "subtotal_cents": 4646,
+      "tax_cents": 295,
+      "tip_cents": 0,
+      "total_cents": 4941,
+      "vendor": "Cedar & Pine Hardware",
+      "vendor_address": "77 Quarry Road, Quillbrook",
+      "vendor_phone": "555-0153"
+    },
+    {
+      "card_brand": "VISA",
+      "card_last4": "4417",
+      "date": "2026-08-11",
+      "file": "r09.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Same-day delivery zone 2",
+          "line_total_cents": 2400,
+          "quantity": 1,
+          "unit_price_cents": 2400
+        },
+        {
+          "description": "Fuel surcharge",
+          "line_total_cents": 180,
+          "quantity": 1,
+          "unit_price_cents": 180
+        }
+      ],
+      "receipt_number": "WC-55067",
+      "subtotal_cents": 2580,
+      "tax_cents": 0,
+      "tip_cents": 0,
+      "total_cents": 2580,
+      "vendor": "Wrenfield Courier",
+      "vendor_address": "18 Depot Street, Quillbrook",
+      "vendor_phone": "555-0190"
+    },
+    {
+      "card_brand": "VISA",
+      "card_last4": "0193",
+      "date": "2026-08-12",
+      "file": "r10.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Chowder bowl",
+          "line_total_cents": 1790,
+          "quantity": 2,
+          "unit_price_cents": 895
+        },
+        {
+          "description": "Roll",
+          "line_total_cents": 300,
+          "quantity": 2,
+          "unit_price_cents": 150
+        }
+      ],
+      "receipt_number": "SL-1184",
+      "subtotal_cents": 2090,
+      "tax_cents": 146,
+      "tip_cents": 300,
+      "total_cents": 2536,
+      "vendor": "Saltmarsh Lunch Counter",
+      "vendor_address": "5 Wharf Street, Quillbrook",
+      "vendor_phone": "555-0119"
+    },
+    {
+      "card_brand": "VISA",
+      "card_last4": "4417",
+      "date": "2026-08-12",
+      "file": "r11.pdf",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Day pass",
+          "line_total_cents": 7000,
+          "quantity": 2,
+          "unit_price_cents": 3500
+        },
+        {
+          "description": "Meeting room 1 hr",
+          "line_total_cents": 2500,
+          "quantity": 1,
+          "unit_price_cents": 2500
+        }
+      ],
+      "receipt_number": "SC-D-60214",
+      "subtotal_cents": 9500,
+      "tax_cents": 0,
+      "tip_cents": 0,
+      "total_cents": 9500,
+      "vendor": "Starling Coworking",
+      "vendor_address": "2 Beacon Plaza, Quillbrook",
+      "vendor_phone": "555-0158"
+    },
+    {
+      "card_brand": "MASTERCARD",
+      "card_last4": "5528",
+      "date": "2026-08-13",
+      "file": "r12.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Garage parking 6 hr",
+          "line_total_cents": 1800,
+          "quantity": 1,
+          "unit_price_cents": 1800
+        }
+      ],
+      "receipt_number": "NG-883402",
+      "subtotal_cents": 1800,
+      "tax_cents": 0,
+      "tip_cents": 0,
+      "total_cents": 1800,
+      "vendor": "Northgate Parking Co",
+      "vendor_address": "400 Harbor Avenue, Quillbrook",
+      "vendor_phone": "555-0187"
+    },
+    {
+      "card_brand": "AMEX",
+      "card_last4": "3006",
+      "date": "2026-08-14",
+      "file": "r13.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Plate compactor day rental",
+          "line_total_cents": 6500,
+          "quantity": 1,
+          "unit_price_cents": 6500
+        },
+        {
+          "description": "Damage waiver",
+          "line_total_cents": 650,
+          "quantity": 1,
+          "unit_price_cents": 650
+        }
+      ],
+      "receipt_number": "IB-20931",
+      "subtotal_cents": 7150,
+      "tax_cents": 454,
+      "tip_cents": 0,
+      "total_cents": 7604,
+      "vendor": "Ironbark Tool Rental",
+      "vendor_address": "610 Foundry Way, Quillbrook",
+      "vendor_phone": "555-0103"
+    },
+    {
+      "card_brand": "VISA",
+      "card_last4": "0193",
+      "date": "2026-08-14",
+      "file": "r14.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Sourdough loaf",
+          "line_total_cents": 1500,
+          "quantity": 2,
+          "unit_price_cents": 750
+        },
+        {
+          "description": "Seeded rolls 6 pk",
+          "line_total_cents": 825,
+          "quantity": 1,
+          "unit_price_cents": 825
+        }
+      ],
+      "receipt_number": "MB-30921",
+      "subtotal_cents": 2325,
+      "tax_cents": 0,
+      "tip_cents": 0,
+      "total_cents": 2325,
+      "vendor": "Mossgate Bakery",
+      "vendor_address": "40 Alder Row, Quillbrook",
+      "vendor_phone": "555-0161"
+    },
+    {
+      "card_brand": "VISA",
+      "card_last4": "4417",
+      "date": "2026-08-17",
+      "file": "r15.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Dot-grid notebook",
+          "line_total_cents": 8700,
+          "quantity": 6,
+          "unit_price_cents": 1450
+        },
+        {
+          "description": "Brass bulldog clips",
+          "line_total_cents": 895,
+          "quantity": 1,
+          "unit_price_cents": 895
+        }
+      ],
+      "receipt_number": "VM-71455",
+      "subtotal_cents": 9595,
+      "tax_cents": 609,
+      "tip_cents": 0,
+      "total_cents": 10204,
+      "vendor": "Velvet Moth Stationers",
+      "vendor_address": "66 Lantern Walk, Quillbrook",
+      "vendor_phone": "555-0128"
+    },
+    {
+      "card_brand": "VISA",
+      "card_last4": "4417",
+      "date": "2026-08-18",
+      "file": "r16.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Cold brew",
+          "line_total_cents": 1575,
+          "quantity": 3,
+          "unit_price_cents": 525
+        },
+        {
+          "description": "Blueberry scone",
+          "line_total_cents": 1185,
+          "quantity": 3,
+          "unit_price_cents": 395
+        }
+      ],
+      "receipt_number": "HB-20688",
+      "subtotal_cents": 2760,
+      "tax_cents": 175,
+      "tip_cents": 250,
+      "total_cents": 3185,
+      "vendor": "Harbor Bean Co",
+      "vendor_address": "14 Alder Row, Quillbrook",
+      "vendor_phone": "555-0114"
+    },
+    {
+      "card_brand": "AMEX",
+      "card_last4": "3006",
+      "date": "2026-08-18",
+      "file": "r17.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Oil change synthetic",
+          "line_total_cents": 6995,
+          "quantity": 1,
+          "unit_price_cents": 6995
+        },
+        {
+          "description": "Wiper blades",
+          "line_total_cents": 2900,
+          "quantity": 2,
+          "unit_price_cents": 1450
+        },
+        {
+          "description": "Shop supplies fee",
+          "line_total_cents": 495,
+          "quantity": 1,
+          "unit_price_cents": 495
+        }
+      ],
+      "receipt_number": "MT-662019",
+      "subtotal_cents": 10390,
+      "tax_cents": 660,
+      "tip_cents": 0,
+      "total_cents": 11050,
+      "vendor": "Meridian Tire & Lube",
+      "vendor_address": "905 Route 9, Quillbrook",
+      "vendor_phone": "555-0136"
+    },
+    {
+      "card_brand": "MASTERCARD",
+      "card_last4": "5528",
+      "date": "2026-08-19",
+      "file": "r18.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Screen replacement",
+          "line_total_cents": 11900,
+          "quantity": 1,
+          "unit_price_cents": 11900
+        },
+        {
+          "description": "Diagnostic fee",
+          "line_total_cents": 1500,
+          "quantity": 1,
+          "unit_price_cents": 1500
+        }
+      ],
+      "receipt_number": "DM-4471",
+      "subtotal_cents": 13400,
+      "tax_cents": 851,
+      "tip_cents": 0,
+      "total_cents": 14251,
+      "vendor": "Dovetail Mobile Repair",
+      "vendor_address": "12 Lantern Walk, Quillbrook",
+      "vendor_phone": "555-0149"
+    },
+    {
+      "card_brand": "VISA",
+      "card_last4": "4417",
+      "date": "2026-08-19",
+      "file": "r19.pdf",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Team plan 5 seats monthly",
+          "line_total_cents": 6000,
+          "quantity": 5,
+          "unit_price_cents": 1200
+        }
+      ],
+      "receipt_number": "TD-2026-08-1923",
+      "subtotal_cents": 6000,
+      "tax_cents": 0,
+      "tip_cents": 0,
+      "total_cents": 6000,
+      "vendor": "Thistledown Software",
+      "vendor_address": "8 Cinder Lane, Quillbrook",
+      "vendor_phone": "555-0175"
+    },
+    {
+      "card_brand": "VISA",
+      "card_last4": "4417",
+      "date": "2026-08-20",
+      "file": "r20.png",
+      "is_refund": true,
+      "line_items": [
+        {
+          "description": "Return - toner cartridge",
+          "line_total_cents": -8999,
+          "quantity": 1,
+          "unit_price_cents": -8999
+        }
+      ],
+      "receipt_number": "TG-88540-R",
+      "subtotal_cents": -8999,
+      "tax_cents": -571,
+      "tip_cents": 0,
+      "total_cents": -9570,
+      "vendor": "Tallgrass Office Supply",
+      "vendor_address": "220 Mill Street, Quillbrook",
+      "vendor_phone": "555-0121"
+    },
+    {
+      "card_brand": "VISA",
+      "card_last4": "0193",
+      "date": "2026-08-27",
+      "file": "r21.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Breakfast plate",
+          "line_total_cents": 3150,
+          "quantity": 3,
+          "unit_price_cents": 1050
+        },
+        {
+          "description": "Coffee",
+          "line_total_cents": 825,
+          "quantity": 3,
+          "unit_price_cents": 275
+        }
+      ],
+      "receipt_number": "PD-8120",
+      "subtotal_cents": 3975,
+      "tax_cents": 278,
+      "tip_cents": 600,
+      "total_cents": 4853,
+      "vendor": "Pebble Street Diner",
+      "vendor_address": "31 Pebble Street, Quillbrook",
+      "vendor_phone": "555-0172"
+    },
+    {
+      "card_brand": "VISA",
+      "card_last4": "0193",
+      "date": "2026-08-21",
+      "file": "r22.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Fish plate",
+          "line_total_cents": 2990,
+          "quantity": 2,
+          "unit_price_cents": 1495
+        },
+        {
+          "description": "Slaw",
+          "line_total_cents": 700,
+          "quantity": 2,
+          "unit_price_cents": 350
+        }
+      ],
+      "receipt_number": "SL-1241",
+      "subtotal_cents": 3690,
+      "tax_cents": 258,
+      "tip_cents": 0,
+      "total_cents": 3948,
+      "vendor": "Saltmarsh Lunch Counter",
+      "vendor_address": "5 Wharf Street, Quillbrook",
+      "vendor_phone": "555-0119"
+    },
+    {
+      "card_brand": "AMEX",
+      "card_last4": "3006",
+      "date": "2026-08-22",
+      "file": "r23.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Paint roller kit",
+          "line_total_cents": 3598,
+          "quantity": 2,
+          "unit_price_cents": 1799
+        },
+        {
+          "description": "Drop cloth",
+          "line_total_cents": 2547,
+          "quantity": 3,
+          "unit_price_cents": 849
+        }
+      ],
+      "receipt_number": "CP-93544",
+      "subtotal_cents": 6145,
+      "tax_cents": 390,
+      "tip_cents": 0,
+      "total_cents": 6535,
+      "vendor": "Cedar & Pine Hardware",
+      "vendor_address": "77 Quarry Road, Quillbrook",
+      "vendor_phone": "555-0153"
+    },
+    {
+      "card_brand": "MASTERCARD",
+      "card_last4": "5528",
+      "date": "2026-08-23",
+      "file": "r24.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Bottled juice 6pk",
+          "line_total_cents": 2499,
+          "quantity": 3,
+          "unit_price_cents": 833
+        },
+        {
+          "description": "Rye bread",
+          "line_total_cents": 958,
+          "quantity": 2,
+          "unit_price_cents": 479
+        }
+      ],
+      "receipt_number": "FM-206291",
+      "subtotal_cents": 3457,
+      "tax_cents": 0,
+      "tip_cents": 0,
+      "total_cents": 3457,
+      "vendor": "Fernhollow Market",
+      "vendor_address": "52 Orchard Court, Quillbrook",
+      "vendor_phone": "555-0145"
+    },
+    {
+      "card_brand": "VISA",
+      "card_last4": "4417",
+      "date": "2026-08-04",
+      "file": "r25.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Banner print 3x6 ft",
+          "line_total_cents": 8400,
+          "quantity": 1,
+          "unit_price_cents": 8400
+        },
+        {
+          "description": "Grommets",
+          "line_total_cents": 600,
+          "quantity": 1,
+          "unit_price_cents": 600
+        }
+      ],
+      "receipt_number": "BP-41233",
+      "subtotal_cents": 9000,
+      "tax_cents": 572,
+      "tip_cents": 0,
+      "total_cents": 9572,
+      "vendor": "Brightwick Print & Ship",
+      "vendor_address": "9 Ferry Lane, Quillbrook",
+      "vendor_phone": "555-0132"
+    },
+    {
+      "card_brand": "AMEX",
+      "card_last4": "3006",
+      "date": "2026-08-09",
+      "file": "r26.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Wet saw weekend rental",
+          "line_total_cents": 9000,
+          "quantity": 1,
+          "unit_price_cents": 9000
+        }
+      ],
+      "receipt_number": "IB-20877",
+      "subtotal_cents": 9000,
+      "tax_cents": 572,
+      "tip_cents": 0,
+      "total_cents": 9572,
+      "vendor": "Ironbark Tool Rental",
+      "vendor_address": "610 Foundry Way, Quillbrook",
+      "vendor_phone": "555-0103"
+    },
+    {
+      "card_brand": "VISA",
+      "card_last4": "4417",
+      "date": "2026-08-21",
+      "file": "r27.pdf",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Day pass",
+          "line_total_cents": 3500,
+          "quantity": 1,
+          "unit_price_cents": 3500
+        }
+      ],
+      "receipt_number": "SC-D-60388",
+      "subtotal_cents": 3500,
+      "tax_cents": 0,
+      "tip_cents": 0,
+      "total_cents": 3500,
+      "vendor": "Starling Coworking",
+      "vendor_address": "2 Beacon Plaza, Quillbrook",
+      "vendor_phone": "555-0158"
+    },
+    {
+      "card_brand": "AMEX",
+      "card_last4": "3006",
+      "date": "2026-08-18",
+      "file": "r28.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Oil change synthetic",
+          "line_total_cents": 6995,
+          "quantity": 1,
+          "unit_price_cents": 6995
+        },
+        {
+          "description": "Wiper blades",
+          "line_total_cents": 2900,
+          "quantity": 2,
+          "unit_price_cents": 1450
+        },
+        {
+          "description": "Shop supplies fee",
+          "line_total_cents": 495,
+          "quantity": 1,
+          "unit_price_cents": 495
+        }
+      ],
+      "receipt_number": "MT-662019",
+      "subtotal_cents": 10390,
+      "tax_cents": 660,
+      "tip_cents": 0,
+      "total_cents": 11050,
+      "vendor": "Meridian Tire & Lube",
+      "vendor_address": "905 Route 9, Quillbrook",
+      "vendor_phone": "555-0136"
+    },
+    {
+      "card_brand": "VISA",
+      "card_last4": "0193",
+      "date": "2026-08-24",
+      "file": "r29.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Pastry box",
+          "line_total_cents": 2400,
+          "quantity": 1,
+          "unit_price_cents": 2400
+        },
+        {
+          "description": "Drip coffee carafe",
+          "line_total_cents": 1800,
+          "quantity": 1,
+          "unit_price_cents": 1800
+        }
+      ],
+      "receipt_number": "MB-31188",
+      "subtotal_cents": 4200,
+      "tax_cents": 0,
+      "tip_cents": 0,
+      "total_cents": 4200,
+      "vendor": "Mossgate Bakery",
+      "vendor_address": "40 Alder Row, Quillbrook",
+      "vendor_phone": "555-0161"
+    },
+    {
+      "card_brand": "VISA",
+      "card_last4": "4417",
+      "date": "2026-08-26",
+      "file": "r30.png",
+      "is_refund": false,
+      "line_items": [
+        {
+          "description": "Fountain pen ink",
+          "line_total_cents": 3300,
+          "quantity": 2,
+          "unit_price_cents": 1650
+        },
+        {
+          "description": "Blotting paper",
+          "line_total_cents": 700,
+          "quantity": 1,
+          "unit_price_cents": 700
+        }
+      ],
+      "receipt_number": "VM-71602",
+      "subtotal_cents": 4000,
+      "tax_cents": 254,
+      "tip_cents": 0,
+      "total_cents": 4254,
+      "vendor": "Velvet Moth Stationers",
+      "vendor_address": "66 Lantern Walk, Quillbrook",
+      "vendor_phone": "555-0128"
+    }
+  ]
+}
