@@ -1,0 +1,318 @@
+{
+  "rows": [
+    {
+      "bank_reference": "STM-0001",
+      "delta_cents": null,
+      "delta_days": null,
+      "receipt": null,
+      "status": "out_of_scope"
+    },
+    {
+      "bank_reference": "STM-0002",
+      "delta_cents": 0,
+      "delta_days": 0,
+      "receipt": "r01.png",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0003",
+      "delta_cents": 0,
+      "delta_days": 1,
+      "receipt": "r02.png",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0004",
+      "delta_cents": 0,
+      "delta_days": 0,
+      "receipt": "r03.png",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0005",
+      "delta_cents": 0,
+      "delta_days": 0,
+      "receipt": "r04.pdf",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0006",
+      "delta_cents": null,
+      "delta_days": null,
+      "receipt": null,
+      "status": "unreceipted_charge"
+    },
+    {
+      "bank_reference": "STM-0007",
+      "delta_cents": 0,
+      "delta_days": 0,
+      "receipt": "r06.png",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0008",
+      "delta_cents": null,
+      "delta_days": null,
+      "receipt": null,
+      "status": "out_of_scope"
+    },
+    {
+      "bank_reference": "STM-0009",
+      "delta_cents": 0,
+      "delta_days": 2,
+      "receipt": "r05.png",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0010",
+      "delta_cents": 0,
+      "delta_days": 6,
+      "receipt": "r25.png",
+      "status": "date_drift"
+    },
+    {
+      "bank_reference": "STM-0011",
+      "delta_cents": 0,
+      "delta_days": 3,
+      "receipt": "r07.png",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0012",
+      "delta_cents": 0,
+      "delta_days": 1,
+      "receipt": "r08.png",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0013",
+      "delta_cents": 0,
+      "delta_days": 0,
+      "receipt": "r09.png",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0014",
+      "delta_cents": 0,
+      "delta_days": 0,
+      "receipt": "r10.png",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0015",
+      "delta_cents": null,
+      "delta_days": null,
+      "receipt": null,
+      "status": "out_of_scope"
+    },
+    {
+      "bank_reference": "STM-0016",
+      "delta_cents": null,
+      "delta_days": null,
+      "receipt": null,
+      "status": "duplicate_charge"
+    },
+    {
+      "bank_reference": "STM-0017",
+      "delta_cents": 0,
+      "delta_days": 0,
+      "receipt": "r12.png",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0018",
+      "delta_cents": 0,
+      "delta_days": 2,
+      "receipt": "r11.pdf",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0019",
+      "delta_cents": 0,
+      "delta_days": 0,
+      "receipt": "r14.png",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0020",
+      "delta_cents": 0,
+      "delta_days": 5,
+      "receipt": "r26.png",
+      "status": "date_drift"
+    },
+    {
+      "bank_reference": "STM-0021",
+      "delta_cents": 0,
+      "delta_days": 1,
+      "receipt": "r13.png",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0022",
+      "delta_cents": null,
+      "delta_days": null,
+      "receipt": null,
+      "status": "unreceipted_charge"
+    },
+    {
+      "bank_reference": "STM-0023",
+      "delta_cents": null,
+      "delta_days": null,
+      "receipt": null,
+      "status": "out_of_scope"
+    },
+    {
+      "bank_reference": "STM-0024",
+      "delta_cents": 0,
+      "delta_days": 0,
+      "receipt": "r16.png",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0025",
+      "delta_cents": 0,
+      "delta_days": 0,
+      "receipt": "r17.png",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0026",
+      "delta_cents": null,
+      "delta_days": null,
+      "receipt": null,
+      "status": "duplicate_charge"
+    },
+    {
+      "bank_reference": "STM-0027",
+      "delta_cents": 0,
+      "delta_days": 0,
+      "receipt": "r18.png",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0028",
+      "delta_cents": 0,
+      "delta_days": 0,
+      "receipt": "r19.pdf",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0029",
+      "delta_cents": null,
+      "delta_days": null,
+      "receipt": null,
+      "status": "out_of_scope"
+    },
+    {
+      "bank_reference": "STM-0030",
+      "delta_cents": 0,
+      "delta_days": 3,
+      "receipt": "r15.png",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0031",
+      "delta_cents": 0,
+      "delta_days": 2,
+      "receipt": "r20.png",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0032",
+      "delta_cents": 400,
+      "delta_days": 1,
+      "receipt": "r22.png",
+      "status": "amount_mismatch"
+    },
+    {
+      "bank_reference": "STM-0033",
+      "delta_cents": 1,
+      "delta_days": 0,
+      "receipt": "r24.png",
+      "status": "amount_mismatch"
+    },
+    {
+      "bank_reference": "STM-0034",
+      "delta_cents": -900,
+      "delta_days": 2,
+      "receipt": "r23.png",
+      "status": "amount_mismatch"
+    },
+    {
+      "bank_reference": "STM-0035",
+      "delta_cents": null,
+      "delta_days": null,
+      "receipt": null,
+      "status": "unreceipted_charge"
+    },
+    {
+      "bank_reference": "STM-0036",
+      "delta_cents": null,
+      "delta_days": null,
+      "receipt": null,
+      "status": "out_of_scope"
+    },
+    {
+      "bank_reference": "STM-0037",
+      "delta_cents": 0,
+      "delta_days": 0,
+      "receipt": "r21.png",
+      "status": "matched"
+    },
+    {
+      "bank_reference": "STM-0038",
+      "delta_cents": null,
+      "delta_days": null,
+      "receipt": null,
+      "status": "out_of_scope"
+    },
+    {
+      "bank_reference": "STM-0039",
+      "delta_cents": null,
+      "delta_days": null,
+      "receipt": null,
+      "status": "out_of_scope"
+    },
+    {
+      "bank_reference": null,
+      "delta_cents": null,
+      "delta_days": null,
+      "receipt": "r27.pdf",
+      "status": "missing_in_bank"
+    },
+    {
+      "bank_reference": null,
+      "delta_cents": null,
+      "delta_days": null,
+      "receipt": "r28.png",
+      "status": "duplicate_receipt"
+    },
+    {
+      "bank_reference": null,
+      "delta_cents": null,
+      "delta_days": null,
+      "receipt": "r29.png",
+      "status": "missing_in_bank"
+    },
+    {
+      "bank_reference": null,
+      "delta_cents": null,
+      "delta_days": null,
+      "receipt": "r30.png",
+      "status": "missing_in_bank"
+    }
+  ],
+  "rules": {
+    "amount_mismatch": "Any difference in cents between receipt total and charge, even when the posting lag is within 3 days. Takes precedence over date_drift.",
+    "amounts": "All amounts in the answer keys are integer cents. In the CSV, debits are negative and a refund posts as a positive credit.",
+    "date_drift": "Amounts agree but the charge posts more than 3 days after the receipt date.",
+    "delta_cents": "abs(bank amount) - abs(receipt total) in cents; null when either side is absent.",
+    "delta_days": "bank posted_date - receipt date in days; null when either side is absent.",
+    "duplicate_charge": "The same descriptor and amount posted a second time. The first posting keeps its own status; only the repeat is labeled.",
+    "duplicate_receipt": "The same receipt submitted a second time, re-rendered with different skew so the bytes differ. The original keeps its own status (matched when it agrees with its charge); only the resubmission is labeled, with a null bank_reference.",
+    "matched": "Receipt and charge agree to the cent and the charge posts 0-3 days after the receipt date.",
+    "missing_in_bank": "A receipt with no charge on the statement.",
+    "out_of_scope": "Deposits and transfers. Never expected to have a receipt.",
+    "unreceipted_charge": "A charge with no receipt."
+  }
+}

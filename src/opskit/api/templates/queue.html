@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% set logged_in = true %}
+{% block content %}
+<h1>Waiting for a decision</h1>
+{% if approvals %}
+<ul class="list">
+  {% for approval in approvals %}
+  <li class="card row">
+    <div>
+      <a href="/approver/approvals/{{ approval.id }}">{{ approval.kind }}</a>
+      <p class="meta">Requested {{ approval.requested_at.strftime("%Y-%m-%d %H:%M UTC") }} ·
+        expires {{ approval.expires_at.strftime("%Y-%m-%d %H:%M UTC") }}</p>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% if next_cursor %}<a class="more" href="/approver/?cursor={{ next_cursor | urlencode }}">Older requests</a>{% endif %}
+{% else %}
+<p class="empty">Nothing is waiting. New requests appear here when a workflow pauses for approval.</p>
+{% endif %}
+{% endblock %}

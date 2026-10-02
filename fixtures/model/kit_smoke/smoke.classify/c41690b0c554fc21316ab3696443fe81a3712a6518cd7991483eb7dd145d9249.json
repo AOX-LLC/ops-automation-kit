@@ -1,0 +1,29 @@
+{
+  "cost_usd": "0.000167",
+  "fixture_key": "c41690b0c554fc21316ab3696443fe81a3712a6518cd7991483eb7dd145d9249",
+  "latency_ms": 640,
+  "prompt_id": "smoke.classify",
+  "prompt_version": 1,
+  "recorded_at": "2026-10-02T00:00:00Z",
+  "recorded_model": "hand-written placeholder for the wiring smoke test, not a real model response",
+  "request_digest": {
+    "attachments": [],
+    "inputs": {
+      "text": "Please confirm the kit is wired up."
+    },
+    "prompt_id": "smoke.classify",
+    "prompt_version": 1,
+    "schema": "SmokeLabel",
+    "tier": "small"
+  },
+  "response": {
+    "label": "wiring_check",
+    "reason": "The message asks to confirm the kit's setup works."
+  },
+  "schema": "SmokeLabel",
+  "tier": "small",
+  "usage": {
+    "input_tokens": 62,
+    "output_tokens": 21
+  }
+}

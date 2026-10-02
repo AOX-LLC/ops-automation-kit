@@ -1,0 +1,6 @@
+* text=auto eol=lf
+*.png binary
+*.pdf binary
+*.ttf binary
+# Emails keep their RFC 5322 CRLF bytes exactly as generated.
+*.eml -text

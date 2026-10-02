@@ -1,0 +1,132 @@
+{
+  "active": false,
+  "connections": {
+    "Every 5 minutes": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "List pending inputs",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "List pending inputs": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "One item per input",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "One item per input": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Next phase starts here",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "id": "inbox00000000001",
+  "name": "Inbox triage with approvals (skeleton)",
+  "nodes": [
+    {
+      "id": "inbox-note-01",
+      "name": "Note 01",
+      "parameters": {
+        "content": "## Inbox (Phase 3)\nLists inbound mail from Mailpit. Phase 3 adds triage and drafting in the helper, a Switch on the triage label, the Wait node for approval and Send Email for approved replies.",
+        "height": 160,
+        "width": 520
+      },
+      "position": [
+        -60,
+        -240
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "id": "inbox-schedule-01",
+      "name": "Every 5 minutes",
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        0
+      ],
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "inbox-pending-01",
+      "name": "List pending inputs",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "method": "GET",
+        "options": {
+          "timeout": 10000
+        },
+        "url": "http://api:8000/v1/inbox/pending"
+      },
+      "position": [
+        220,
+        0
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "inbox-split-01",
+      "name": "One item per input",
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "position": [
+        440,
+        0
+      ],
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1
+    },
+    {
+      "id": "inbox-next-01",
+      "name": "Next phase starts here",
+      "parameters": {},
+      "position": [
+        660,
+        0
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all"
+  },
+  "tags": []
+}

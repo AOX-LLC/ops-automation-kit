@@ -1,0 +1,123 @@
+# Hand-authored truth for the receipts sample set. Everything here is fictional:
+# vendors, streets (the town of Quillbrook does not exist), phones (555-01xx), cards.
+# The generator renders images from this plus a seeded RNG used only for noise and rotation.
+
+business: Alderwick Field Services LLC
+statement:
+  month: 2026-08
+  opening_balance_cents: 1248000
+
+# Fictional card set. Last four digits only.
+cards:
+  - {brand: VISA, last4: "4417"}
+  - {brand: MASTERCARD, last4: "5528"}
+  - {brand: VISA, last4: "0193"}
+  - {brand: AMEX, last4: "3006"}
+
+vendors:
+  bean:       {name: Harbor Bean Co,           domain: harborbean.example,   address: 14 Alder Row,           phone: 555-0114, descriptor: SQ *HARBOR BEAN CO,      style: thermal,    tax_bp: 635}
+  tallgrass:  {name: Tallgrass Office Supply,  domain: tallgrass.example,    address: 220 Mill Street,        phone: 555-0121, descriptor: TALLGRASS OFFICE SUP,    style: letterhead, tax_bp: 635}
+  brightwick: {name: Brightwick Print & Ship,  domain: brightwick.example,   address: 9 Ferry Lane,           phone: 555-0132, descriptor: BRIGHTWICK PRINT,        style: letterhead, tax_bp: 635}
+  copperline: {name: Copperline Fuel Stop,     domain: copperline.example,   address: 1800 Route 9,           phone: 555-0108, descriptor: COPPERLINE FUEL 0412,    style: thermal,    tax_bp: 0}
+  fernhollow: {name: Fernhollow Market,        domain: fernhollow.example,   address: 52 Orchard Court,       phone: 555-0145, descriptor: FERNHOLLOW MKT,          style: thermal,    tax_bp: 0}
+  cedarpine:  {name: Cedar & Pine Hardware,    domain: cedarpine.example,    address: 77 Quarry Road,         phone: 555-0153, descriptor: CEDAR PINE HDWE,         style: thermal,    tax_bp: 635}
+  lumen:      {name: Lumenfield Cloud Hosting, domain: lumenfield.example,   address: 3 Beacon Plaza,         phone: 555-0166, descriptor: LUMENFIELD*HOSTING,      style: letterhead, tax_bp: 0}
+  pebble:     {name: Pebble Street Diner,      domain: pebblediner.example,  address: 31 Pebble Street,       phone: 555-0172, descriptor: PEBBLE ST DINER,         style: thermal,    tax_bp: 700}
+  northgate:  {name: Northgate Parking Co,     domain: northgate.example,    address: 400 Harbor Avenue,      phone: 555-0187, descriptor: NORTHGATE PKG,           style: thermal,    tax_bp: 0}
+  wren:       {name: Wrenfield Courier,        domain: wrenfield.example,    address: 18 Depot Street,        phone: 555-0190, descriptor: WRENFIELD COURIER,       style: letterhead, tax_bp: 0}
+  ironbark:   {name: Ironbark Tool Rental,     domain: ironbark.example,     address: 610 Foundry Way,        phone: 555-0103, descriptor: IRONBARK RENTAL,         style: letterhead, tax_bp: 635}
+  saltmarsh:  {name: Saltmarsh Lunch Counter,  domain: saltmarsh.example,    address: 5 Wharf Street,         phone: 555-0119, descriptor: TST* SALTMARSH LUNCH,    style: thermal,    tax_bp: 700}
+  velvet:     {name: Velvet Moth Stationers,   domain: velvetmoth.example,   address: 66 Lantern Walk,        phone: 555-0128, descriptor: VELVET MOTH STATION,     style: letterhead, tax_bp: 635}
+  meridian:   {name: Meridian Tire & Lube,     domain: meridiantire.example, address: 905 Route 9,           phone: 555-0136, descriptor: MERIDIAN TIRE LUBE,      style: thermal,    tax_bp: 635}
+  dovetail:   {name: Dovetail Mobile Repair,   domain: dovetailmobile.example, address: 12 Lantern Walk,      phone: 555-0149, descriptor: DOVETAIL MOBILE,         style: letterhead, tax_bp: 635}
+  starling:   {name: Starling Coworking,       domain: starling.example,     address: 2 Beacon Plaza,         phone: 555-0158, descriptor: STARLING COWORK,         style: letterhead, tax_bp: 0}
+  mossgate:   {name: Mossgate Bakery,          domain: mossgate.example,     address: 40 Alder Row,           phone: 555-0161, descriptor: MOSSGATE BAKERY,         style: thermal,    tax_bp: 0}
+  thistle:    {name: Thistledown Software,     domain: thistledown.example,  address: 8 Cinder Lane,          phone: 555-0175, descriptor: THISTLEDOWN SOFTWARE,    style: letterhead, tax_bp: 0}
+
+# Each receipt: items are [description, quantity, unit_price_cents].
+# outcome: matched | amount_mismatch | date_drift | missing_in_bank | duplicate_receipt
+# lag_days: days from receipt date to bank posting. bank_delta_cents: charge minus receipt total.
+# duplicate_charge_after_days: the bank posts the same charge a second time that many days later.
+# duplicate_of: re-render of an earlier receipt (identical truth, different skew and noise).
+receipts:
+  - {id: r01, vendor: bean, date: 2026-08-03, card: 0, number: HB-20417, fmt: png, outcome: matched, lag_days: 0,
+     items: [[Oat latte, 2, 575], [Almond croissant, 1, 425]], tip_cents: 200}
+  - {id: r02, vendor: tallgrass, date: 2026-08-04, card: 0, number: TG-88213, fmt: png, outcome: matched, lag_days: 1,
+     items: [[Copier paper 10 ream, 1, 4890], [Gel pens 12 pack, 2, 749], [Label sheets, 3, 1299]]}
+  - {id: r03, vendor: copperline, date: 2026-08-05, card: 1, number: CF-0412-6619, fmt: png, outcome: matched, lag_days: 0,
+     items: [[Regular fuel 14.2 gal, 1, 5183]]}
+  - {id: r04, vendor: lumen, date: 2026-08-05, card: 0, number: LF-INV-30871, fmt: pdf, outcome: matched, lag_days: 0,
+     items: [[Managed server plan, 1, 4800], [Backup storage 200 GB, 1, 1000]]}
+  - {id: r05, vendor: pebble, date: 2026-08-06, card: 2, number: PD-7731, fmt: png, outcome: matched, lag_days: 2,
+     items: [[Club sandwich, 2, 1195], [Iced tea, 2, 325], [Pie slice, 1, 650]], tip_cents: 500}
+  - {id: r06, vendor: fernhollow, date: 2026-08-07, card: 1, number: FM-205518, fmt: png, outcome: matched, lag_days: 0,
+     items: [[Sparkling water 12pk, 1, 699], [Granola bars, 2, 549], [Apples 3 lb, 1, 597]]}
+  - {id: r07, vendor: brightwick, date: 2026-08-08, card: 0, number: BP-41190, fmt: png, outcome: matched, lag_days: 3,
+     items: [[Color copies, 120, 35], [Spiral binding, 4, 450], [Courier label, 1, 1275]]}
+  - {id: r08, vendor: cedarpine, date: 2026-08-10, card: 3, number: CP-93021, fmt: png, outcome: matched, lag_days: 1,
+     items: [[Cable ties 100 pk, 2, 899], [Work gloves, 1, 1649], [Utility knife, 1, 1199]]}
+  - {id: r09, vendor: wren, date: 2026-08-11, card: 0, number: WC-55067, fmt: png, outcome: matched, lag_days: 0, low_contrast: true,
+     items: [[Same-day delivery zone 2, 1, 2400], [Fuel surcharge, 1, 180]]}
+  - {id: r10, vendor: saltmarsh, date: 2026-08-12, card: 2, number: SL-1184, fmt: png, outcome: matched, lag_days: 0,
+     duplicate_charge_after_days: 1,
+     items: [[Chowder bowl, 2, 895], [Roll, 2, 150]], tip_cents: 300}
+  - {id: r11, vendor: starling, date: 2026-08-12, card: 0, number: SC-D-60214, fmt: pdf, outcome: matched, lag_days: 2,
+     items: [[Day pass, 2, 3500], [Meeting room 1 hr, 1, 2500]]}
+  - {id: r12, vendor: northgate, date: 2026-08-13, card: 1, number: NG-883402, fmt: png, outcome: matched, lag_days: 0,
+     items: [[Garage parking 6 hr, 1, 1800]]}
+  - {id: r13, vendor: ironbark, date: 2026-08-14, card: 3, number: IB-20931, fmt: png, outcome: matched, lag_days: 1,
+     items: [[Plate compactor day rental, 1, 6500], [Damage waiver, 1, 650]]}
+  - {id: r14, vendor: mossgate, date: 2026-08-14, card: 2, number: MB-30921, fmt: png, outcome: matched, lag_days: 0, low_contrast: true,
+     items: [[Sourdough loaf, 2, 750], [Seeded rolls 6 pk, 1, 825]]}
+  - {id: r15, vendor: velvet, date: 2026-08-17, card: 0, number: VM-71455, fmt: png, outcome: matched, lag_days: 3,
+     items: [[Dot-grid notebook, 6, 1450], [Brass bulldog clips, 1, 895]]}
+  - {id: r16, vendor: bean, date: 2026-08-18, card: 0, number: HB-20688, fmt: png, outcome: matched, lag_days: 0,
+     duplicate_charge_after_days: 1,
+     items: [[Cold brew, 3, 525], [Blueberry scone, 3, 395]], tip_cents: 250}
+  - {id: r17, vendor: meridian, date: 2026-08-18, card: 3, number: MT-662019, fmt: png, outcome: matched, lag_days: 0,
+     items: [[Oil change synthetic, 1, 6995], [Wiper blades, 2, 1450], [Shop supplies fee, 1, 495]]}
+  - {id: r18, vendor: dovetail, date: 2026-08-19, card: 1, number: DM-4471, fmt: png, outcome: matched, lag_days: 0,
+     items: [[Screen replacement, 1, 11900], [Diagnostic fee, 1, 1500]]}
+  - {id: r19, vendor: thistle, date: 2026-08-19, card: 0, number: TD-2026-08-1923, fmt: pdf, outcome: matched, lag_days: 0,
+     items: [[Team plan 5 seats monthly, 5, 1200]]}
+  - {id: r20, vendor: tallgrass, date: 2026-08-20, card: 0, number: TG-88540-R, fmt: png, outcome: matched, lag_days: 2,
+     items: [[Return - toner cartridge, 1, -8999]]}
+  - {id: r21, vendor: pebble, date: 2026-08-27, card: 2, number: PD-8120, fmt: png, outcome: matched, lag_days: 0,
+     items: [[Breakfast plate, 3, 1050], [Coffee, 3, 275]], tip_cents: 600}
+  # Tip added after authorization: the printed slip has no tip, the bank posts it.
+  - {id: r22, vendor: saltmarsh, date: 2026-08-21, card: 2, number: SL-1241, fmt: png, outcome: amount_mismatch, lag_days: 1,
+     bank_delta_cents: 400, items: [[Fish plate, 2, 1495], [Slaw, 2, 350]]}
+  # Merchant keyed the wrong amount.
+  - {id: r23, vendor: cedarpine, date: 2026-08-22, card: 3, number: CP-93544, fmt: png, outcome: amount_mismatch, lag_days: 2,
+     bank_delta_cents: -900, items: [[Paint roller kit, 2, 1799], [Drop cloth, 3, 849]]}
+  # Per-line tax rounding at the merchant gives one cent more.
+  - {id: r24, vendor: fernhollow, date: 2026-08-23, card: 1, number: FM-206291, fmt: png, outcome: amount_mismatch, lag_days: 0,
+     bank_delta_cents: 1, items: [[Bottled juice 6pk, 3, 833], [Rye bread, 2, 479]]}
+  - {id: r25, vendor: brightwick, date: 2026-08-04, card: 0, number: BP-41233, fmt: png, outcome: date_drift, lag_days: 6,
+     items: [[Banner print 3x6 ft, 1, 8400], [Grommets, 1, 600]]}
+  - {id: r26, vendor: ironbark, date: 2026-08-09, card: 3, number: IB-20877, fmt: png, outcome: date_drift, lag_days: 5,
+     items: [[Wet saw weekend rental, 1, 9000]]}
+  - {id: r27, vendor: starling, date: 2026-08-21, card: 0, number: SC-D-60388, fmt: pdf, outcome: missing_in_bank,
+     items: [[Day pass, 1, 3500]]}
+  - {id: r28, duplicate_of: r17, fmt: png, outcome: duplicate_receipt}
+  - {id: r29, vendor: mossgate, date: 2026-08-24, card: 2, number: MB-31188, fmt: png, outcome: missing_in_bank,
+     items: [[Pastry box, 1, 2400], [Drip coffee carafe, 1, 1800]]}
+  - {id: r30, vendor: velvet, date: 2026-08-26, card: 0, number: VM-71602, fmt: png, outcome: missing_in_bank,
+     items: [[Fountain pen ink, 2, 1650], [Blotting paper, 1, 700]]}
+
+# Charges on the statement that have no receipt.
+unreceipted_charges:
+  - {date: 2026-08-06, description: "COPPERLINE FUEL 0412", amount_cents: -4630}
+  - {date: 2026-08-15, description: "SQ *TIDEPOOL TAQUERIA", amount_cents: -2275}
+  - {date: 2026-08-25, description: "NORTHGATE PKG", amount_cents: -1200}
+
+# Deposits and transfers: never receipts, always out of scope.
+other_rows:
+  - {date: 2026-08-02, description: "ACH CREDIT HOLLOWAY DENTAL GRP", amount_cents: 285000}
+  - {date: 2026-08-07, description: "ONLINE TRANSFER TO SAV 4471", amount_cents: -150000}
+  - {date: 2026-08-12, description: "ACH CREDIT BRAMBLEWOOD LANDSCAPE", amount_cents: 162500}
+  - {date: 2026-08-16, description: "CARD PAYMENT - THANK YOU", amount_cents: 120000}
+  - {date: 2026-08-19, description: "MOBILE DEPOSIT", amount_cents: 94000}
+  - {date: 2026-08-26, description: "ACH CREDIT ASHFORD PROPERTY MGMT", amount_cents: 210000}
+  - {date: 2026-08-28, description: "ONLINE TRANSFER FROM SAV 4471", amount_cents: 50000}
+  - {date: 2026-08-31, description: "INTEREST PAID", amount_cents: 312}

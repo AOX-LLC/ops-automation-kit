@@ -1,0 +1,132 @@
+{
+  "active": false,
+  "connections": {
+    "Every 15 minutes": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "List pending inputs",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "List pending inputs": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "One item per input",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "One item per input": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Next phase starts here",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "id": "receipts00000001",
+  "name": "Receipts → reconciled spreadsheet (skeleton)",
+  "nodes": [
+    {
+      "id": "receipts-note-01",
+      "name": "Note 01",
+      "parameters": {
+        "content": "## Receipts (Phase 2)\nLists receipts the helper has not processed yet. Phase 2 adds extraction and reconciliation in the helper, then Convert to File and a disk write for the spreadsheet.",
+        "height": 160,
+        "width": 520
+      },
+      "position": [
+        -60,
+        -240
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "id": "receipts-schedule-01",
+      "name": "Every 15 minutes",
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        0
+      ],
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "receipts-pending-01",
+      "name": "List pending inputs",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "method": "GET",
+        "options": {
+          "timeout": 10000
+        },
+        "url": "http://api:8000/v1/receipts/pending"
+      },
+      "position": [
+        220,
+        0
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "receipts-split-01",
+      "name": "One item per input",
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "position": [
+        440,
+        0
+      ],
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1
+    },
+    {
+      "id": "receipts-next-01",
+      "name": "Next phase starts here",
+      "parameters": {},
+      "position": [
+        660,
+        0
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all"
+  },
+  "tags": []
+}

@@ -1,0 +1,20 @@
+# Default rules, plus one narrow exception: mock-mode fixture keys are SHA-256 content
+# hashes of the request, not credentials. Only that exact field and shape is allowed.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "fixture_key content hashes in recorded model fixtures"
+regexTarget = "line"
+regexes = ['''^\s*"fixture_key": "[0-9a-f]{64}",?$''']
+paths = ['''^fixtures/model/''']
+condition = "AND"
+targetRules = ["generic-api-key"]
+
+[[allowlists]]
+description = "internal helper API URLs in n8n workflow exports (host:port/path, no credentials)"
+regexTarget = "line"
+regexes = ['''^\s*"url": "=?http://api:8000/[A-Za-z0-9/_{}()$'. -]*",?$''']
+paths = ['''^n8n/workflows/''']
+condition = "AND"
+targetRules = ["generic-api-key"]

@@ -1,0 +1,10 @@
+Date: Wed, 19 Aug 2026 10:01:00 -0400
+Message-ID: <m21.delivery-failure@kit.example>
+From: Mail Delivery System <mailer-daemon@mailhost-two.example>
+To: office@brightwater-home.example
+Subject: Undeliverable: Your estimate is ready
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+MIME-Version: 1.0
+
+This is an automatically generated message. Your message to old.address@mailbox-gone.example could not be delivered because the mailbox does not exist. No further delivery attempts will be made.

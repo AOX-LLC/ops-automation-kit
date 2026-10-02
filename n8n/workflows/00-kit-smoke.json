@@ -1,0 +1,427 @@
+{
+  "active": false,
+  "connections": {
+    "Approved?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send confirmation email",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Expire approval",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Check recorded decision": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Approved?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Classify (mock model call)": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Request approval",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Expire approval": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Finish run (not approved)",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Request approval": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Wait for decision",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Send confirmation email": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Finish run",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Start run": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Classify (mock model call)",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Wait for decision": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Check recorded decision",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Start run",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "id": "kitSmoke00000001",
+  "name": "Kit smoke: approval round-trip",
+  "nodes": [
+    {
+      "id": "smoke-note-01",
+      "name": "Note 01",
+      "parameters": {
+        "content": "## Kit smoke: approval round-trip\nProves the wiring end to end: a run record, one mock model call through the adapter, an approval that pauses this execution, a human decision on the approver page, the resume, and the Send Email node over SMTP into Mailpit.\n\nThe branch reads the decision the helper recorded, never the resume request's body: holding the resume URL is not the same as approving.",
+        "height": 180,
+        "width": 560
+      },
+      "position": [
+        -60,
+        -260
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitWebhookAuth01",
+          "name": "Kit webhooks (caller token)"
+        }
+      },
+      "id": "smoke-webhook-01",
+      "name": "Webhook",
+      "parameters": {
+        "authentication": "headerAuth",
+        "httpMethod": "POST",
+        "options": {},
+        "path": "kit-smoke",
+        "responseMode": "onReceived"
+      },
+      "position": [
+        0,
+        0
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "5d0c7a3e-7d2b-4f61-9a0e-3c1f8e2b6a01"
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "smoke-run-01",
+      "name": "Start run",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ JSON.stringify({ workflow: \"kit_smoke\", n8n_workflow_id: $workflow.id, n8n_execution_id: String($execution.id) }) }}",
+        "method": "POST",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "http://api:8000/v1/runs"
+      },
+      "position": [
+        220,
+        0
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "smoke-classify-01",
+      "name": "Classify (mock model call)",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ JSON.stringify({ run_id: $json.run_id, text: \"Please confirm the kit is wired up.\" }) }}",
+        "method": "POST",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "http://api:8000/v1/smoke/classify"
+      },
+      "position": [
+        440,
+        0
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "smoke-approval-01",
+      "name": "Request approval",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ JSON.stringify({ run_id: $('Start run').item.json.run_id, kind: \"kit_smoke.echo\", subject: { label: $json.label, reason: $json.reason, text: \"Please confirm the kit is wired up.\" }, resume_url: $execution.resumeUrl, expires_in_s: 600 }) }}",
+        "method": "POST",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "http://api:8000/v1/approvals"
+      },
+      "position": [
+        660,
+        0
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "smoke-wait-01",
+      "name": "Wait for decision",
+      "parameters": {
+        "httpMethod": "POST",
+        "limitType": "afterTimeInterval",
+        "limitWaitTime": true,
+        "options": {},
+        "resume": "webhook",
+        "resumeAmount": 10,
+        "resumeUnit": "minutes"
+      },
+      "position": [
+        880,
+        0
+      ],
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "webhookId": "8f4b2c19-1e6a-4d3b-b7c5-2a9e0d4f6b02"
+    },
+    {
+      "id": "smoke-if-01",
+      "name": "Approved?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "recorded-status-is-approved",
+              "leftValue": "={{ $json.status }}",
+              "operator": {
+                "operation": "equals",
+                "type": "string"
+              },
+              "rightValue": "approved"
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          }
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "position": [
+        1320,
+        0
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "credentials": {
+        "smtp": {
+          "id": "kitMailpitSmtp01",
+          "name": "Mailpit SMTP (local, captures all mail)"
+        }
+      },
+      "id": "smoke-email-01",
+      "name": "Send confirmation email",
+      "parameters": {
+        "emailFormat": "text",
+        "fromEmail": "kit@kit.example",
+        "options": {},
+        "subject": "Kit smoke: approved",
+        "text": "={{ 'The kit smoke run ' + $('Start run').item.json.run_id + ' was approved and resumed.' }}",
+        "toEmail": "approver@kit.example"
+      },
+      "position": [
+        1540,
+        -100
+      ],
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "smoke-finish-01",
+      "name": "Finish run",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ JSON.stringify({ status: \"succeeded\" }) }}",
+        "method": "POST",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "=http://api:8000/v1/runs/{{ $('Start run').item.json.run_id }}/finish"
+      },
+      "position": [
+        1760,
+        -100
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "smoke-expire-01",
+      "name": "Expire approval",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "method": "POST",
+        "options": {
+          "timeout": 10000
+        },
+        "url": "=http://api:8000/v1/approvals/{{ $('Request approval').item.json.approval_id }}/expire"
+      },
+      "position": [
+        1540,
+        120
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "smoke-fail-01",
+      "name": "Finish run (not approved)",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ JSON.stringify({ status: \"failed\" }) }}",
+        "method": "POST",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "=http://api:8000/v1/runs/{{ $('Start run').item.json.run_id }}/finish"
+      },
+      "position": [
+        1760,
+        120
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "smoke-check-01",
+      "name": "Check recorded decision",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "method": "GET",
+        "options": {
+          "timeout": 10000
+        },
+        "url": "=http://api:8000/v1/approvals/{{ $('Request approval').item.json.approval_id }}"
+      },
+      "position": [
+        1100,
+        0
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all"
+  },
+  "tags": []
+}

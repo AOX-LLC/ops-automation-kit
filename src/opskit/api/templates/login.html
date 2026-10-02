@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+<h1>Sign in to approve</h1>
+<form method="post" action="/approver/login" class="card stack">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <label for="password">Approver password</label>
+  <input id="password" name="password" type="password" autocomplete="current-password" required
+         {% if error %}aria-invalid="true" aria-describedby="password-error"{% endif %}>
+  {% if error %}<p id="password-error" class="error" role="alert">{{ error }}</p>{% endif %}
+  <p class="hint">Run <code>make login</code> to see it.</p>
+  <button type="submit">Sign in</button>
+</form>
+{% endblock %}
