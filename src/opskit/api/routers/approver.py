@@ -31,16 +31,24 @@ def _refuse_bearer(request: Request) -> None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "the approver page takes no API tokens")
 
 
-def _session(request: Request) -> ApproverSession | None:
+async def _session(request: Request) -> ApproverSession | None:
+    """The caller's session: a live server-side one after login, the login-form one before."""
     _refuse_bearer(request)
-    session: ApproverSession | None = request.app.state.session_codec.loads(
-        request.cookies.get(COOKIE_NAME)
-    )
-    return session
+    payload = request.app.state.session_codec.loads(request.cookies.get(COOKIE_NAME))
+    if payload is None:
+        return None
+    if "sid" in payload:
+        try:
+            session_id = UUID(payload["sid"])
+        except ValueError:
+            return None
+        live: ApproverSession | None = await request.app.state.session_store.load(session_id)
+        return live
+    return ApproverSession(csrf_token=str(payload.get("csrf", ""))) if payload.get("csrf") else None
 
 
-def _require_login(request: Request) -> ApproverSession:
-    session = _session(request)
+async def _require_login(request: Request) -> ApproverSession:
+    session = await _session(request)
     if session is None or not session.logged_in:
         raise HTTPException(status.HTTP_303_SEE_OTHER, headers={"Location": "/approver/login"})
     return session
@@ -73,7 +81,10 @@ def _core(request: Request) -> Core:
 
 @router.get("/login", response_class=HTMLResponse)
 async def login_form(request: Request) -> Response:
-    session = _session(request) or ApproverSession.anonymous()
+    session = await _session(request)
+    if session is not None and session.logged_in:
+        return RedirectResponse("/approver/", status_code=status.HTTP_303_SEE_OTHER)
+    session = session or ApproverSession.anonymous()
     page = templates.TemplateResponse(
         request, "login.html", {"csrf_token": session.csrf_token, "error": None}
     )
@@ -86,7 +97,7 @@ async def login(
     password: Annotated[str, Form(max_length=256)],
     csrf_token: Annotated[str, Form(max_length=128)] = "",
 ) -> Response:
-    session = _require_csrf(_session(request), csrf_token)
+    session = _require_csrf(await _session(request), csrf_token)
     throttle = request.app.state.login_throttle
     audit = _core(request).audit
     if throttle.is_locked():
@@ -123,14 +134,16 @@ async def login(
         details={"outcome": "success"},
     )
     redirect = RedirectResponse("/approver/", status_code=status.HTTP_303_SEE_OTHER)
-    return _with_cookie(request, redirect, ApproverSession.authenticated())
+    return _with_cookie(request, redirect, await request.app.state.session_store.create())
 
 
 @router.post("/logout")
 async def logout(
     request: Request, csrf_token: Annotated[str, Form(max_length=128)] = ""
 ) -> Response:
-    _require_csrf(_require_login(request), csrf_token)
+    session = _require_csrf(await _require_login(request), csrf_token)
+    if session.session_id is not None:
+        await request.app.state.session_store.revoke(session.session_id)
     redirect = RedirectResponse("/approver/login", status_code=status.HTTP_303_SEE_OTHER)
     redirect.delete_cookie(COOKIE_NAME, path=COOKIE_PATH)
     return redirect
@@ -138,7 +151,7 @@ async def logout(
 
 @router.get("/", response_class=HTMLResponse)
 async def queue(request: Request, cursor: str | None = None) -> Response:
-    session = _require_login(request)
+    session = await _require_login(request)
     page = await _core(request).approvals.list_pending(limit=25, cursor=cursor)
     return templates.TemplateResponse(
         request,
@@ -153,7 +166,7 @@ async def queue(request: Request, cursor: str | None = None) -> Response:
 
 @router.get("/approvals/{approval_id}", response_class=HTMLResponse)
 async def detail(request: Request, approval_id: UUID) -> Response:
-    session = _require_login(request)
+    session = await _require_login(request)
     try:
         approval = await _core(request).approvals.get(approval_id)
     except NotFound as exc:
@@ -178,7 +191,7 @@ async def decide(
     csrf_token: Annotated[str, Form(max_length=128)] = "",
     note: Annotated[str, Form(max_length=2000)] = "",
 ) -> Response:
-    session = _require_csrf(_require_login(request), csrf_token)
+    session = _require_csrf(await _require_login(request), csrf_token)
     approvals = _core(request).approvals
     try:
         await approvals.decide(approval_id, decision=decision, actor=ACTOR, note=note or None)
