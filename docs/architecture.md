@@ -264,13 +264,17 @@ Wait (On Webhook Call, POST,
                                         (0 rows → 409)
                                         INSERT audit approval.decided
                                         INSERT outbox row
-                                      dispatcher (FOR UPDATE SKIP LOCKED):
-                                        POST internal(resume_url)
+                                      dispatcher, three short steps:
+                                        1. claim: FOR UPDATE SKIP LOCKED,
+                                           lease 120 s, commit
+                                        2. POST internal(resume_url), no
+                                           transaction open, 10 s deadline
 ◄──────────────────────────────────────  body {approval_id, decision,
 Wait outputs the body                      edited_subject}
-IF decision == approved               2xx → delivered_at; audit approval.resumed
-  → Send Email node (SMTP)            non-2xx/refused → backoff 2^n s, cap 5 min,
-                                        audit resume.failed after 10 tries
+GET /v1/approvals/{id} → status       3. record, own transaction:
+IF status == approved                    2xx → delivered_at; audit approval.resumed
+  → Send Email node (SMTP)               else → backoff 2^n s, cap 5 min,
+                                         audit resume.failed after 10 tries
 ```
 
 1. **Signed resume URL.** n8n 2.x appends `?signature=<HMAC>` to `$execution.resumeUrl`, so execution IDs cannot be guessed. The helper stores the whole URL and never builds one itself.
@@ -394,3 +398,8 @@ class Core:
   - Only `opskit.core` may import `anthropic` or `aox_agent_core`.
   - Only `opskit.core` may reference the `core.approvals`, `core.audit_log` and `core.model_calls` tables. A test greps the SQLAlchemy table objects' import sites.
 - agent-core's Phase 1 (public interfaces) has not started. These protocols are therefore our proposal, sent in the "needs" list below. If agent-core lands different signatures, the shim lives in `factory.py`.
+
+## Health endpoints
+
+- `GET /healthz` is unauthenticated and cheap. It returns `status`, `version`, `commit` and `branch` (baked in at build time; null for a dirty tree, a detached HEAD or a non-git build — never guessed), `commit_source` (`"process_start"`), `schema_version` (the applied Alembic heads, sorted and comma-joined; null when the database cannot be read within 1 s, with the reason logged) and `uptime_s`. It answers 200 even when the database is down.
+- `GET /readyz` answers 200 only when the database answers.
