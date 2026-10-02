@@ -1,12 +1,19 @@
-"""At-least-once delivery of approval decisions back to the waiting n8n execution."""
+"""At-least-once delivery of approval decisions back to the waiting n8n execution.
+
+Each pass claims due rows in one short transaction by pushing their next attempt out by a
+lease, sends with no transaction open, then records each result in its own short
+transaction. A worker that dies mid-send leaves the row to be retried once the lease runs out.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import func, select, update
 
@@ -19,18 +26,31 @@ log = logging.getLogger(__name__)
 MAX_ATTEMPTS = 10
 MAX_BACKOFF_SECONDS = 300
 BATCH_SIZE = 10
+# Longer than one batch of sends can take (10 rows x 5 s timeout), so a live worker's
+# claim never lapses while it is still sending.
+CLAIM_LEASE = timedelta(seconds=120)
 
 # (stored resume url, payload) -> HTTP status code; raises on transport errors
 type ResumeSender = Callable[[str, dict[str, Any]], Awaitable[int]]
+
+
+@dataclass(frozen=True, slots=True)
+class Claim:
+    outbox_id: int
+    approval_id: UUID
+    run_id: UUID
+    resume_url: str
+    payload: dict[str, Any]
+    attempts: int
 
 
 def backoff(attempts: int) -> timedelta:
     return timedelta(seconds=min(2**attempts, MAX_BACKOFF_SECONDS))
 
 
-async def deliver_due(session_factory: SessionFactory, send: ResumeSender) -> int:
-    """Try every due outbox row once. Returns how many were delivered."""
-    claim = (
+async def claim_due(session_factory: SessionFactory) -> list[Claim]:
+    """Lease up to BATCH_SIZE due rows and commit, so no lock outlives this call."""
+    due = (
         select(
             outbox.c.id,
             outbox.c.approval_id,
@@ -49,51 +69,80 @@ async def deliver_due(session_factory: SessionFactory, send: ResumeSender) -> in
         .limit(BATCH_SIZE)
         .with_for_update(of=outbox, skip_locked=True)
     )
-    delivered = 0
     async with session_factory.begin() as session:
-        for row in (await session.execute(claim)).all():
-            if await _attempt(session, row, send):
-                delivered += 1
+        rows = (await session.execute(due)).all()
+        if rows:
+            await session.execute(
+                update(outbox)
+                .where(outbox.c.id.in_([row.id for row in rows]))
+                .values(next_attempt_at=func.now() + CLAIM_LEASE)
+            )
+    return [
+        Claim(
+            outbox_id=row.id,
+            approval_id=row.approval_id,
+            run_id=row.run_id,
+            resume_url=row.resume_url,
+            payload=row.payload,
+            attempts=row.attempts,
+        )
+        for row in rows
+    ]
+
+
+async def _send(claim: Claim, send: ResumeSender) -> str | None:
+    """Deliver one decision. Returns None on success, else a short error description."""
+    try:
+        status = await send(claim.resume_url, claim.payload)
+    except Exception as exc:
+        return type(exc).__name__
+    return None if 200 <= status < 300 else f"n8n answered HTTP {status}"
+
+
+async def record_result(session_factory: SessionFactory, claim: Claim, error: str | None) -> None:
+    attempts = claim.attempts + 1
+    async with session_factory.begin() as session:
+        if error is None:
+            await session.execute(
+                update(outbox)
+                .where(outbox.c.id == claim.outbox_id)
+                .values(attempts=attempts, delivered_at=func.now(), last_error=None)
+            )
+            await _audit(session, claim, "approval.resumed", {"attempts": attempts})
+            return
+        await session.execute(
+            update(outbox)
+            .where(outbox.c.id == claim.outbox_id)
+            .values(
+                attempts=attempts,
+                last_error=error,
+                next_attempt_at=func.now() + backoff(attempts),
+            )
+        )
+        if attempts >= MAX_ATTEMPTS:
+            await _audit(session, claim, "resume.failed", {"attempts": attempts, "error": error})
+    log.warning("resume of approval %s failed (attempt %d): %s", claim.approval_id, attempts, error)
+
+
+async def deliver_due(session_factory: SessionFactory, send: ResumeSender) -> int:
+    """Try every due outbox row once. Returns how many were delivered."""
+    delivered = 0
+    for claim in await claim_due(session_factory):
+        error = await _send(claim, send)  # no transaction is open here
+        await record_result(session_factory, claim, error)
+        delivered += error is None
     return delivered
 
 
-async def _attempt(session: Any, row: Any, send: ResumeSender) -> bool:
-    attempts = row.attempts + 1
-    try:
-        status = await send(row.resume_url, row.payload)
-        error = None if 200 <= status < 300 else f"n8n answered HTTP {status}"
-    except Exception as exc:
-        error = type(exc).__name__
-
-    if error is None:
-        await session.execute(
-            update(outbox)
-            .where(outbox.c.id == row.id)
-            .values(attempts=attempts, delivered_at=func.now(), last_error=None)
-        )
-        await _audit(session, row, "approval.resumed", {"attempts": attempts})
-        return True
-
-    await session.execute(
-        update(outbox)
-        .where(outbox.c.id == row.id)
-        .values(attempts=attempts, last_error=error, next_attempt_at=func.now() + backoff(attempts))
-    )
-    if attempts >= MAX_ATTEMPTS:
-        await _audit(session, row, "resume.failed", {"attempts": attempts, "error": error})
-    log.warning("resume of approval %s failed (attempt %d): %s", row.approval_id, attempts, error)
-    return False
-
-
-async def _audit(session: Any, row: Any, action: str, details: dict[str, Any]) -> None:
+async def _audit(session: Any, claim: Claim, action: str, details: dict[str, Any]) -> None:
     await append_in(
         session,
         ctx=None,
         actor="system",
         action=action,
         subject_type="approval",
-        subject_id=str(row.approval_id),
-        details={"run_id": str(row.run_id), **details},
+        subject_id=str(claim.approval_id),
+        details={"run_id": str(claim.run_id), **details},
     )
 
 
