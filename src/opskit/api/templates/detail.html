@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% set logged_in = true %}
+{% block title %}{{ approval.kind }}{% endblock %}
+{% block content %}
+<p><a href="/approver/">Back to the queue</a></p>
+<h1>{{ approval.kind }}</h1>
+<p class="meta">Status: <strong>{{ approval.status.value }}</strong> ·
+  requested {{ approval.requested_at.strftime("%Y-%m-%d %H:%M UTC") }} ·
+  expires {{ approval.expires_at.strftime("%Y-%m-%d %H:%M UTC") }}</p>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+<h2>What you are approving</h2>
+<pre class="card">{{ subject_json }}</pre>
+{% if approval.status.value == "pending" %}
+<form method="post" action="/approver/approvals/{{ approval.id }}/decision" class="card stack">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <label for="note">Note (optional)</label>
+  <textarea id="note" name="note" rows="3" maxlength="2000"></textarea>
+  <div class="actions">
+    <button type="submit" name="decision" value="approved">Approve</button>
+    <button type="submit" name="decision" value="rejected" class="secondary">Reject</button>
+  </div>
+</form>
+{% endif %}
+{% endblock %}
