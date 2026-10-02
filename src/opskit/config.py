@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     samples_dir: Path = Path("/data/samples")
     dropbox_dir: Path = Path("/data/dropbox")
-    fixtures_dir: Path = Path("/app/fixtures")
+    fixtures_dir: Path = Path("/app/fixtures/model")
     model_tiers_file: Path = Path("/app/config/model_tiers.json")
 
     approver_session_hours: int = 8
