@@ -56,3 +56,14 @@ Desktop.ini
 .vscode/
 *.swp
 *.swo
+
+# Local session rules and agent state — never committed
+CLAUDE.local.md
+.claude/agent-memory/
+.claude/settings.local.json
+.denylist.local
+
+# Kit runtime output and viewer drop folders
+dropbox/
+exports/
+smoke-logs.txt
