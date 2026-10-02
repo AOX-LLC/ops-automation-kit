@@ -1,0 +1,143 @@
+"""Table definitions mirroring the migrations. Only `opskit.core` touches the `core` tables."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    MetaData,
+    Numeric,
+    String,
+    Table,
+    Text,
+    func,
+)
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+
+metadata = MetaData()
+
+
+def _created_at(name: str = "created_at") -> Column[datetime]:
+    return Column(name, DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+runs = Table(
+    "runs",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()),
+    Column("workflow", Text, nullable=False),
+    Column("n8n_workflow_id", Text),
+    Column("n8n_execution_id", Text, unique=True),
+    Column("mode", Text, nullable=False),
+    Column("status", Text, nullable=False, server_default="running"),
+    _created_at("started_at"),
+    Column("finished_at", DateTime(timezone=True)),
+    schema="core",
+)
+
+approvals = Table(
+    "approvals",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()),
+    Column("run_id", UUID(as_uuid=True), ForeignKey("core.runs.id"), nullable=False),
+    Column("kind", Text, nullable=False),
+    Column("subject", JSONB, nullable=False),
+    Column("edited_subject", JSONB),
+    Column("status", Text, nullable=False, server_default="pending"),
+    Column("resume_url", Text, nullable=False),
+    _created_at("requested_at"),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    Column("decided_at", DateTime(timezone=True)),
+    Column("decided_by", Text),
+    Column("decision_note", Text),
+    schema="core",
+)
+
+outbox = Table(
+    "outbox",
+    metadata,
+    Column("id", BigInteger, primary_key=True, autoincrement=True),
+    Column("approval_id", UUID(as_uuid=True), ForeignKey("core.approvals.id"), unique=True),
+    Column("payload", JSONB, nullable=False),
+    Column("attempts", Integer, nullable=False, server_default="0"),
+    Column("next_attempt_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+    Column("delivered_at", DateTime(timezone=True)),
+    Column("last_error", Text),
+    schema="core",
+)
+
+audit_log = Table(
+    "audit_log",
+    metadata,
+    Column("id", BigInteger, primary_key=True, autoincrement=True),
+    _created_at("at"),
+    Column("run_id", UUID(as_uuid=True), ForeignKey("core.runs.id")),
+    Column("actor", Text, nullable=False),
+    Column("action", Text, nullable=False),
+    Column("subject_type", Text),
+    Column("subject_id", Text),
+    Column("details", JSONB, nullable=False, server_default="{}"),
+    schema="core",
+)
+
+model_calls = Table(
+    "model_calls",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()),
+    Column("run_id", UUID(as_uuid=True), ForeignKey("core.runs.id")),
+    Column("prompt_id", Text, nullable=False),
+    Column("prompt_version", Integer, nullable=False),
+    Column("tier", Text, nullable=False),
+    Column("fixture_key", String(64), nullable=False),
+    Column("mode", Text, nullable=False),
+    Column("input_tokens", Integer, nullable=False),
+    Column("output_tokens", Integer, nullable=False),
+    Column("cost_usd", Numeric(10, 6), nullable=False),
+    Column("latency_ms", Integer, nullable=False),
+    _created_at(),
+    schema="core",
+)
+
+sample_files = Table(
+    "sample_files",
+    metadata,
+    Column("path", Text, primary_key=True),
+    Column("workflow", Text, nullable=False),
+    Column("kind", Text, nullable=False),
+    Column("sha256", String(64), nullable=False),
+    Column("bytes", Integer, nullable=False),
+    _created_at("loaded_at"),
+    schema="core",
+)
+
+crm_accounts = Table(
+    "accounts",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()),
+    Column("name", Text, nullable=False),
+    Column("domain", Text, unique=True),
+    Column("industry", Text),
+    Column("employee_band", Text),
+    Column("hq_city", Text),
+    Column("description", Text),
+    _created_at(),
+    _created_at("updated_at"),
+    schema="crm",
+)
+
+crm_account_sources = Table(
+    "account_sources",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()),
+    Column("account_id", UUID(as_uuid=True), ForeignKey("crm.accounts.id"), nullable=False),
+    Column("field", Text, nullable=False),
+    Column("source_ref", Text, nullable=False),
+    Column("excerpt", Text, nullable=False),
+    _created_at("found_at"),
+    schema="crm",
+)
