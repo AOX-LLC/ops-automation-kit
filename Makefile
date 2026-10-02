@@ -23,8 +23,10 @@ check:
 	uv run python scripts/lint_workflows.py n8n/workflows
 	uv run pytest tests/unit -q
 
+# Integration tests need the stack running (make up).
 test:
-	uv run pytest -q
+	uv run pytest tests/unit -q
+	uv run pytest tests/integration -v
 
 smoke:
 	scripts/smoke.sh --clean
