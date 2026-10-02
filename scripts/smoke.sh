@@ -43,9 +43,7 @@ if [ "${1:-}" = "--clean" ]; then
 fi
 
 step "boot"
-KIT_GIT_COMMIT=$(git rev-parse HEAD 2>/dev/null || true)
-KIT_GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
-export KIT_GIT_COMMIT KIT_GIT_BRANCH
+eval "$(scripts/build_identity.sh)"
 docker compose up -d --wait $([ "${KIT_SKIP_BUILD:-0}" = "1" ] || echo --build) || fail "stack did not become healthy"
 curl -sf "$API/healthz" >/dev/null || fail "helper API is not answering"
 curl -sf "$N8N/healthz/readiness" >/dev/null || fail "n8n is not ready"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import time
 from dataclasses import dataclass
@@ -13,6 +14,7 @@ from fastapi import APIRouter, Request, Response, status
 from sqlalchemy import text
 
 router = APIRouter(tags=["health"])
+log = logging.getLogger(__name__)
 
 SCHEMA_QUERY_TIMEOUT_S = 1.0
 
@@ -36,18 +38,26 @@ def load_build_info() -> BuildInfo:
     )
 
 
-async def _applied_revisions(request: Request) -> list[str] | None:
-    async def query() -> list[str]:
+async def _applied_revisions(request: Request) -> str | None:
+    """The applied migration heads, sorted and comma-joined (one per Alembic branch).
+
+    None means the database could not be read within the timeout; the reason is logged.
+    """
+
+    async def query() -> str:
         async with request.app.state.engine.connect() as connection:
             result = await connection.execute(
                 text("SELECT version_num FROM public.alembic_version ORDER BY 1")
             )
-            return [row[0] for row in result]
+            return ",".join(row[0] for row in result)
 
     try:
         return await asyncio.wait_for(query(), timeout=SCHEMA_QUERY_TIMEOUT_S)
-    except Exception:
-        return None
+    except TimeoutError:
+        log.warning("healthz: schema query timed out after %.1f s", SCHEMA_QUERY_TIMEOUT_S)
+    except Exception as exc:
+        log.warning("healthz: could not read the schema version (%s)", type(exc).__name__)
+    return None
 
 
 @router.get("/healthz")
