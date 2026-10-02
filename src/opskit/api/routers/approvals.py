@@ -77,6 +77,19 @@ async def request_approval(request: Request, body: RequestApproval) -> ApprovalV
     return ApprovalView.of(approval)
 
 
+@router.get("/{approval_id}")
+async def get_approval(request: Request, approval_id: UUID) -> ApprovalView:
+    """What a workflow checks after resuming: the decision as the helper recorded it.
+
+    The resume POST body is not proof of approval (anyone holding the signed URL can send
+    one), so side effects branch on this status instead.
+    """
+    try:
+        return ApprovalView.of(await _core(request).approvals.get(approval_id))
+    except NotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no such approval") from exc
+
+
 @router.post("/{approval_id}/expire")
 async def expire_approval(request: Request, approval_id: UUID) -> ApprovalView:
     try:

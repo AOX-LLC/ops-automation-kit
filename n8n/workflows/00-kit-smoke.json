@@ -19,6 +19,17 @@
         ]
       ]
     },
+    "Check recorded decision": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Approved?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
     "Classify (mock model call)": {
       "main": [
         [
@@ -79,7 +90,7 @@
         [
           {
             "index": 0,
-            "node": "Approved?",
+            "node": "Check recorded decision",
             "type": "main"
           }
         ]
@@ -104,7 +115,7 @@
       "id": "smoke-note-01",
       "name": "Note 01",
       "parameters": {
-        "content": "## Kit smoke: approval round-trip\nProves the wiring end to end: a run record, one mock model call through the adapter, an approval that pauses this execution, a human decision on the approver page, the resume, and the Send Email node over SMTP into Mailpit.",
+        "content": "## Kit smoke: approval round-trip\nProves the wiring end to end: a run record, one mock model call through the adapter, an approval that pauses this execution, a human decision on the approver page, the resume, and the Send Email node over SMTP into Mailpit.\n\nThe branch reads the decision the helper recorded, never the resume request's body: holding the resume URL is not the same as approving.",
         "height": 180,
         "width": 560
       },
@@ -251,8 +262,8 @@
           "combinator": "and",
           "conditions": [
             {
-              "id": "decision-is-approved",
-              "leftValue": "={{ $json.body?.decision }}",
+              "id": "recorded-status-is-approved",
+              "leftValue": "={{ $json.status }}",
               "operator": {
                 "operation": "equals",
                 "type": "string"
@@ -271,7 +282,7 @@
         "options": {}
       },
       "position": [
-        1100,
+        1320,
         0
       ],
       "type": "n8n-nodes-base.if",
@@ -295,7 +306,7 @@
         "toEmail": "approver@kit.example"
       },
       "position": [
-        1320,
+        1540,
         -100
       ],
       "type": "n8n-nodes-base.emailSend",
@@ -323,7 +334,7 @@
         "url": "=http://api:8000/v1/runs/{{ $('Start run').item.json.run_id }}/finish"
       },
       "position": [
-        1540,
+        1760,
         -100
       ],
       "type": "n8n-nodes-base.httpRequest",
@@ -348,7 +359,7 @@
         "url": "=http://api:8000/v1/approvals/{{ $('Request approval').item.json.approval_id }}/expire"
       },
       "position": [
-        1320,
+        1540,
         120
       ],
       "type": "n8n-nodes-base.httpRequest",
@@ -376,8 +387,33 @@
         "url": "=http://api:8000/v1/runs/{{ $('Start run').item.json.run_id }}/finish"
       },
       "position": [
-        1540,
+        1760,
         120
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "smoke-check-01",
+      "name": "Check recorded decision",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "method": "GET",
+        "options": {
+          "timeout": 10000
+        },
+        "url": "=http://api:8000/v1/approvals/{{ $('Request approval').item.json.approval_id }}"
+      },
+      "position": [
+        1100,
+        0
       ],
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2
