@@ -1,0 +1,11 @@
+# Build context: only what the images need.
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!alembic.ini
+!src/
+!config/
+!tools/
+src/**/__pycache__
+tools/**/__pycache__

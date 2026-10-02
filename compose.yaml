@@ -1,0 +1,238 @@
+# ops-automation-kit: n8n orchestrates, the helper API does the work.
+# Every host port binds 127.0.0.1. Ports and the project name can be overridden in .env.
+name: ${COMPOSE_PROJECT_NAME:-ops-automation-kit}
+
+x-hardened: &hardened
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+
+x-api-image: &api-image
+  image: ${COMPOSE_PROJECT_NAME:-ops-automation-kit}-api:local
+  build:
+    context: .
+    dockerfile: docker/api.Dockerfile
+    target: runtime
+  env_file:
+    - path: .env
+      required: false
+
+x-n8n-env: &n8n-env
+  DB_TYPE: postgresdb
+  DB_POSTGRESDB_HOST: postgres
+  DB_POSTGRESDB_DATABASE: n8n
+  DB_POSTGRESDB_USER: n8n_user
+  DB_POSTGRESDB_PASSWORD_FILE: /run/kit-secrets/n8n_db_password
+  N8N_ENCRYPTION_KEY_FILE: /run/kit-secrets/n8n_encryption_key
+  N8N_DIAGNOSTICS_ENABLED: "false"
+  N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+  N8N_PERSONALIZATION_ENABLED: "false"
+  N8N_TEMPLATES_ENABLED: "false"
+  N8N_PUBLIC_API_DISABLED: "true"
+  N8N_BLOCK_ENV_ACCESS_IN_NODE: "true"
+  GENERIC_TIMEZONE: UTC
+  TZ: UTC
+
+services:
+  kit-secrets:
+    <<: [*api-image, *hardened]
+    user: "0:0"
+    # root inside a one-shot container only: it creates the per-consumer files and chowns them
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+    command: ["python", "-m", "opskit.bootstrap.secrets", "/secrets"]
+    healthcheck: { disable: true }
+    volumes:
+      - kit-secrets:/secrets
+    restart: "no"
+    network_mode: none
+
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg17-trixie@sha256:7a7e9f22015b67edb4bef5c59daeebcd7e74bfa570df6ce60ae01237c8648a84
+    depends_on:
+      kit-secrets: { condition: service_completed_successfully }
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/kit-secrets/postgres_superuser_password
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
+      - type: volume
+        source: kit-secrets
+        target: /run/kit-secrets
+        read_only: true
+        volume: { subpath: postgres }
+    ports:
+      - "127.0.0.1:${KIT_PG_PORT:-4302}:5432"
+    healthcheck:
+      # TCP, not the socket: the init-time server listens only on the socket
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d opskit"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    mem_limit: 512m
+    networks: [kit]
+
+  migrate:
+    <<: [*api-image, *hardened]
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      OPSKIT_DB_USER: opskit_owner
+      OPSKIT_DB_PASSWORD_SECRET: opskit_owner_password
+    command: ["alembic", "-c", "/app/alembic.ini", "upgrade", "heads"]
+    healthcheck: { disable: true }
+    read_only: true
+    volumes:
+      - type: volume
+        source: kit-secrets
+        target: /run/kit-secrets
+        read_only: true
+        volume: { subpath: migrate }
+    restart: "no"
+    networks: [kit]
+
+  mailpit:
+    image: axllent/mailpit:v1.31.3@sha256:ed9b00c609e77e99c79b93f1178255ebc271868920f2c69a8d166bd5634ed10d
+    <<: *hardened
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: "2000"
+      # No relay is configured: every message stays in this container.
+    volumes:
+      - mailpit-data:/data
+    ports:
+      - "127.0.0.1:${KIT_MAILPIT_WEB_PORT:-4303}:8025"
+      - "127.0.0.1:${KIT_MAILPIT_SMTP_PORT:-4304}:1025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    mem_limit: 128m
+    networks: [kit]
+
+  seed:
+    <<: [*api-image, *hardened]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      mailpit: { condition: service_healthy }
+    command: ["python", "-m", "opskit.seed"]
+    healthcheck: { disable: true }
+    read_only: true
+    volumes:
+      - ./samples:/data/samples:ro
+      - type: volume
+        source: kit-secrets
+        target: /run/kit-secrets
+        read_only: true
+        volume: { subpath: api }
+    restart: "no"
+    networks: [kit]
+
+  n8n-import:
+    image: n8nio/n8n:2.41.5@sha256:6f532d3b819cfe66c6a13c5375228f312c53df1abaa11a377eb8c3d3f105c363
+    <<: *hardened
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      <<: *n8n-env
+      FORCE_REIMPORT: ${FORCE_REIMPORT:-0}
+    entrypoint: ["/bin/sh", "/kit/import.sh"]
+    tmpfs: [/tmp]
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - ./n8n/workflows:/workflows:ro
+      - ./docker/n8n/import.sh:/kit/import.sh:ro
+      - ./docker/n8n/render-credentials.js:/kit/render-credentials.js:ro
+      - type: volume
+        source: kit-secrets
+        target: /run/kit-secrets
+        read_only: true
+        volume: { subpath: n8n }
+    restart: "no"
+    networks: [kit]
+
+  n8n:
+    image: n8nio/n8n:2.41.5@sha256:6f532d3b819cfe66c6a13c5375228f312c53df1abaa11a377eb8c3d3f105c363
+    <<: *hardened
+    depends_on:
+      n8n-import: { condition: service_completed_successfully }
+    environment:
+      <<: *n8n-env
+      N8N_INSTANCE_OWNER_MANAGED_BY_ENV: "true"
+      N8N_INSTANCE_OWNER_EMAIL: owner@kit.example
+      N8N_INSTANCE_OWNER_FIRST_NAME: Kit
+      N8N_INSTANCE_OWNER_LAST_NAME: Owner
+      WEBHOOK_URL: http://localhost:${KIT_N8N_PORT:-4300}/
+      N8N_EDITOR_BASE_URL: http://localhost:${KIT_N8N_PORT:-4300}/
+      # Plain HTTP on 127.0.0.1 only; a deployment behind TLS must turn this back on.
+      N8N_SECURE_COOKIE: "false"
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: "168"
+    entrypoint: ["/bin/sh", "/kit/entrypoint-with-secrets.sh"]
+    command: ["start"]
+    tmpfs: [/tmp]
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - ./docker/n8n/entrypoint-with-secrets.sh:/kit/entrypoint-with-secrets.sh:ro
+      - type: volume
+        source: kit-secrets
+        target: /run/kit-secrets
+        read_only: true
+        volume: { subpath: n8n }
+    ports:
+      - "127.0.0.1:${KIT_N8N_PORT:-4300}:5678"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5678/healthz/readiness"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 30s
+    mem_limit: 1g
+    networks: [kit]
+
+  api:
+    <<: [*api-image, *hardened]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      seed: { condition: service_completed_successfully }
+    environment:
+      OPSKIT_N8N_PUBLIC_URL: http://localhost:${KIT_N8N_PORT:-4300}
+    read_only: true
+    tmpfs: [/tmp]
+    volumes:
+      - ./samples:/data/samples:ro
+      - ./fixtures:/app/fixtures:ro
+      - type: volume
+        source: kit-secrets
+        target: /run/kit-secrets
+        read_only: true
+        volume: { subpath: api }
+    ports:
+      - "127.0.0.1:${KIT_API_PORT:-4301}:8000"
+    mem_limit: 512m
+    networks: [kit]
+
+  # `make login` runs this; it is the only way to read the generated human passwords.
+  kit-login:
+    <<: [*api-image, *hardened]
+    profiles: [tools]
+    command: ["python", "-m", "opskit.bootstrap.show_login"]
+    healthcheck: { disable: true }
+    read_only: true
+    network_mode: none
+    volumes:
+      - type: volume
+        source: kit-secrets
+        target: /run/kit-secrets
+        read_only: true
+        volume: { subpath: login }
+
+networks:
+  kit: {}
+
+volumes:
+  kit-secrets: {}
+  pg-data: {}
+  n8n-data: {}
+  mailpit-data: {}
