@@ -284,3 +284,16 @@ The helper retrieves the text, has agent-core extract fields with citations, val
     - **To release it:** reply from your own mail client. The kit never drafts a reply to a held email.
     - **To dismiss it:** take no action.
   - No release endpoint exists in v1, so a held email can never be turned into a draft automatically.
+
+## Cut line taken
+
+Inbox ships in Phase 3. Of the leads work, only the guarded fetcher (`opskit.leads.netguard`: SSRF guard, pinned-IP TLS verified against the hostname, streaming size and time caps, same-site redirects) landed, with its tests. The rest moves to Phase 3b:
+
+- the corpus and web retrievers (robots.txt, path allowlist, the optional `website` column);
+- `leads.extract` with validated citations;
+- the CRM upsert (`leads_0002`, `crm_0002`);
+- the `02-leads` workflow;
+- the leads evals and their recording;
+- the one manual live web run.
+
+`02-leads` stays an unpublished skeleton. Spend so far: $0.42 of the $3 cap.
