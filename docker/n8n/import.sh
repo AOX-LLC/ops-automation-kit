@@ -8,7 +8,7 @@ set -eu
 
 WORKFLOWS=/workflows
 STATE=/home/node/.n8n/kit-import-state
-PUBLISHED_IDS="kitSmoke00000001"
+PUBLISHED_IDS="kitSmoke00000001 receipts00000001"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT INT TERM
 
