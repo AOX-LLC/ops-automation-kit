@@ -526,7 +526,7 @@ A company with no `website` is reported as "no website given" and never reaches 
 
 - The guarded fetcher refuses non-public addresses (private, loopback, link-local, CGNAT, mapped IPv6), connects to the vetted IP while verifying the certificate and SNI against the hostname, allows https on port 443 only, follows at most 3 same-site redirects (each re-checked), refuses compressed bodies, and enforces the 512 KiB cap and the 10 s deadline while streaming. A non-2xx answer returns its status without reading the body.
 - At most 5 pages per company, from a fixed list: `/`, `/about`, `/about-us`, `/company`, `/contact`. Links are never followed.
-- robots.txt is fetched first through the same client, as `ops-automation-kit/0.1`, once per host per run. **2xx:** its rules apply. **4xx other than 429:** allowed (RFC 9309). **429, 5xx, a timeout, a refused connection, a guard failure or a bad redirect:** the whole site is blocked.
+- robots.txt is fetched first through the same client, as `ops-automation-kit/0.1`, once per host per run. **2xx:** its rules apply. **4xx other than 429:** allowed (RFC 9309). **429, 5xx, a timeout, a refused connection, a guard failure or a bad redirect:** the whole site is blocked. Rules are matched longest first, Allow wins a tie, and `*` and `$` work as RFC 9309 describes.
 
 ### Extraction and citations
 
@@ -550,6 +550,10 @@ Otherwise the field is null. Documents that verifiably disagree leave it null wi
 - Only the company's own site is fetched. There is no search, no JavaScript rendering and no PDF reading.
 - A listing quote must name the company, so a listing that gives a figure without the name is not used.
 - Two companies with the same name and city collide on the research row.
+- The workflow reads the first 100 companies of the list; it does not page past that.
+- A quote supports a value if the value is a whole word of it. Negation ("we are not a plumbing company") and context ("we ship to Boston") are not parsed, so a person still reads the CRM record.
+- robots.txt is matched by the kit's own RFC 9309 matcher. A file with more than 2,000 rules, more than 100 agents in a group or a rule over 512 characters blocks the site.
+- A page that robots.txt allows may redirect; every hop is checked against the same rules.
 
 ## Health endpoints
 
