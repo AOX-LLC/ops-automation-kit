@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
@@ -226,9 +227,17 @@ async def load_triage(session_factory: SessionFactory, message_id: str) -> Triag
     return _triage_of(row, _message_of(message_row))
 
 
-async def triaged_ids(session_factory: SessionFactory) -> set[str]:
+async def triaged_among(session_factory: SessionFactory, message_ids: Sequence[str]) -> set[str]:
+    """Which of these messages are already triaged (one indexed lookup per listing page)."""
+    if not message_ids:
+        return set()
     async with session_factory() as session:
-        return set((await session.execute(select(triage_table.c.message_id))).scalars())
+        rows = await session.execute(
+            select(triage_table.c.message_id).where(
+                triage_table.c.message_id.in_(list(message_ids))
+            )
+        )
+        return set(rows.scalars())
 
 
 # --- drafts -------------------------------------------------------------------------------

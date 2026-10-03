@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from functools import partial
 from typing import Annotated
 from uuid import UUID
 
@@ -112,12 +113,12 @@ async def pending(request: Request, limit: Limit = 50) -> PendingPage:
     """New messages that are not triaged yet; each is stored so triage can read it."""
     settings: Settings = request.app.state.settings
     factory = _database(request)
-    done = await store.triaged_ids(factory)
     items: list[PendingItem] = []
     try:
         async with _http_client(request) as client:
             source = MailpitSource(settings.mailpit_api_url, client)
-            for ref in await source.list_new(known=done, limit=limit):
+            known = partial(store.triaged_among, factory)
+            for ref in await source.list_new(known=known, limit=limit):
                 msg = await source.fetch(ref)
                 await store.save_message(factory, msg)
                 items.append(

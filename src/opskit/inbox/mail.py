@@ -7,6 +7,7 @@ attachments are ignored.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from email.utils import formataddr
@@ -38,8 +39,13 @@ class InboundMessage(BaseModel):
     body_text: str
 
 
+# Which of these Message-IDs are already handled; asked once per listing page, so the
+# caller never has to load every ID it has ever seen.
+type KnownLookup = Callable[[Sequence[str]], Awaitable[set[str]]]
+
+
 class MailSource(Protocol):
-    async def list_new(self, *, known: set[str], limit: int) -> list[MailRef]: ...
+    async def list_new(self, *, known: KnownLookup, limit: int) -> list[MailRef]: ...
 
     async def fetch(self, ref: MailRef) -> InboundMessage: ...
 
@@ -82,8 +88,8 @@ class MailpitSource:
         self._api_url = api_url.rstrip("/")
         self._client = client
 
-    async def list_new(self, *, known: set[str], limit: int) -> list[MailRef]:
-        """Up to `limit` messages whose Message-ID is not in `known`, oldest first.
+    async def list_new(self, *, known: KnownLookup, limit: int) -> list[MailRef]:
+        """Up to `limit` messages that `known` does not report as handled, oldest first.
 
         Messages the kit sent itself (From ending `@kit.example`) are skipped.
         """
@@ -96,9 +102,11 @@ class MailpitSource:
             response.raise_for_status()
             body = response.json()
             page = body.get("messages") or []
-            for raw in page:
-                message_id = str(raw.get("MessageID") or "")
-                if not message_id or message_id in known or sent_by_kit(raw):
+            candidates = [r for r in page if r.get("MessageID") and not sent_by_kit(r)]
+            handled = await known([str(r["MessageID"]) for r in candidates])
+            for raw in candidates:
+                message_id = str(raw["MessageID"])
+                if message_id in handled:
                     continue
                 found.setdefault(message_id, MailRef(str(raw.get("ID", "")), message_id))
             start += len(page)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Awaitable, Callable, Sequence
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any
@@ -254,6 +255,13 @@ def _listing(*senders: tuple[str, str, str]) -> dict[str, Any]:
     }
 
 
+def _knowing(ids: set[str]) -> Callable[[Sequence[str]], Awaitable[set[str]]]:
+    async def known(message_ids: Sequence[str]) -> set[str]:
+        return ids & set(message_ids)
+
+    return known
+
+
 def _source(handler: Any) -> MailpitSource:
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     return MailpitSource("http://mailpit.test/", client)
@@ -270,7 +278,7 @@ async def test_list_new_skips_known_ids_and_the_kits_own_mail() -> None:
         assert request.url.path == "/api/v1/messages"
         return httpx.Response(200, json=listing)
 
-    refs = await _source(handler).list_new(known={"a@x"}, limit=10)
+    refs = await _source(handler).list_new(known=_knowing({"a@x"}), limit=10)
     assert refs == [MailRef("id2", "b@x")]
 
 
@@ -281,7 +289,7 @@ async def test_list_new_is_oldest_first_and_honours_the_limit() -> None:
         ("id1", "a@x", "a@mail.example"),
     )
     source = _source(lambda request: httpx.Response(200, json=listing))
-    refs = await source.list_new(known=set(), limit=2)
+    refs = await source.list_new(known=_knowing(set()), limit=2)
     assert [r.message_id for r in refs] == ["a@x", "b@x"]
 
 
@@ -297,7 +305,7 @@ async def test_list_new_pages_through_the_mailbox() -> None:
         starts.append(start)
         return httpx.Response(200, json={"messages_count": 2, "messages": pages[start]})
 
-    refs = await _source(handler).list_new(known=set(), limit=10)
+    refs = await _source(handler).list_new(known=_knowing(set()), limit=10)
     assert starts == ["0", "1"]
     assert [r.message_id for r in refs] == ["a@x", "b@x"]
 
