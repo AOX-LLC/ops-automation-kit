@@ -32,12 +32,12 @@ expected_sample_files() {
 }
 
 check_seeded_data() {
-    local mails=$1
+    local mails=$1 accounts=${2:-5}
     [ "$(sql 'select count(*) from core.sample_files')" = "$(expected_sample_files | tr -d ' ')" ] \
         || fail "core.sample_files does not match the files under samples/"
-    [ "$(sql 'select count(*) from crm.accounts')" = "5" ] || fail "crm.accounts should hold 5 rows"
+    [ "$(sql 'select count(*) from crm.accounts')" = "$accounts" ] || fail "crm.accounts should hold $accounts rows"
     [ "$(mail_count)" = "$mails" ] || fail "Mailpit should hold $mails messages, has $(mail_count)"
-    echo "postgres: $(sql 'select count(*) from core.sample_files') sample files, 5 CRM accounts; mailpit: $mails messages"
+    echo "postgres: $(sql 'select count(*) from core.sample_files') sample files, $accounts CRM accounts; mailpit: $mails messages"
 }
 
 if [ "${1:-}" = "--clean" ]; then
@@ -64,7 +64,7 @@ curl -sf -b "$WORK/n8n.jar" "$N8N/rest/workflows" > "$WORK/workflows.json"
 ids=$(json '",".join(sorted(w["id"] for w in d["data"]))' < "$WORK/workflows.json")
 [ "$ids" = "inbox00000000001,inboxReply000001,kitSmoke00000001,leads00000000001,receipts00000001" ] || fail "unexpected workflows: $ids"
 active=$(json '",".join(sorted(w["id"] for w in d["data"] if w.get("active")))' < "$WORK/workflows.json")
-[ "$active" = "inbox00000000001,inboxReply000001,kitSmoke00000001,receipts00000001" ] || fail "unexpected published workflows: $active"
+[ "$active" = "inbox00000000001,inboxReply000001,kitSmoke00000001,leads00000000001,receipts00000001" ] || fail "unexpected published workflows: $active"
 echo "workflows: $ids (published: $active)"
 
 step "approval round-trip"
@@ -175,9 +175,37 @@ wait_for 30 "the approved reply in Mailpit" replied
 wait_for 30 "the inbox summary and the reply in Mailpit" mail_count_is 32
 echo "28 messages triaged, 3 held and never drafted, 1 reply approved and sent, 1 rejected and left unsent"
 
+step "leads workflow end to end (replay)"
+leads() { [ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "X-Kit-Token: $KIT_WEBHOOK_TOKEN" "$N8N/webhook/leads-run")" = "200" ]; }
+wait_for 90 "the leads webhook to register" leads
+leads_done() { [ "$(sql "select count(*) from core.runs where workflow = 'leads' and status = 'succeeded'")" -ge 1 ]; }
+wait_for 240 "the leads run to finish" leads_done
+[ "$(sql "select count(*) from leads.research where status = 'researched'")" = "17" ] \
+    || fail "expected 17 researched companies, got $(sql "select count(*) from leads.research where status = 'researched'")"
+[ "$(sql "select count(*) from leads.research where reason = 'no website given'")" = "3" ] \
+    || fail "expected 3 companies reported as no website given"
+[ "$(sql 'select count(*) from crm.accounts')" = "21" ] || fail "expected 21 CRM accounts (5 seeded + 16 new; Ironwood updated)"
+[ "$(sql "select crm_action from leads.research where domain = 'ironwood.example'")" = "updated" ] \
+    || fail "Ironwood should be updated, not duplicated"
+[ "$(sql "select count(*) from crm.account_sources s join crm.accounts a on a.id = s.account_id where a.domain = 'northfield.example' and s.field = 'employee_band' and s.excerpt like '%11-50%'")" = "1" ] \
+    || fail "Northfield's band should be sourced as 11-50"
+[ "$(sql "select count(*) from crm.account_sources where source_ref = '' or excerpt = ''")" = "0" ] || fail "a CRM field has no source"
+wait_for 30 "the leads summary email" mail_count_is 33
+echo "17 companies researched with sources, 3 reported as no website given, Ironwood updated not duplicated"
+
+step "leads run again (no duplicates)"
+leads_runs() { [ "$(sql "select count(*) from core.runs where workflow = 'leads' and status = 'succeeded'")" -ge 2 ]; }
+leads
+wait_for 240 "the second leads run to finish" leads_runs
+[ "$(sql 'select count(*) from crm.accounts')" = "21" ] || fail "a re-run changed the number of CRM accounts"
+[ "$(sql 'select count(*) from (select account_id, field from crm.account_sources group by 1, 2 having count(*) > 1) d')" = "0" ] \
+    || fail "a re-run duplicated a source row"
+wait_for 30 "the second leads summary email" mail_count_is 34
+echo "re-run updated the same records: still 21 accounts, one source row per field"
+
 step "second boot without -v"
 docker compose up -d --wait || fail "second boot did not become healthy"
-check_seeded_data 32
+check_seeded_data 34 21
 if docker compose logs --no-color n8n-import | grep -q WARNING; then
     fail "second boot re-imported a workflow that did not change"
 fi
