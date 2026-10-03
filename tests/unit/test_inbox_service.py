@@ -189,6 +189,8 @@ async def test_a_grounded_draft_is_ready_and_calls_the_mid_tier() -> None:
     }
     assert models.calls[0][1]["tier"] is Tier.MID
     assert set(models.calls[0][1]["inputs"]) == {"profile", "category", "sender", "subject", "body"}
+    # One email and the profile, nothing else: no attachments, no extra context.
+    assert set(models.calls[0][1]) == {"inputs", "output", "tier", "context"}
 
 
 async def test_an_ungrounded_draft_is_failed() -> None:

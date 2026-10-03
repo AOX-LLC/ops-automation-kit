@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from email import message_from_bytes, policy
 from pathlib import Path
 
@@ -110,6 +111,12 @@ def test_draft_inputs_have_exactly_the_documented_keys() -> None:
         profile=PROFILE, category="support", sender="a@x.example", subject="s", body="b"
     )
     assert set(inputs) == {"profile", "category", "sender", "subject", "body"}
+
+
+def test_the_draft_prompt_reads_only_the_documented_inputs() -> None:
+    text = inbox_policy.DRAFT_PROMPT.system + inbox_policy.DRAFT_PROMPT.template
+    placeholders = set(re.findall(r"\$\{(\w+)\}", text))
+    assert placeholders == {"profile", "category", "sender", "subject", "body"}
 
 
 def test_another_emails_text_never_reaches_the_draft_inputs() -> None:
