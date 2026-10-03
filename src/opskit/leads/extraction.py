@@ -22,6 +22,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from html import escape
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -30,6 +31,7 @@ from opskit.leads.models import (
     FIELDS,
     FieldValue,
     Finding,
+    FindingKind,
     ResearchOutcome,
     empty_fields,
 )
@@ -95,7 +97,7 @@ EXTRACT_PROMPT = PromptRef(
     ),
 )
 
-_DOCUMENT_TAG = re.compile(r"<(\s*/?\s*document\b[^>]{0,60})>", re.I)
+_DOCUMENT_TAG = re.compile(r"<(\s*/?\s*document\b[^>]*)>", re.I)
 
 
 def _defang(text: str) -> str:
@@ -113,7 +115,7 @@ def build_extract_inputs(company: Company, documents: Sequence[Document]) -> dic
             break
         body = _defang(doc.text[:room])
         used += len(body)
-        blocks.append(f'<document url="{doc.url}">\n{body}\n</document>')
+        blocks.append(f'<document url="{escape(doc.url, quote=True)}">\n{body}\n</document>')
     return {
         "company_name": _defang(company.name),
         "city_hint": _defang(company.city_hint),
@@ -145,10 +147,23 @@ def _value_supported(name: str, value: str, quote: str, domain: str) -> str | No
     if name == "founded_year":
         ok = re.fullmatch(r"\d{4}", value) and 1800 <= int(value) <= datetime.now(UTC).year
         return None if ok and _word_in(value, quote) else "year not stated in the quote"
-    limit = 400 if name == "description" else 80
-    if len(value) > limit:
+    if name == "description":  # one sentence copied verbatim: the value is the quote
+        short = len(value) <= MAX_QUOTE_CHARS
+        return None if short and value == quote else "description is not the quoted sentence"
+    if len(value) > 80:
         return "value too long"
-    return None if value in quote else "value not in the quote"
+    return None if _word_in(value, quote) else "value not in the quote"
+
+
+def _names_company(name: str, quote: str) -> bool:
+    """The quote has the company's whole name, ended by punctuation or the end of the line, so
+    'Ace Roofing' is not found in 'Grace Roofing' or 'Redline Auto' in 'Redline Auto Works'."""
+    pattern = rf"(?<![\w-]){re.escape(name)}\s*(?:[,|:;(]|$)"
+    return bool(name) and re.search(pattern, quote) is not None
+
+
+def _within_one_line(quote: str, text: str) -> bool:
+    return any(quote in normalize(line) for line in text.splitlines())
 
 
 def _check_cite(
@@ -156,26 +171,34 @@ def _check_cite(
 ) -> tuple[FieldValue | None, Finding | None]:
     doc = docs.get(cite.source_url)
     quote_n = normalize(cite.quote)
+
+    def reject(detail: str, kind: FindingKind = "citation_rejected") -> tuple[None, Finding]:
+        return None, Finding(field=name, kind=kind, detail=detail)
+
     if doc is None:
-        return None, Finding(field=name, kind="citation_rejected", detail="unknown source")
+        return reject("unknown source")
     if not quote_n or len(cite.quote) > MAX_QUOTE_CHARS or quote_n not in normalize(doc.text):
-        return None, Finding(
-            field=name, kind="citation_rejected", detail=f"quote not in {cite.source_url}"
-        )
-    if not doc.own and normalize(company.name) not in quote_n:
-        return None, Finding(
-            field=name, kind="citation_rejected", detail="listing quote does not name the company"
-        )
+        return reject(f"quote not in {cite.source_url}")
+    if not doc.own:
+        # A listing holds many companies, one per line: the quote must be one line of it, and
+        # that line must be about this company.
+        if not _within_one_line(quote_n, doc.text):
+            return reject("listing quote spans more than one line")
+        if not _names_company(normalize(company.name), quote_n):
+            return reject("listing quote does not name the company")
     value_n = normalize(cite.value)
     if name == "employee_band":
         value_n = _BAND_UNIT.sub("", value_n)
     reason = _value_supported(name, value_n, quote_n, domain)
     if reason is not None:
-        kind = "domain_mismatch" if name == "domain" else "unsupported_value"
-        return None, Finding(field=name, kind=kind, detail=reason)
-    stored: str | int = int(cite.value) if name == "founded_year" else cite.value.strip()
-    if name == "employee_band":  # "51-200 employees" is the band 51-200
-        stored = _BAND_UNIT.sub("", normalize(cite.value))
+        return reject(reason, "domain_mismatch" if name == "domain" else "unsupported_value")
+    stored: str | int = value_n  # the checked, normalised value, not the model's raw string
+    if name == "founded_year":
+        stored = int(value_n)
+    elif name == "domain":
+        stored = domain
+    elif name in ("industry", "hq_city", "description"):
+        stored = cite.value.strip()
     return FieldValue(value=stored, source_url=cite.source_url, quote=cite.quote.strip()), None
 
 
