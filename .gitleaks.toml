@@ -1,10 +1,11 @@
-# Default rules, plus one narrow exception: mock-mode fixture keys are SHA-256 content
-# hashes of the request, not credentials. Only that exact field and shape is allowed.
+# Default rules, plus two narrow exceptions for the generic-api-key rule only.
 [extend]
 useDefault = true
 
+# Phase 1's hand-written fixture (deleted in Phase 2, still in git history) carried a
+# SHA-256 content hash in "fixture_key", not a credential. History scans need this.
 [[allowlists]]
-description = "fixture_key content hashes in recorded model fixtures"
+description = "fixture_key content hashes in the Phase 1 fixture, kept for history scans"
 regexTarget = "line"
 regexes = ['''^\s*"fixture_key": "[0-9a-f]{64}",?$''']
 paths = ['''^fixtures/model/''']

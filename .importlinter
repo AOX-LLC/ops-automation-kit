@@ -4,26 +4,28 @@ root_packages =
 include_external_packages = True
 
 [importlinter:contract:model-sdk-only-in-core]
-name = Only opskit.core may import a model SDK or agent-core
+name = Only opskit.core may import a model SDK or agent-core (opskit.evals is exempt: it is host-side tooling that drives agent-core's eval runner directly)
 type = forbidden
 source_modules =
     opskit.api
     opskit.approvals
-    opskit.seed
     opskit.bootstrap
-    opskit.db
     opskit.config
+    opskit.db
+    opskit.receipts
+    opskit.seed
 forbidden_modules =
     anthropic
     aox_agent_core
 allow_indirect_imports = True
 
 [importlinter:contract:stub-behind-factory]
-name = Only the factory and core internals reach the stub implementations
+name = Only the factory and core internals reach the Postgres backends
 type = forbidden
 source_modules =
     opskit.api
     opskit.approvals
+    opskit.receipts
     opskit.seed
 forbidden_modules =
     opskit.core.pg
