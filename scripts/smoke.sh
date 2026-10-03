@@ -131,12 +131,12 @@ wait_for 180 "at least two drafts to wait for approval" drafts_settled
 
 m28_id=$(message_id_of samples/inbox/messages/m28.eml)
 m28_from=$(sed -n 's/^From:.*<\(.*\)>.*/\1/p' samples/inbox/messages/m28.eml | head -1)
-m28=$(sql "select status || '|' || to_addr || '|' || reply_to_differs || '|' || coalesce(approval_id::text, '') from inbox.drafts where trim(both '<>' from message_id) = '$m28_id'")
+m28=$(sql "select status || '|' || to_addr || '|' || reply_to_differs::text || '|' || coalesce(approval_id::text, '') from inbox.drafts where trim(both '<>' from message_id) = '$m28_id'")
 if [ -n "$m28" ]; then
     IFS='|' read -r m28_status m28_to m28_differs m28_approval <<< "$m28"
     if [ "$m28_status" != "failed" ]; then
         [ "$m28_to" = "$m28_from" ] || fail "the m28 draft goes to $m28_to, not the From address $m28_from"
-        [ "$m28_differs" = "t" ] || fail "the m28 draft should record that Reply-To differs"
+        [ "$m28_differs" = "true" ] || fail "the m28 draft should record that Reply-To differs"
     fi
 fi
 
