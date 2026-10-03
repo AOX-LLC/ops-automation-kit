@@ -104,9 +104,11 @@ class KitApprovalQueue(ApprovalQueue, Protocol):
     """agent-core's ApprovalQueue plus what the kit keeps in its own adapter.
 
     submit() also takes `resume_url`, the signed n8n URL to call once decided; it is
-    stored but never returned. The kit also keeps a string-cursor page for the approver
-    page, shows the approver the payload it is approving, and closes a request whose wait is
-    over (`close_pending`).
+    stored but never returned. The payload is always stored, since the approver must see what
+    the hash binds; `include_payload` only sets whether the returned request carries it. A repeat
+    of an open request returns it (see the queue's docstring). The kit also keeps a string-cursor
+    page for the approver page, shows the approver the payload it is approving, and closes a
+    request whose wait is over (`close_pending`).
     """
 
     async def submit(
@@ -121,6 +123,7 @@ class KitApprovalQueue(ApprovalQueue, Protocol):
         delegates: Collection[str] = (),
         context: RunContext | None = None,
         resume_url: str | None = None,
+        include_payload: bool = False,
     ) -> ApprovalRequest: ...
 
     async def payload_of(self, request_id: UUID) -> JsonObject: ...
