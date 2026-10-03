@@ -31,13 +31,14 @@ API = Consumer("api", API_UID)
 MIGRATE = Consumer("migrate", API_UID)
 LOGIN = Consumer("login", API_UID)
 DB_ROLES = Consumer("dbroles", API_UID)
+SEED = Consumer("seed", API_UID)
 
 # secret name -> consumers that receive a copy
 TOKENS: dict[str, tuple[Consumer, ...]] = {
     "postgres_superuser_password": (POSTGRES, DB_ROLES),
     "n8n_db_password": (POSTGRES, N8N),
     "opskit_owner_password": (POSTGRES, MIGRATE),
-    "opskit_app_password": (POSTGRES, API),
+    "opskit_app_password": (POSTGRES, API, SEED),
     # The approver role is created by the db-roles step (not initdb), so existing databases
     # get it too; only the api's decision path and that step receive the password.
     "opskit_approver_password": (DB_ROLES, API),
@@ -65,7 +66,7 @@ def _write_new(path: Path, value: str, uid: int) -> bool:
     return True
 
 
-CONSUMERS = (POSTGRES, N8N, API, MIGRATE, LOGIN, DB_ROLES)
+CONSUMERS = (POSTGRES, N8N, API, MIGRATE, LOGIN, DB_ROLES, SEED)
 
 
 def _open_dirs(root: Path) -> None:

@@ -60,7 +60,7 @@ Hardening for every service except Postgres: `cap_drop: [ALL]`, `security_opt: [
 | `postgres_superuser_password` | postgres |
 | `n8n_db_password` | postgres, n8n, n8n-import |
 | `opskit_owner_password` (migrations) | postgres, migrate |
-| `opskit_app_password` (runtime, requester role) | postgres, api, seed |
+| `opskit_app_password` (runtime, requester role) | postgres, api, seed (its own copy; seed gets no other secret) |
 | `opskit_approver_password` (approver role, decision path only) | db-roles, api |
 | `n8n_encryption_key` | n8n, n8n-import |
 | `n8n_owner_password` + `.bcrypt` | n8n gets the hash only; the plaintext is shown by `make login` |

@@ -193,7 +193,7 @@ services:
         source: kit-secrets
         target: /run/kit-secrets
         read_only: true
-        volume: { subpath: api }
+        volume: { subpath: seed }
     mem_limit: 256m
     pids_limit: 64
     restart: "no"

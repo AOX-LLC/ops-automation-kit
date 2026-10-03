@@ -54,6 +54,7 @@ def test_the_approver_password_reaches_only_the_api_and_the_db_roles_step(tmp_pa
     # n8n and the migration step never see it.
     assert not (tmp_path / "n8n" / name).exists()
     assert not (tmp_path / "migrate" / name).exists()
+    assert not (tmp_path / "seed" / name).exists()
 
 
 def test_an_existing_volume_gains_the_approver_password_and_keeps_the_rest(tmp_path) -> None:  # type: ignore[no-untyped-def]
