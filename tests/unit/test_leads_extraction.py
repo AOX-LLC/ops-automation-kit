@@ -468,6 +468,12 @@ async def test_the_recorded_aeroflow_band_with_its_unit_is_kept_as_the_bare_band
         "Call us on 555-0142",
         "Call (555) 010-0142 for a quote",
         "Phone: +1 555 010 0142",
+        "Reach jane at acme dot com",
+        "jane [at] acme.example",
+        "jane\u200b@acme.example",
+        "jane\uff20acme.example",
+        "Call 5550100142 today",
+        "Tel 555.010.0142",
     ],
 )
 def test_a_quote_with_contact_details_is_refused(quote: str) -> None:
@@ -477,7 +483,17 @@ def test_a_quote_with_contact_details_is_refused(quote: str) -> None:
     assert got.findings[0].detail == "quote contains contact details"
 
 
-@pytest.mark.parametrize("quote", ["Team: 11-50 employees", "Founded 2002-2010", "since 1999"])
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "Team: 11-50 employees",
+        "Founded 2002-2010",
+        "since 1999",
+        "Visit us at acme.example",
+        "Open 9-5, since 1999 and 2004-2010",
+        "51-200 employees across 3 sites",
+    ],
+)
 def test_ordinary_numbers_are_not_mistaken_for_phone_numbers(quote: str) -> None:
     doc = Document(URL, f"About us. {quote}", own=True)
     got = verify(ACME, LeadExtraction(employee_band=[cite("11-50", quote)]), [doc])
