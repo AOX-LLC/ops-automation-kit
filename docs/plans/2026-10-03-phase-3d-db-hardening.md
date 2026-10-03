@@ -72,7 +72,7 @@ changed**. Depth is measured with `jsonb_path_exists(v, '$.**{N to last}')`, whi
 `core.approvals` and `core.audit_log` extend their existing guards instead. A function
 `core.bounds_violations(table, spec)` runs the same checks over stored rows for the migration report
 and for tests. Each domain branch adds a revision (`crm_0003`, `receipts_0003`, `leads_0003`,
-`inbox_0003`) with `depends_on = core_0007`.
+`inbox_0003`) with `depends_on = core_0010`.
 
 ### 5b. Requester-writable columns and bounds
 
