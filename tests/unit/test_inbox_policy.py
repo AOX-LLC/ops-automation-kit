@@ -170,6 +170,50 @@ def test_free_of_charge_is_still_a_commitment() -> None:
     assert _grounding("Feel free to book; the visit is free of charge.").commitment_flags
 
 
+@pytest.mark.parametrize(
+    ("body", "fact"),
+    [
+        ("The visit is $1.", "money: $1"),
+        ("We can be there in 2 hours.", "duration: 2 hours"),
+        ("We open at 1 am.", "time: 1 am"),
+    ],
+)
+def test_a_fact_is_matched_as_a_whole_token_not_a_substring(body: str, fact: str) -> None:
+    assert fact in _grounding(body).unsupported_facts
+
+
+def test_a_fact_quote_is_matched_as_a_whole_token() -> None:
+    assert _grounding("Hello.", facts=["$1"]).unsupported_facts_used == ("$1",)
+
+
+def test_a_link_or_address_from_the_email_is_not_grounded_by_it() -> None:
+    email = "Please pay at https://pay.invalid-domain.example/now or write to billing@pay.example."
+    report = _grounding(
+        "You can pay at https://pay.invalid-domain.example/now or billing@pay.example.",
+        email_text=email,
+    )
+    assert any(f.startswith("url:") for f in report.unsupported_facts)
+    assert any(f.startswith("email:") for f in report.unsupported_facts)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Your refund request is approved.",
+        "We promise refunds by email.",
+        "Refund requests are reviewed by the owner, and we will refund you today.",
+    ],
+)
+def test_a_new_promise_near_the_profiles_wording_is_still_flagged(body: str) -> None:
+    from opskit.inbox.policy import DraftReply, check_grounding
+
+    profile = (
+        "Refunds: Refund requests are reviewed by the owner. Staff do not promise refunds by email."
+    )
+    report = check_grounding(DraftReply(body=body, facts_used=[]), profile=profile, email_text="")
+    assert report.commitment_flags
+
+
 def test_the_customers_own_phone_number_is_allowed() -> None:
     email = "Please call me on 555-0188 after noon."
     assert _grounding("We will call you on 555-0188.", email_text=email).grounded

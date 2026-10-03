@@ -451,10 +451,14 @@ The decision is read back from the helper, never taken from the resume call's bo
   - Reply-To is never used. When it differs from From, the draft records `reply_to_differs` and the approver page shows "Reply-To differs from From. Replies go to the From address only."
   - The subject becomes `Re: <subject>` (never doubled) and In-Reply-To is the original Message-ID.
 - **Grounding** (`policy.check_grounding`, no model):
-  - Every fact-shaped token in the body (money, phone, email address, URL, time, percentage, duration) must appear in the profile or in the customer's own email. The reply's own To address is allowed.
-  - Every quote the model lists in `facts_used` must appear in the profile.
+  - Every fact-shaped token in the body (money, phone, email address, URL, time, percentage, duration) must appear in the profile as a whole token: `$1` is not in `$149`, and `2 hours` is not in `12 hours`. The reply's own To address is allowed.
+  - The customer's email can ground only their own details: a phone number, an amount, a time, a percentage or a duration. URLs and email addresses must come from the profile, because the sender is unauthenticated and can't vouch for a link it supplies.
+  - Every quote the model lists in `facts_used` must appear in the profile, matched the same way.
   - A failure on either check stores the draft as `failed` (`ungrounded`). It never reaches a person.
-- **Commitment phrases.** Refund, guarantee, discount, same-day, free, waive, credit, compensation, complimentary, "on us", "no charge" and "money back" are flagged unless a profile sentence makes the same commitment, meaning it uses the phrase and shares another content word with the draft's sentence. Idioms that promise nothing ("feel free", "toll-free") are ignored.
+- **Commitment phrases.** Refund, guarantee, discount, same-day, free, waive, credit, compensation, complimentary, "on us", "no charge" and "money back", in any inflection ("refunds", "refunded"), are flagged unless the profile makes the same commitment.
+  - The test is per clause: every content word of the clause around the phrase must appear in one profile sentence that uses the phrase.
+  - The clause and the sentence must agree on negation, so "Staff do not promise refunds by email" never grounds "we promise refunds by email".
+  - Idioms that promise nothing ("feel free", "toll-free") are ignored.
   - A flagged draft still goes to the approver, with the flags listed in a warning above the body.
   - The eval counts every flag as a grounding failure.
 

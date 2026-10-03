@@ -222,9 +222,14 @@ def _norm(text: str) -> str:
 _NOT_COMMITMENTS = re.compile(r"\bfeel free\b|\btoll-free\b", re.I)
 
 
+def _phrase_pattern(phrase: str) -> re.Pattern[str]:
+    """The phrase and its inflections: refund, refunds, refunded, refunding."""
+    return re.compile(rf"\b{re.escape(phrase)}(?:s|es|d|ed|ing)?\b", re.I)
+
+
 def _contexts_for(phrase: str, text: str) -> list[str]:
     """The sentence around each use of a commitment phrase, normalised."""
-    pattern = re.compile(rf"\b{re.escape(phrase)}\b", re.I)
+    pattern = _phrase_pattern(phrase)
     sentences = re.split(r"(?<=[.!?])\s+|\n+", text)
     return [_norm(s) for s in sentences if pattern.search(_NOT_COMMITMENTS.sub(" ", s))]
 
@@ -238,6 +243,19 @@ class GroundingReport:
     @property
     def grounded(self) -> bool:
         return not (self.unsupported_facts or self.unsupported_facts_used or self.commitment_flags)
+
+
+# Kinds a draft may repeat from the customer's own email (their phone, the amount they
+# quote, the time they asked for). Links and addresses must come from the profile: the
+# sender is unauthenticated, so an email can't vouch for a URL or address it supplies.
+_EMAIL_MAY_GROUND = frozenset({"money", "phone", "time", "percent", "duration"})
+
+
+def _mentions(token: str, text: str) -> bool:
+    """`token` occurs in `text` as a whole token: "$1" is not in "$149", nor "2 hours" in
+    "12 hours", nor "bob@x.example" in "jimbob@x.example"."""
+    pattern = rf"(?<![\w$.%+@-])(?<!\d[.,]){re.escape(token)}(?![\w@])(?![.,:-]\w)"
+    return re.search(pattern, text) is not None
 
 
 def check_grounding(
@@ -254,10 +272,12 @@ def check_grounding(
             token = _norm(match.group(0)).rstrip(".,;:)")
             if kind == "email" and token in allowed:
                 continue
-            if token in profile_n or token in email_n:
+            if _mentions(token, profile_n):
+                continue
+            if kind in _EMAIL_MAY_GROUND and _mentions(token, email_n):
                 continue
             unsupported.append(f"{kind}: {token}")
-    used = tuple(q for q in draft.facts_used if _norm(q) not in profile_n)
+    used = tuple(q for q in draft.facts_used if not _mentions(_norm(q), profile_n))
     flags: list[str] = []
     for phrase in COMMITMENT_PHRASES:
         for context in _contexts_for(phrase, draft.body):
@@ -271,6 +291,48 @@ def check_grounding(
 
 
 _WORD = re.compile(r"[a-z]{4,}")
+_CLAUSE_BREAK = re.compile(r"[,;:()\u2013\u2014]|\s(?:and|but|so|because|which|while)\s", re.I)
+# Words of four or more letters that carry no promise of their own.
+_FILLER = frozenset(
+    {
+        "about",
+        "also",
+        "been",
+        "each",
+        "from",
+        "glad",
+        "happy",
+        "have",
+        "here",
+        "just",
+        "more",
+        "offer",
+        "once",
+        "only",
+        "please",
+        "such",
+        "than",
+        "that",
+        "them",
+        "then",
+        "there",
+        "these",
+        "they",
+        "this",
+        "those",
+        "very",
+        "were",
+        "what",
+        "when",
+        "will",
+        "with",
+        "would",
+        "your",
+    }
+)
+
+
+_NEGATION = re.compile(r"\b(?:not|never|no|cannot)\b|n't\b", re.I)
 
 
 def _stems(text: str) -> set[str]:
@@ -278,13 +340,28 @@ def _stems(text: str) -> set[str]:
 
 
 def _profile_states(phrase: str, draft_sentence: str, profile: str) -> bool:
-    """True if the profile makes this commitment: one of its sentences uses the phrase and
-    shares another content word with the draft's sentence ("refund requests are reviewed"
-    grounds "any refund request is reviewed"; "free cancellation" does not ground
-    "free installation")."""
-    pattern = re.compile(rf"\b{re.escape(phrase)}\b", re.I)
-    draft_words = _stems(draft_sentence) - _stems(phrase)
-    for sentence in re.split(r"(?<=[.!?])\s+|\n+", profile):
-        if pattern.search(sentence) and (_stems(sentence) - _stems(phrase)) & draft_words:
-            return True
-    return False
+    """True if the profile makes this commitment: every content word of each draft clause
+    that uses the phrase appears in one profile sentence that uses it too. "Any refund
+    request is reviewed by the owner" is the profile's own; "your refund request is
+    approved" is a new promise, and "free installation" is not "free cancellation". The
+    clause and the sentence must also agree on negation."""
+    pattern = _phrase_pattern(phrase)
+    clauses = [c for c in _CLAUSE_BREAK.split(draft_sentence) if c and pattern.search(c)]
+    if not clauses:
+        return False
+    phrase_stems = _stems(phrase)
+    statements = [
+        (_stems(sentence), bool(_NEGATION.search(sentence)))
+        for sentence in re.split(r"(?<=[.!?])\s+|\n+", profile)
+        if pattern.search(sentence)
+    ]
+
+    def grounded(clause: str) -> bool:
+        words = _stems(clause) - phrase_stems - _FILLER
+        negated = bool(_NEGATION.search(clause))
+        # "Staff do not promise refunds" never grounds "we promise refunds".
+        return bool(words) and any(
+            words <= stated and negated == denied for stated, denied in statements
+        )
+
+    return all(grounded(clause) for clause in clauses)

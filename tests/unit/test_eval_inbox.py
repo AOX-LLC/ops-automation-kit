@@ -84,7 +84,7 @@ def test_commitment_phrase_outside_the_profile_fails_grounding() -> None:
 
 def test_profile_own_commitment_phrase_passes_grounding() -> None:
     assert "free cancellation" in PROFILE.lower()
-    ok = output(draft=draft(body="We offer free cancellation up to the stated notice."))
+    ok = output(draft=draft(body="We offer free cancellation with 24 hours' notice."))
     assert inbox.GroundingScorer(PROFILE).score(case("m28.eml"), ok).passed
 
 
