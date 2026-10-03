@@ -120,6 +120,10 @@ Reproduce:
 
 Committed scorecards: [live](evals/scorecards/receipts-small-live.md) ([summary](evals/scorecards/receipts-small-live.summary.json)) and [replay](evals/scorecards/receipts-small-replay.md) ([summary](evals/scorecards/receipts-small-replay.summary.json)).
 
+## Leads workflow
+
+A cited sentence can contain a staff member's name, so review the stored research before you use real data.
+
 ## Inbox workflow
 
 Workflow `03-inbox` runs every 5 minutes, or when its webhook is called.
