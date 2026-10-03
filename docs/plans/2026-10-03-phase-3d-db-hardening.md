@@ -23,7 +23,7 @@ Phase 3e. agent-core's `tests/test_untrusted_columns.py` (v0.1.0a4) is used for 
   No requester path needs `csrf_token`, so no function or narrower grant is needed: the whole store
   was on the wrong side. `/healthz` and the sweep do not touch the table.
 - Insert bounds: `csrf_token` matches `^[A-Za-z0-9_-]{16,128}$`; `expires_at` is after the database
-  clock and at most 30 days ahead. `Settings.approver_session_hours` gets `1..720` so the setting
+  clock and at most 30 days ahead. `Settings.approver_session_hours` gets `1..719` so the setting
   cannot exceed the bound.
 
 ## 2. F6: outbox
@@ -65,11 +65,10 @@ No assertion on `swept`.
 ### 5a. Mechanism
 
 One function, `core.enforce_bounds()` (BEFORE INSERT OR UPDATE, enabled always), driven by a JSON spec
-passed as the trigger argument. Kinds: `text` (min, max characters; octet length is also capped at
-4x), `regex`, `enum`, `json` (type, max bytes, max depth), `int`/`numeric` (min, max), `time` (range
+passed as the trigger argument. Kinds: `text` (min, max characters), `regex`, `enum`, `json` (type, max bytes, max depth), `int`/`numeric` (min, max), `time` (range
 relative to the database clock). It checks a column on insert, and on update **only if that column
 changed**. Depth is measured with `jsonb_path_exists(v, '$.**{N to last}')`, which is not recursive.
-`core.approvals` and `core.audit_log` extend their existing guards instead. A function
+`core.approvals` and `core.audit_log` get their own bounds triggers (`approvals_bounds`, `audit_log_bounds`) beside their guards. A function
 `core.bounds_violations(table, spec)` runs the same checks over stored rows for the migration report
 and for tests. Each domain branch adds a revision (`crm_0003`, `receipts_0003`, `leads_0003`,
 `inbox_0003`) with `depends_on = core_0010`.
@@ -84,7 +83,7 @@ approvals shapes in `core_0006`) are kept as they are.
 | --- | --- |
 | core.runs `n8n_workflow_id`, `n8n_execution_id` | NULL or `^[A-Za-z0-9][A-Za-z0-9._:/-]{0,63}$` (agent-core's id pattern; the API's own cap is 64). A looser value makes `RunContext` fail on every approval submit |
 | core.runs `finished_at` | not before `started_at`; at most 5 min ahead of the database clock |
-| core.approvals `payload` | object, at most 32 KiB, depth 8 (inbox replies are about 1.1 KB) |
+| core.approvals `payload` | object, at most 128 KiB, depth 8 (inbox replies are about 1.1 KB; the ceiling leaves room for a draft body of 16384 characters at jsonb's worst case of 6 bytes each) |
 | core.approvals `resume_url` | NULL or at most 512 characters, `^https?://[^[:space:]]+$` |
 | core.approvals `run_context` | at most 2048 bytes; `external_ids` an object of at most 16 keys; keys and string values match the id pattern |
 | core.approvals `delegates` | at most 4096 bytes (array and element shape already checked) |
@@ -98,7 +97,7 @@ approvals shapes in `core_0006`) are kept as they are.
 | core.approver_sessions | section 1 |
 | inbox.messages | `message_id` 1..998; `mailpit_id` 1..200; `from_header` at most 1000; `reply_to_header`, `to_addr` at most 2000; `subject` at most 2000; `received_at` 1990..2100; `body_text` at most 1 MiB |
 | inbox.triage | `category` 10 values, `priority` 4 values; `injection_reasons` array of at most 16, 16 KiB, depth 3; `replay_key` 64 hex; metrics as model_calls |
-| inbox.drafts | `to_addr` at most 320; `subject`, `in_reply_to` at most 998; `body` at most 64 KiB; `facts_used` array at most 64 items, 16 KiB, depth 2; `grounding` object, 16 KiB, depth 3; `failure_reason` at most 200; `sent_at` within a day of the database clock; metrics |
+| inbox.drafts | `to_addr` at most 320; `subject`, `in_reply_to` at most 998; `body` at most 16384 characters; `facts_used` array at most 64 items, 16 KiB, depth 2; `grounding` object, 16 KiB, depth 3; `failure_reason` at most 200; `sent_at` within a day of the database clock; metrics |
 | leads.research | `company_name` 1..200; `city_hint` at most 100; `website`, `domain` at most 253; `reason` at most 300; `fields` object 16 KiB depth 4; `findings` array of at most 256, 64 KiB; `pages` array of at most 64, 16 KiB; cites 0..10000; metrics |
 | crm.accounts | `name` 1..200; `domain` at most 253; `industry`, `hq_city` at most 200; `employee_band` at most 32; `description` at most 1000; `founded_year` 1800..2100 |
 | crm.account_sources | `field` the 6 field names; `source_ref` at most 512; `excerpt` at most 1000 |
