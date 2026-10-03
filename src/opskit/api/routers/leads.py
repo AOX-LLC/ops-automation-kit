@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from opskit.api.auth import ServiceAuth
 from opskit.api.routers.inputs import read_companies
@@ -16,20 +17,29 @@ from opskit.core.ports import Core, RunContext
 from opskit.db.engine import SessionFactory
 from opskit.leads import store
 from opskit.leads.extraction import research_company
-from opskit.leads.models import ResearchOutcome
+from opskit.leads.models import ResearchOutcome, empty_fields
 from opskit.leads.netguard import GuardedFetcher
-from opskit.leads.retrieval import Company, CorpusRetriever, Retriever, WebRetriever
+from opskit.leads.retrieval import (
+    Company,
+    CorpusRetriever,
+    Retriever,
+    WebRetriever,
+    normalize_website,
+)
 from opskit.leads.robots import RobotsCache
 from opskit.receipts.store import session_factory_of
 
 router = APIRouter(prefix="/v1/leads", tags=["leads"], dependencies=[ServiceAuth])
 
+FAILED = "research failed"  # reason on a row saved when the model or replay failed
 RUNS_KEPT = 8  # robots decisions are cached per run; older runs' caches are dropped
 
 
 class ResearchRequest(BaseModel):
     run_id: UUID
-    company_name: str = Field(min_length=1, max_length=200)
+    company_name: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
+    ]
     city_hint: str = Field(default="", max_length=100)
     website: str | None = Field(default=None, max_length=253)
 
@@ -81,9 +91,7 @@ class WebSession:
 def _retriever(request: Request, run_id: UUID) -> Retriever:
     settings: Settings = request.app.state.settings
     if settings.leads_retrieval == "web":
-        session: WebSession | None = getattr(request.app.state, "leads_web", None)
-        if session is None:
-            session = request.app.state.leads_web = WebSession()
+        session: WebSession = request.app.state.leads_web  # made at startup in web mode
         return session.retriever(run_id)
     leads_dir = settings.samples_dir / "leads"
     domains = frozenset(
@@ -92,13 +100,27 @@ def _retriever(request: Request, run_id: UUID) -> Retriever:
     return CorpusRetriever(leads_dir / "corpus", domains)
 
 
+async def _record_failure(factory: SessionFactory, body: ResearchRequest, reason: str) -> None:
+    """Keep a company whose research failed in the run, so the summary lists it."""
+    outcome = ResearchOutcome(
+        company_name=body.company_name,
+        city_hint=body.city_hint,
+        website=body.website,
+        domain=normalize_website(body.website),
+        status="unresolved",
+        reason=reason,
+        fields=empty_fields(),
+    )
+    await store.save_research(factory, body.run_id, outcome, crm_action=None, account_id=None)
+
+
 @router.post("/research")
 async def research(request: Request, body: ResearchRequest) -> ResearchResult:
     """Research one company and upsert its CRM record; a repeat returns the stored result."""
     factory = _database(request)
     ctx = await _run_context(request, body.run_id)
     stored = await store.load_research(factory, body.run_id, body.company_name, body.city_hint)
-    if stored is not None:
+    if stored is not None and not (stored.outcome.reason or "").startswith(FAILED):
         return ResearchResult(
             outcome=stored.outcome, crm_action=stored.crm_action, account_id=stored.account_id
         )
@@ -108,11 +130,13 @@ async def research(request: Request, body: ResearchRequest) -> ResearchResult:
             _core(request).models, ctx, _retriever(request, body.run_id), company
         )
     except ReplayMissError as exc:
+        await _record_failure(factory, body, f"{FAILED}: no recording")
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             f"no recording for replay key {exc.key or 'unknown'}",
         ) from exc
     except (ModelRefusalError, StructuredOutputError) as exc:
+        await _record_failure(factory, body, f"{FAILED}: {type(exc).__name__}")
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY, f"research failed: {type(exc).__name__}"
         ) from exc
