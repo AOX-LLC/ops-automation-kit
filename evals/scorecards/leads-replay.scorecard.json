@@ -1,0 +1,1471 @@
+{
+  "accuracy": 1.0,
+  "cost_per_case_usd": "0.0025007",
+  "cost_total_usd": "0.050014",
+  "finished_at": "2026-10-03T04:57:57.062846Z",
+  "format_version": 1,
+  "latency_p50_ms": null,
+  "latency_p95_ms": null,
+  "mode": "replay",
+  "results": [
+    {
+      "case_id": "aeroflow-heating-and-cooling",
+      "cost_usd": "0.002996",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "called_model": true,
+        "city_hint": "Wexmoor",
+        "company_name": "Aeroflow Heating and Cooling",
+        "cost_usd": "0.002996",
+        "domain": "aeroflow.example",
+        "fields": {
+          "description": {
+            "quote": "Aeroflow installs and services furnaces and air conditioners for homes and offices in Wexmoor.",
+            "source_url": "corpus://aeroflow.example/about.html",
+            "value": "Aeroflow installs and services furnaces and air conditioners for homes and offices in Wexmoor."
+          },
+          "domain": {
+            "quote": "Website: aeroflow.example",
+            "source_url": "corpus://aeroflow.example/about.html",
+            "value": "aeroflow.example"
+          },
+          "employee_band": {
+            "quote": "Team: 51-200 employees",
+            "source_url": "corpus://aeroflow.example/about.html",
+            "value": "51-200"
+          },
+          "founded_year": {
+            "quote": "Aeroflow was founded in 2002",
+            "source_url": "corpus://aeroflow.example/about.html",
+            "value": 2002
+          },
+          "hq_city": {
+            "quote": "Main office: Wexmoor",
+            "source_url": "corpus://aeroflow.example/about.html",
+            "value": "Wexmoor"
+          },
+          "industry": {
+            "quote": "Trade: HVAC and plumbing",
+            "source_url": "corpus://aeroflow.example/about.html",
+            "value": "HVAC and plumbing"
+          }
+        },
+        "findings": [],
+        "latency_ms": 1,
+        "pages": [
+          "corpus://aeroflow.example/about.html",
+          "corpus://aeroflow.example/press-fleet-upgrade.html",
+          "corpus://tritown-directory.example/export-hvac.txt",
+          "corpus://wexmoor-chamber.example/members.html"
+        ],
+        "raw_cites": 6,
+        "reason": null,
+        "status": "researched",
+        "valid_cites": 6,
+        "website": "aeroflow.example"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "outcome",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "fields",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "citations",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "bluebird-bakehouse",
+      "cost_usd": "0.00294",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "called_model": true,
+        "city_hint": "Dunmere",
+        "company_name": "Bluebird Bakehouse",
+        "cost_usd": "0.00294",
+        "domain": "bluebirdbakehouse.example",
+        "fields": {
+          "description": {
+            "quote": "Bluebird Bakehouse supplies wholesale bread and event cakes to cafes in Dunmere.",
+            "source_url": "corpus://bluebirdbakehouse.example/about.html",
+            "value": "Bluebird Bakehouse supplies wholesale bread and event cakes to cafes in Dunmere."
+          },
+          "domain": {
+            "quote": "Website: bluebirdbakehouse.example",
+            "source_url": "corpus://bluebirdbakehouse.example/about.html",
+            "value": "bluebirdbakehouse.example"
+          },
+          "employee_band": {
+            "quote": "Crew: 11-50 employees",
+            "source_url": "corpus://bluebirdbakehouse.example/about.html",
+            "value": "11-50"
+          },
+          "founded_year": {
+            "quote": "The bakehouse opened in 2019",
+            "source_url": "corpus://bluebirdbakehouse.example/about.html",
+            "value": 2019
+          },
+          "hq_city": {
+            "quote": "Kitchen: Dunmere",
+            "source_url": "corpus://bluebirdbakehouse.example/about.html",
+            "value": "Dunmere"
+          },
+          "industry": {
+            "quote": "Business type: Bakery",
+            "source_url": "corpus://bluebirdbakehouse.example/about.html",
+            "value": "Bakery"
+          }
+        },
+        "findings": [],
+        "latency_ms": 1,
+        "pages": [
+          "corpus://bluebirdbakehouse.example/about.html",
+          "corpus://bluebirdbakehouse.example/press-wholesale-launch.html",
+          "corpus://tritown-directory.example/listing-bakeries.html"
+        ],
+        "raw_cites": 6,
+        "reason": null,
+        "status": "researched",
+        "valid_cites": 6,
+        "website": "bluebirdbakehouse.example"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "outcome",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "fields",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "citations",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "bluebird-bakery",
+      "cost_usd": "0.002829",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "called_model": true,
+        "city_hint": "Quillby",
+        "company_name": "Bluebird Bakery",
+        "cost_usd": "0.002829",
+        "domain": "bluebird.example",
+        "fields": {
+          "description": {
+            "quote": "Bluebird Bakery bakes sourdough loaves and morning pastries in Quillby.",
+            "source_url": "corpus://bluebird.example/about.html",
+            "value": "Bluebird Bakery bakes sourdough loaves and morning pastries in Quillby."
+          },
+          "domain": {
+            "quote": "Website: bluebird.example",
+            "source_url": "corpus://bluebird.example/about.html",
+            "value": "bluebird.example"
+          },
+          "employee_band": {
+            "quote": "Crew: 1-10 employees",
+            "source_url": "corpus://bluebird.example/about.html",
+            "value": "1-10"
+          },
+          "founded_year": {
+            "quote": "The ovens first lit in 2012",
+            "source_url": "corpus://bluebird.example/about.html",
+            "value": 2012
+          },
+          "hq_city": {
+            "quote": "Shop: Quillby",
+            "source_url": "corpus://bluebird.example/about.html",
+            "value": "Quillby"
+          },
+          "industry": {
+            "quote": "Business type: Bakery",
+            "source_url": "corpus://bluebird.example/about.html",
+            "value": "Bakery"
+          }
+        },
+        "findings": [],
+        "latency_ms": 1,
+        "pages": [
+          "corpus://bluebird.example/about.html",
+          "corpus://quillby-chamber.example/members.html",
+          "corpus://tritown-directory.example/listing-bakeries.html"
+        ],
+        "raw_cites": 6,
+        "reason": null,
+        "status": "researched",
+        "valid_cites": 6,
+        "website": "bluebird.example"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "outcome",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "fields",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "citations",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "brightwell-orthodontics",
+      "cost_usd": "0.002709",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "called_model": true,
+        "city_hint": "Vesper Hill",
+        "company_name": "Brightwell Orthodontics",
+        "cost_usd": "0.002709",
+        "domain": "brightwell.example",
+        "fields": {
+          "description": {
+            "quote": "Brightwell fits braces and clear aligners for teenagers and adults in Vesper Hill.",
+            "source_url": "corpus://brightwell.example/about.html",
+            "value": "Brightwell fits braces and clear aligners for teenagers and adults in Vesper Hill."
+          },
+          "domain": {
+            "quote": "Website: brightwell.example",
+            "source_url": "corpus://brightwell.example/about.html",
+            "value": "brightwell.example"
+          },
+          "employee_band": {
+            "quote": "Size: 1-10 employees",
+            "source_url": "corpus://brightwell.example/about.html",
+            "value": "1-10"
+          },
+          "founded_year": {
+            "quote": "Our practice started in 2013.",
+            "source_url": "corpus://brightwell.example/about.html",
+            "value": 2013
+          },
+          "hq_city": {
+            "quote": "Brightwell fits braces and clear aligners for teenagers and adults in Vesper Hill.",
+            "source_url": "corpus://brightwell.example/about.html",
+            "value": "Vesper Hill"
+          },
+          "industry": {
+            "quote": "Field: Dental care",
+            "source_url": "corpus://brightwell.example/about.html",
+            "value": "Dental care"
+          }
+        },
+        "findings": [],
+        "latency_ms": 1,
+        "pages": [
+          "corpus://brightwell.example/about.html",
+          "corpus://tritown-directory.example/listing-dental.html"
+        ],
+        "raw_cites": 6,
+        "reason": null,
+        "status": "researched",
+        "valid_cites": 6,
+        "website": "brightwell.example"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "outcome",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "fields",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "citations",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "cedar-street-dental",
+      "cost_usd": "0.003321",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "called_model": true,
+        "city_hint": "Wexmoor",
+        "company_name": "Cedar Street Dental",
+        "cost_usd": "0.003321",
+        "domain": "cedarst.example",
+        "fields": {
+          "description": {
+            "quote": "Cedar Street Dental provides general and preventive dentistry for families in Wexmoor.",
+            "source_url": "corpus://cedarst.example/about.html",
+            "value": "Cedar Street Dental provides general and preventive dentistry for families in Wexmoor."
+          },
+          "domain": {
+            "quote": "Online: cedarst.example",
+            "source_url": "corpus://cedarst.example/about.html",
+            "value": "cedarst.example"
+          },
+          "employee_band": {
+            "quote": "Cedar Street Dental, 11-50 employees, founded 1999",
+            "source_url": "corpus://wexmoor-chamber.example/members.html",
+            "value": "11-50"
+          },
+          "founded_year": {
+            "quote": "Our office has been open since 1999",
+            "source_url": "corpus://cedarst.example/about.html",
+            "value": 1999
+          },
+          "hq_city": {
+            "quote": "Location: Wexmoor",
+            "source_url": "corpus://cedarst.example/about.html",
+            "value": "Wexmoor"
+          },
+          "industry": {
+            "quote": "Practice type: Dental care",
+            "source_url": "corpus://cedarst.example/about.html",
+            "value": "Dental care"
+          }
+        },
+        "findings": [],
+        "latency_ms": 1,
+        "pages": [
+          "corpus://cedarst.example/about.html",
+          "corpus://tritown-directory.example/listing-dental.html",
+          "corpus://wexmoor-chamber.example/members.html"
+        ],
+        "raw_cites": 8,
+        "reason": null,
+        "status": "researched",
+        "valid_cites": 8,
+        "website": "cedarst.example"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "outcome",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "fields",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "citations",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "copperline-plumbing-and-heat",
+      "cost_usd": "0.003085",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "called_model": true,
+        "city_hint": "Pellam",
+        "company_name": "Copperline Plumbing and Heat",
+        "cost_usd": "0.003085",
+        "domain": "copperline.example",
+        "fields": {
+          "description": {
+            "quote": "Copperline repairs pipes and water heaters and installs radiant heating in Pellam.",
+            "source_url": "corpus://copperline.example/about.html",
+            "value": "Copperline repairs pipes and water heaters and installs radiant heating in Pellam."
+          },
+          "domain": {
+            "quote": "Website: copperline.example",
+            "source_url": "corpus://copperline.example/about.html",
+            "value": "copperline.example"
+          },
+          "employee_band": {
+            "quote": "Team: 11-50 employees",
+            "source_url": "corpus://copperline.example/about.html",
+            "value": "11-50"
+          },
+          "founded_year": {
+            "quote": "Copperline opened in 2010",
+            "source_url": "corpus://copperline.example/about.html",
+            "value": 2010
+          },
+          "hq_city": {
+            "quote": "Shop: Pellam",
+            "source_url": "corpus://copperline.example/about.html",
+            "value": "Pellam"
+          },
+          "industry": {
+            "quote": "Trade: HVAC and plumbing",
+            "source_url": "corpus://copperline.example/about.html",
+            "value": "HVAC and plumbing"
+          }
+        },
+        "findings": [],
+        "latency_ms": 1,
+        "pages": [
+          "corpus://copperline.example/about.html",
+          "corpus://pellam-chamber.example/members.html",
+          "corpus://tritown-directory.example/export-hvac.txt"
+        ],
+        "raw_cites": 7,
+        "reason": null,
+        "status": "researched",
+        "valid_cites": 7,
+        "website": "copperline.example"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "outcome",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "fields",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "citations",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "crumb-and-kettle",
+      "cost_usd": "0",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "called_model": false,
+        "city_hint": "Vesper Hill",
+        "company_name": "Crumb and Kettle",
+        "cost_usd": "0",
+        "domain": null,
+        "fields": {
+          "description": null,
+          "domain": null,
+          "employee_band": null,
+          "founded_year": null,
+          "hq_city": null,
+          "industry": null
+        },
+        "findings": [],
+        "latency_ms": null,
+        "pages": [],
+        "raw_cites": 0,
+        "reason": "no website given",
+        "status": "unresolved",
+        "valid_cites": 0,
+        "website": null
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "outcome",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "fields",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "citations",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "fernhollow-landscaping",
+      "cost_usd": "0.002826",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "called_model": true,
+        "city_hint": "Wexmoor",
+        "company_name": "Fernhollow Landscaping",
+        "cost_usd": "0.002826",
+        "domain": "fernhollow.example",
+        "fields": {
+          "description": {
+            "quote": "Fernhollow designs and maintains residential gardens and lawns across the Wexmoor valley.",
+            "source_url": "corpus://fernhollow.example/about.html",
+            "value": "Fernhollow designs and maintains residential gardens and lawns across the Wexmoor valley."
+          },
+          "domain": {
+            "quote": "Website: fernhollow.example",
+            "source_url": "corpus://fernhollow.example/about.html",
+            "value": "fernhollow.example"
+          },
+          "employee_band": {
+            "quote": "Team size: 11-50 employees",
+            "source_url": "corpus://fernhollow.example/about.html",
+            "value": "11-50"
+          },
+          "founded_year": {
+            "quote": "Fernhollow Landscaping has served homeowners since 2011",
+            "source_url": "corpus://fernhollow.example/about.html",
+            "value": 2011
+          },
+          "hq_city": {
+            "quote": "Based in: Wexmoor",
+            "source_url": "corpus://fernhollow.example/about.html",
+            "value": "Wexmoor"
+          },
+          "industry": {
+            "quote": "Industry: Landscaping",
+            "source_url": "corpus://fernhollow.example/about.html",
+            "value": "Landscaping"
+          }
+        },
+        "findings": [],
+        "latency_ms": 1,
+        "pages": [
+          "corpus://fernhollow.example/about.html",
+          "corpus://fernhollow.example/press-grand-opening.html",
+          "corpus://tritown-directory.example/listing-landscaping.html"
+        ],
+        "raw_cites": 6,
+        "reason": null,
+        "status": "researched",
+        "valid_cites": 6,
+        "website": "fernhollow.example"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "outcome",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "fields",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "citations",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "greenmeadow-lawn-co",
+      "cost_usd": "0.002519",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "called_model": true,
+        "city_hint": "Tamsworth",
+        "company_name": "Greenmeadow Lawn Co",
+        "cost_usd": "0.002519",
+        "domain": "greenmeadow.example",
+        "fields": {
+          "description": {
+            "quote": "Greenmeadow mows, edges and fertilizes commercial lawns on weekly routes around Tamsworth.",
+            "source_url": "corpus://greenmeadow.example/about.html",
+            "value": "Greenmeadow mows, edges and fertilizes commercial lawns on weekly routes around Tamsworth."
+          },
+          "domain": {
+            "quote": "Web: greenmeadow.example",
+            "source_url": "corpus://greenmeadow.example/about.html",
+            "value": "greenmeadow.example"
+          },
+          "employee_band": null,
+          "founded_year": {
+            "quote": "Founded in 2006",
+            "source_url": "corpus://greenmeadow.example/about.html",
+            "value": 2006
+          },
+          "hq_city": {
+            "quote": "Headquarters: Tamsworth",
+            "source_url": "corpus://greenmeadow.example/about.html",
+            "value": "Tamsworth"
+          },
+          "industry": {
+            "quote": "Industry: Landscaping",
+            "source_url": "corpus://greenmeadow.example/about.html",
+            "value": "Landscaping"
+          }
+        },
+        "findings": [],
+        "latency_ms": 1,
+        "pages": [
+          "corpus://greenmeadow.example/about.html",
+          "corpus://tritown-directory.example/listing-landscaping.html"
+        ],
+        "raw_cites": 5,
+        "reason": null,
+        "status": "researched",
+        "valid_cites": 5,
+        "website": "greenmeadow.example"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "outcome",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "fields",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "citations",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "harborlight-family-dentistry",
+      "cost_usd": "0.003619",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "called_model": true,
+        "city_hint": "Orlen Falls",
+        "company_name": "Harborlight Family Dentistry",
+        "cost_usd": "0.003619",
+        "domain": "harborlight.example",
+        "fields": {
+          "description": {
+            "quote": "Harborlight offers family dentistry and same-week emergency appointments in Orlen Falls.",
+            "source_url": "corpus://harborlight.example/about.html",
+            "value": "Harborlight offers family dentistry and same-week emergency appointments in Orlen Falls."
+          },
+          "domain": {
+            "quote": "Site: harborlight.example",
+            "source_url": "corpus://harborlight.example/about.html",
+            "value": "harborlight.example"
+          },
+          "employee_band": null,
+          "founded_year": {
+            "quote": "We opened our doors in 2008",
+            "source_url": "corpus://harborlight.example/about.html",
+            "value": 2008
+          },
+          "hq_city": {
+            "quote": "Town: Orlen Falls",
+            "source_url": "corpus://harborlight.example/about.html",
+            "value": "Orlen Falls"
+          },
+          "industry": {
+            "quote": "Specialty: Dental care",
+            "source_url": "corpus://harborlight.example/about.html",
+            "value": "Dental care"
+          }
+        },
+        "findings": [
+          {
+            "detail": "documents disagree: corpus://harborlight.example/about.html, corpus://harborlight.example/press-new-wing.html",
+            "field": "employee_band",
+            "kind": "conflict"
+          }
+        ],
+        "latency_ms": 1,
+        "pages": [
+          "corpus://harborlight.example/about.html",
+          "corpus://harborlight.example/press-new-wing.html",
+          "corpus://orlenfalls-chamber.example/members.html",
+          "corpus://tritown-directory.example/listing-dental.html"
+        ],
+        "raw_cites": 9,
+        "reason": null,
+        "status": "researched",
+        "valid_cites": 9,
+        "website": "harborlight.example"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "outcome",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "fields",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "citations",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "ironwood-collision",
+      "cost_usd": "0.002736",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "called_model": true,
+        "city_hint": "Ashgrove Mills",
+        "company_name": "Ironwood Collision",
+        "cost_usd": "0.002736",
+        "domain": "ironwood.example",
+        "fields": {
+          "description": {
+            "quote": "Ironwood repairs collision damage and repaints vehicles for insurers around Ashgrove Mills.",
+            "source_url": "corpus://ironwood.example/about.html",
+            "value": "Ironwood repairs collision damage and repaints vehicles for insurers around Ashgrove Mills."
+          },
+          "domain": {
+            "quote": "Website: ironwood.example",
+            "source_url": "corpus://ironwood.example/about.html",
+            "value": "ironwood.example"
+          },
+          "employee_band": {
+            "quote": "Team: 51-200 employees",
+            "source_url": "corpus://ironwood.example/about.html",
+            "value": "51-200"
+          },
+          "founded_year": {
+            "quote": "Ironwood has operated since 2001",
+            "source_url": "corpus://ironwood.example/about.html",
+            "value": 2001
+          },
+          "hq_city": {
+            "quote": "Home base: Ashgrove Mills",
+            "source_url": "corpus://ironwood.example/about.html",
+            "value": "Ashgrove Mills"
+          },
+          "industry": {
+            "quote": "Industry: Auto repair",
+            "source_url": "corpus://ironwood.example/about.html",
+            "value": "Auto repair"
+          }
+        },
+        "findings": [],
+        "latency_ms": 0,
+        "pages": [
+          "corpus://ironwood.example/about.html",
+          "corpus://ironwood.example/press-award.html",
+          "corpus://tritown-directory.example/listing-auto.html"
+        ],
+        "raw_cites": 6,
+        "reason": null,
+        "status": "researched",
+        "valid_cites": 6,
+        "website": "ironwood.example"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "outcome",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "fields",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "citations",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "kettlebrook-mechanical",
+      "cost_usd": "0.002762",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "called_model": true,
+        "city_hint": "Alderton",
+        "company_name": "Kettlebrook Mechanical",
+        "cost_usd": "0.002762",
+        "domain": "kettlebrook.example",
+        "fields": {
+          "description": {
+            "quote": "Kettlebrook designs and installs large commercial boilers and chillers in Alderton.",
+            "source_url": "corpus://kettlebrook.example/about.html",
+            "value": "Kettlebrook designs and installs large commercial boilers and chillers in Alderton."
+          },
+          "domain": {
+            "quote": "Website: kettlebrook.example",
+            "source_url": "corpus://kettlebrook.example/about.html",
+            "value": "kettlebrook.example"
+          },
+          "employee_band": {
+            "quote": "Team: 51-200 employees",
+            "source_url": "corpus://kettlebrook.example/about.html",
+            "value": "51-200"
+          },
+          "founded_year": {
+            "quote": "Our firm dates to 1990",
+            "source_url": "corpus://kettlebrook.example/about.html",
+            "value": 1990
+          },
+          "hq_city": {
+            "quote": "Plant: Alderton",
+            "source_url": "corpus://kettlebrook.example/about.html",
+            "value": "Alderton"
+          },
+          "industry": {
+            "quote": "Trade: HVAC and plumbing",
+            "source_url": "corpus://kettlebrook.example/about.html",
+            "value": "HVAC and plumbing"
+          }
+        },
+        "findings": [],
+        "latency_ms": 0,
+        "pages": [
+          "corpus://kettlebrook.example/about.html",
+          "corpus://kettlebrook.example/press-plant-tour.html",
+          "corpus://alderton-chamber.example/members.html"
+        ],
+        "raw_cites": 6,
+        "reason": null,
+        "status": "researched",
+        "valid_cites": 6,
+        "website": "kettlebrook.example"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "outcome",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "fields",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "citations",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "lantern-ledger-bookkeeping",
+      "cost_usd": "0.002794",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "called_model": true,
+        "city_hint": "Quillby",
+        "company_name": "Lantern Ledger Bookkeeping",
+        "cost_usd": "0.002794",
+        "domain": "lantern.example",
+        "fields": {
+          "description": {
+            "quote": "Lantern Ledger keeps monthly books and payroll records for freelancers and small shops in Quillby.",
+            "source_url": "corpus://lantern.example/about.html",
+            "value": "Lantern Ledger keeps monthly books and payroll records for freelancers and small shops in Quillby."
+          },
+          "domain": {
+            "quote": "Website: lantern.example",
+            "source_url": "corpus://lantern.example/about.html",
+            "value": "lantern.example"
+          },
+          "employee_band": {
+            "quote": "Team: 1-10 employees",
+            "source_url": "corpus://lantern.example/about.html",
+            "value": "1-10"
+          },
+          "founded_year": {
+            "quote": "We began in 2016",
+            "source_url": "corpus://lantern.example/about.html",
+            "value": 2016
+          },
+          "hq_city": {
+            "quote": "Office: Quillby",
+            "source_url": "corpus://lantern.example/about.html",
+            "value": "Quillby"
+          },
+          "industry": {
+            "quote": "Service line: Bookkeeping",
+            "source_url": "corpus://lantern.example/about.html",
+            "value": "Bookkeeping"
+          }
+        },
+        "findings": [],
+        "latency_ms": 0,
+        "pages": [
+          "corpus://lantern.example/about.html",
+          "corpus://quillby-chamber.example/members.html",
+          "corpus://tritown-directory.example/export-finance.txt"
+        ],
+        "raw_cites": 6,
+        "reason": null,
+        "status": "researched",
+        "valid_cites": 6,
+        "website": "lantern.example"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "outcome",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "fields",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "citations",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "mistral-climate-services",
+      "cost_usd": "0.00272",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "called_model": true,
+        "city_hint": "Alderton",
+        "company_name": "Mistral Climate Services",
+        "cost_usd": "0.00272",
+        "domain": "mistral.example",
+        "fields": {
+          "description": {
+            "quote": "Mistral maintains rooftop cooling units for restaurants and shops in Alderton.",
+            "source_url": "corpus://mistral.example/about.html",
+            "value": "Mistral maintains rooftop cooling units for restaurants and shops in Alderton."
+          },
+          "domain": {
+            "quote": "Website: mistral.example",
+            "source_url": "corpus://mistral.example/about.html",
+            "value": "mistral.example"
+          },
+          "employee_band": {
+            "quote": "Team: 11-50 employees",
+            "source_url": "corpus://mistral.example/about.html",
+            "value": "11-50"
+          },
+          "founded_year": {
+            "quote": "We started in 2014",
+            "source_url": "corpus://mistral.example/about.html",
+            "value": 2014
+          },
+          "hq_city": {
+            "quote": "Town: Alderton",
+            "source_url": "corpus://mistral.example/about.html",
+            "value": "Alderton"
+          },
+          "industry": {
+            "quote": "Trade: HVAC and plumbing",
+            "source_url": "corpus://mistral.example/about.html",
+            "value": "HVAC and plumbing"
+          }
+        },
+        "findings": [],
+        "latency_ms": 0,
+        "pages": [
+          "corpus://mistral.example/about.html",
+          "corpus://alderton-chamber.example/members.html",
+          "corpus://tritown-directory.example/export-hvac.txt"
+        ],
+        "raw_cites": 6,
+        "reason": null,
+        "status": "researched",
+        "valid_cites": 6,
+        "website": "mistral.example"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "outcome",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "fields",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "citations",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "northfield-accounting-group",
+      "cost_usd": "0.002727",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "called_model": true,
+        "city_hint": "Fenwick Landing",
+        "company_name": "Northfield Accounting Group",
+        "cost_usd": "0.002727",
+        "domain": "northfield.example",
+        "fields": {
+          "description": {
+            "quote": "Northfield audits and advises mid-sized local firms from its office in Fenwick Landing.",
+            "source_url": "corpus://northfield.example/about.html",
+            "value": "Northfield audits and advises mid-sized local firms from its office in Fenwick Landing."
+          },
+          "domain": {
+            "quote": "Website: northfield.example",
+            "source_url": "corpus://northfield.example/about.html",
+            "value": "northfield.example"
+          },
+          "employee_band": {
+            "quote": "Team: 11-50 employees",
+            "source_url": "corpus://northfield.example/about.html",
+            "value": "11-50"
+          },
+          "founded_year": {
+            "quote": "We have been in business since 2009",
+            "source_url": "corpus://northfield.example/about.html",
+            "value": 2009
+          },
+          "hq_city": {
+            "quote": "Office: Fenwick Landing",
+            "source_url": "corpus://northfield.example/about.html",
+            "value": "Fenwick Landing"
+          },
+          "industry": {
+            "quote": "Industry: Accounting",
+            "source_url": "corpus://northfield.example/about.html",
+            "value": "Accounting"
+          }
+        },
+        "findings": [],
+        "latency_ms": 1,
+        "pages": [
+          "corpus://northfield.example/about.html",
+          "corpus://northfield.example/press-new-hires.html",
+          "corpus://tritown-directory.example/export-finance.txt"
+        ],
+        "raw_cites": 6,
+        "reason": null,
+        "status": "researched",
+        "valid_cites": 6,
+        "website": "northfield.example"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "outcome",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "fields",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "citations",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "pennywhistle-tax-partners",
+      "cost_usd": "0.00327",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "called_model": true,
+        "city_hint": "Corbin Ridge",
+        "company_name": "Pennywhistle Tax Partners",
+        "cost_usd": "0.00327",
+        "domain": "pennywhistle.example",
+        "fields": {
+          "description": {
+            "quote": "Pennywhistle prepares individual and small-business tax returns in Corbin Ridge.",
+            "source_url": "corpus://pennywhistle.example/about.html",
+            "value": "Pennywhistle prepares individual and small-business tax returns in Corbin Ridge."
+          },
+          "domain": {
+            "quote": "Website: pennywhistle.example",
+            "source_url": "corpus://pennywhistle.example/about.html",
+            "value": "pennywhistle.example"
+          },
+          "employee_band": null,
+          "founded_year": {
+            "quote": "The firm was founded in 1997",
+            "source_url": "corpus://pennywhistle.example/about.html",
+            "value": 1997
+          },
+          "hq_city": {
+            "quote": "Office: Corbin Ridge",
+            "source_url": "corpus://pennywhistle.example/about.html",
+            "value": "Corbin Ridge"
+          },
+          "industry": {
+            "quote": "Practice: Tax preparation",
+            "source_url": "corpus://pennywhistle.example/about.html",
+            "value": "Tax preparation"
+          }
+        },
+        "findings": [
+          {
+            "detail": "documents disagree: corpus://pennywhistle.example/about.html, corpus://pennywhistle.example/press-filing-season.html",
+            "field": "employee_band",
+            "kind": "conflict"
+          }
+        ],
+        "latency_ms": 0,
+        "pages": [
+          "corpus://pennywhistle.example/about.html",
+          "corpus://pennywhistle.example/press-filing-season.html",
+          "corpus://tritown-directory.example/export-finance.txt"
+        ],
+        "raw_cites": 8,
+        "reason": null,
+        "status": "researched",
+        "valid_cites": 8,
+        "website": "pennywhistle.example"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "outcome",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "fields",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "citations",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "redline-auto",
+      "cost_usd": "0.003151",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "called_model": true,
+        "city_hint": "Orlen Falls",
+        "company_name": "Redline Auto",
+        "cost_usd": "0.003151",
+        "domain": "redlineauto.example",
+        "fields": {
+          "description": {
+            "quote": "Redline Auto handles routine maintenance and engine diagnostics for commuter cars in Orlen Falls.",
+            "source_url": "corpus://redlineauto.example/about.html",
+            "value": "Redline Auto handles routine maintenance and engine diagnostics for commuter cars in Orlen Falls."
+          },
+          "domain": {
+            "quote": "Website: redlineauto.example",
+            "source_url": "corpus://redlineauto.example/about.html",
+            "value": "redlineauto.example"
+          },
+          "employee_band": {
+            "quote": "Headcount: 11-50 employees",
+            "source_url": "corpus://redlineauto.example/about.html",
+            "value": "11-50"
+          },
+          "founded_year": {
+            "quote": "We have been fixing cars since 2004",
+            "source_url": "corpus://redlineauto.example/about.html",
+            "value": 2004
+          },
+          "hq_city": {
+            "quote": "Shop location: Orlen Falls",
+            "source_url": "corpus://redlineauto.example/about.html",
+            "value": "Orlen Falls"
+          },
+          "industry": {
+            "quote": "Trade: Auto repair",
+            "source_url": "corpus://redlineauto.example/about.html",
+            "value": "Auto repair"
+          }
+        },
+        "findings": [],
+        "latency_ms": 0,
+        "pages": [
+          "corpus://redlineauto.example/about.html",
+          "corpus://redlineauto.example/press-bay-expansion.html",
+          "corpus://orlenfalls-chamber.example/members.html",
+          "corpus://tritown-directory.example/listing-auto.html"
+        ],
+        "raw_cites": 7,
+        "reason": null,
+        "status": "researched",
+        "valid_cites": 7,
+        "website": "redlineauto.example"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "outcome",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "fields",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "citations",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "redline-auto-works",
+      "cost_usd": "0.00301",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "called_model": true,
+        "city_hint": "Pellam",
+        "company_name": "Redline Auto Works",
+        "cost_usd": "0.00301",
+        "domain": "redlineworks.example",
+        "fields": {
+          "description": {
+            "quote": "Redline Auto Works restores and tunes classic cars in a single-bay garage in Pellam.",
+            "source_url": "corpus://redlineworks.example/about.html",
+            "value": "Redline Auto Works restores and tunes classic cars in a single-bay garage in Pellam."
+          },
+          "domain": {
+            "quote": "Website: redlineworks.example",
+            "source_url": "corpus://redlineworks.example/about.html",
+            "value": "redlineworks.example"
+          },
+          "employee_band": {
+            "quote": "Crew: 1-10 employees",
+            "source_url": "corpus://redlineworks.example/about.html",
+            "value": "1-10"
+          },
+          "founded_year": {
+            "quote": "The garage opened in 2017",
+            "source_url": "corpus://redlineworks.example/about.html",
+            "value": 2017
+          },
+          "hq_city": {
+            "quote": "Garage: Pellam",
+            "source_url": "corpus://redlineworks.example/about.html",
+            "value": "Pellam"
+          },
+          "industry": {
+            "quote": "Trade: Auto repair",
+            "source_url": "corpus://redlineworks.example/about.html",
+            "value": "Auto repair"
+          }
+        },
+        "findings": [],
+        "latency_ms": 1,
+        "pages": [
+          "corpus://redlineworks.example/about.html",
+          "corpus://pellam-chamber.example/members.html",
+          "corpus://tritown-directory.example/listing-auto.html"
+        ],
+        "raw_cites": 7,
+        "reason": null,
+        "status": "researched",
+        "valid_cites": 7,
+        "website": "redlineworks.example"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "outcome",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "fields",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "citations",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "stonepath-gardens",
+      "cost_usd": "0",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "called_model": false,
+        "city_hint": "Dunmere",
+        "company_name": "Stonepath Gardens",
+        "cost_usd": "0",
+        "domain": null,
+        "fields": {
+          "description": null,
+          "domain": null,
+          "employee_band": null,
+          "founded_year": null,
+          "hq_city": null,
+          "industry": null
+        },
+        "findings": [],
+        "latency_ms": null,
+        "pages": [],
+        "raw_cites": 0,
+        "reason": "no website given",
+        "status": "unresolved",
+        "valid_cites": 0,
+        "website": null
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "outcome",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "fields",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "citations",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "tamsworth-tire-and-brake",
+      "cost_usd": "0",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "called_model": false,
+        "city_hint": "Tamsworth",
+        "company_name": "Tamsworth Tire and Brake",
+        "cost_usd": "0",
+        "domain": null,
+        "fields": {
+          "description": null,
+          "domain": null,
+          "employee_band": null,
+          "founded_year": null,
+          "hq_city": null,
+          "industry": null
+        },
+        "findings": [],
+        "latency_ms": null,
+        "pages": [],
+        "raw_cites": 0,
+        "reason": "no website given",
+        "status": "unresolved",
+        "valid_cites": 0,
+        "website": null
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "outcome",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "fields",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "citations",
+          "value": 1.0
+        }
+      ]
+    }
+  ],
+  "started_at": "2026-10-03T04:57:56.975154Z",
+  "suite": "leads"
+}
