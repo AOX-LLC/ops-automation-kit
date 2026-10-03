@@ -335,3 +335,13 @@ async def test_fetch_reads_plain_text_and_headers_only() -> None:
     assert msg.to_addr == "office@shop.example"
     assert msg.received_at is not None
     assert "script" not in msg.model_dump_json()
+
+
+def test_stored_model_lists_are_cut_to_what_the_database_accepts() -> None:
+    from opskit.inbox.service import STORED_ITEM_CHARS_MAX, STORED_ITEMS_MAX, _stored_list
+
+    long_list = [f"fact {i} " + "x" * 1000 for i in range(STORED_ITEMS_MAX + 20)]
+    cut = _stored_list(long_list)
+    assert len(cut) == STORED_ITEMS_MAX
+    assert all(len(item) == STORED_ITEM_CHARS_MAX for item in cut)
+    assert _stored_list(["short"]) == ["short"]

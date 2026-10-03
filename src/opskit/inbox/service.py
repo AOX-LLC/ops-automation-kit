@@ -8,6 +8,7 @@ draft is checked against the profile before it can go to a person for approval.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from decimal import Decimal
 from typing import Literal
 
@@ -17,6 +18,7 @@ from opskit.config import Settings
 from opskit.core.errors import ModelRefusalError, StructuredOutputError
 from opskit.core.ports import ModelClient, RunContext, Tier
 from opskit.inbox import injection, policy
+from opskit.inbox.injection import MAX_EVIDENCE
 from opskit.inbox.mail import InboundMessage
 from opskit.inbox.policy import (
     DRAFT_PROMPT,
@@ -112,7 +114,10 @@ async def triage_message(
     if triage.injection_suspected:
         quote = triage.injection_evidence
         kept = quote if quote and _squash(quote) in _squash(email_text) else None
-        reasons.append(InjectionReason(rule="model", evidence=kept))
+        # Stored evidence is cut to what a regex hit's is (the database caps the whole list).
+        reasons.append(
+            InjectionReason(rule="model", evidence=kept[:MAX_EVIDENCE] if kept else None)
+        )
     quarantined = bool(hits) or triage.injection_suspected
     return TriageOutcome(
         message_id=msg.message_id,
@@ -128,6 +133,16 @@ async def triage_message(
         cost_usd=_cost_string(result.cost_usd),
         latency_ms=round(result.latency_ms),
     )
+
+
+STORED_ITEMS_MAX = 64
+STORED_ITEM_CHARS_MAX = 500
+
+
+def _stored_list(values: Sequence[str]) -> list[str]:
+    """Model-written lists, cut to what the database accepts. Groundedness was judged on the full
+    lists first, so cutting what is stored cannot change an outcome."""
+    return [value[:STORED_ITEM_CHARS_MAX] for value in values[:STORED_ITEMS_MAX]]
 
 
 def _failed(reason: str, *, to: str = "", subject: str = "", differs: bool = False) -> DraftOutcome:
@@ -197,11 +212,11 @@ async def draft_reply(
         subject=envelope.subject,
         in_reply_to=envelope.in_reply_to,
         body=draft.body,
-        facts_used=list(draft.facts_used),
+        facts_used=_stored_list(draft.facts_used),
         grounding={
-            "unsupported_facts": list(report.unsupported_facts),
-            "unsupported_facts_used": list(report.unsupported_facts_used),
-            "commitment_flags": list(report.commitment_flags),
+            "unsupported_facts": _stored_list(report.unsupported_facts),
+            "unsupported_facts_used": _stored_list(report.unsupported_facts_used),
+            "commitment_flags": _stored_list(report.commitment_flags),
         },
         reply_to_differs=envelope.reply_to_differs,
         status="failed" if ungrounded else "draft",

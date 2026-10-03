@@ -177,3 +177,23 @@ def test_listing_leaves_out_unstorable_ids_before_the_limit_applies() -> None:
 
     # Five unstorable messages would have filled a limit of 2 had they been offered.
     assert sorted(asyncio.run(run())) == ["fine-0", "fine-1"]
+
+
+def test_nul_and_lone_surrogates_are_cleaned_from_every_text_field() -> None:
+    clamped = _clamped(
+        subject="hi\x00 there\ud800!",
+        body_text="a\x00b\udfffc",
+        from_header="x\x00@mail.example",
+        to_addr="t\x00@mail.example",
+    )
+    assert clamped.subject == "hi there?!"
+    assert clamped.body_text == "ab?c"
+    assert clamped.from_header == "x@mail.example"
+    assert clamped.to_addr == "t@mail.example"
+    for value in (clamped.subject, clamped.body_text, clamped.from_header):
+        value.encode("utf-8")  # no lone surrogate is left
+
+
+def test_a_nul_in_an_identity_is_removed_before_it_is_measured() -> None:
+    assert clamp_message(_message(message_id="a\x00b@mail.example")) is not None
+    assert clamp_message(_message(message_id="\x00")) is None

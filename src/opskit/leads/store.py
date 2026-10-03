@@ -17,6 +17,9 @@ from opskit.db.tables import leads_research as research
 from opskit.leads.models import FIELDS, FieldValue, Finding, ResearchOutcome
 
 NO_WEBSITE_REASON = "no website given"
+# What leads_0003 lets a research row hold; the model's cites and a corpus can be longer.
+FINDINGS_MAX = 256
+PAGES_MAX = 64
 
 # The accounts columns research fills in. `domain` is the upsert key, so it is not one of them.
 ACCOUNT_FIELDS = tuple(name for name in FIELDS if name != "domain")
@@ -83,8 +86,9 @@ async def save_research(
             name: value.model_dump() if value is not None else None
             for name, value in outcome.fields.items()
         },
-        "findings": [finding.model_dump() for finding in outcome.findings],
-        "pages": outcome.pages,
+        # The database caps both lists; the model's cites and a corpus can be longer.
+        "findings": [finding.model_dump() for finding in outcome.findings[:FINDINGS_MAX]],
+        "pages": outcome.pages[:PAGES_MAX],
         "raw_cites": outcome.raw_cites,
         "valid_cites": outcome.valid_cites,
         "replay_key": outcome.replay_key,

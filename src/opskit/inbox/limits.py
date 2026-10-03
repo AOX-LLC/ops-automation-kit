@@ -28,7 +28,11 @@ RECEIVED_MAX = datetime(2100, 1, 1, tzinfo=UTC)
 
 def identity_storable(message_id: str, mailpit_id: str) -> bool:
     """Whether a message with these ids can be stored at all (neither id can be cut)."""
-    return 1 <= len(message_id) <= MESSAGE_ID_MAX and 1 <= len(mailpit_id) <= MAILPIT_ID_MAX
+    cleaned_message_id, cleaned_mailpit_id = _clean(message_id), _clean(mailpit_id)
+    return (
+        1 <= len(cleaned_message_id) <= MESSAGE_ID_MAX
+        and 1 <= len(cleaned_mailpit_id) <= MAILPIT_ID_MAX
+    )
 
 
 def _identity_fits(field: str, value: str, limit: int) -> bool:
@@ -39,8 +43,14 @@ def _identity_fits(field: str, value: str, limit: int) -> bool:
     return False
 
 
-def _cut(value: str | None, limit: int) -> str | None:
-    return value if value is None else value[:limit]
+def _clean(value: str) -> str:
+    """Text the database can hold: no NUL (Postgres text cannot contain one) and no lone
+    surrogate (which cannot be encoded); a lone surrogate becomes '?'."""
+    return value.replace("\x00", "").encode("utf-8", "replace").decode("utf-8")
+
+
+def _text(value: str | None, limit: int) -> str | None:
+    return value if value is None else _clean(value)[:limit]
 
 
 def _received_in_range(value: datetime | None) -> datetime | None:
@@ -56,18 +66,21 @@ def clamp_message(msg: InboundMessage) -> InboundMessage | None:
     Text is cut by characters; an out-of-range `received_at` becomes None. An identifier is
     never cut (a cut one would name a different message), so such a message is skipped.
     """
+    message_id, mailpit_id = _clean(msg.message_id), _clean(msg.mailpit_id)
     if not (
-        _identity_fits("message_id", msg.message_id, MESSAGE_ID_MAX)
-        and _identity_fits("mailpit_id", msg.mailpit_id, MAILPIT_ID_MAX)
+        _identity_fits("message_id", message_id, MESSAGE_ID_MAX)
+        and _identity_fits("mailpit_id", mailpit_id, MAILPIT_ID_MAX)
     ):
         return None
     return msg.model_copy(
         update={
-            "from_header": msg.from_header[:HEADER_MAX],
-            "reply_to_header": _cut(msg.reply_to_header, ADDRESS_LIST_MAX),
-            "to_addr": _cut(msg.to_addr, ADDRESS_LIST_MAX),
-            "subject": msg.subject[:SUBJECT_MAX],
+            "message_id": message_id,
+            "mailpit_id": mailpit_id,
+            "from_header": _clean(msg.from_header)[:HEADER_MAX],
+            "reply_to_header": _text(msg.reply_to_header, ADDRESS_LIST_MAX),
+            "to_addr": _text(msg.to_addr, ADDRESS_LIST_MAX),
+            "subject": _clean(msg.subject)[:SUBJECT_MAX],
             "received_at": _received_in_range(msg.received_at),
-            "body_text": msg.body_text[:BODY_MAX],
+            "body_text": _clean(msg.body_text)[:BODY_MAX],
         }
     )
