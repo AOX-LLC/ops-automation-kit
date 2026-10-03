@@ -451,7 +451,7 @@ The decision is read back from the helper, never taken from the resume call's bo
 - **Recipient.** The model writes only the body. The helper builds the envelope (`policy.reply_envelope`):
   - To is the single address parsed from From. An empty, malformed or multi-address From stores the draft as `failed` (`invalid_sender`).
   - Reply-To is never used. When it differs from From, the draft records `reply_to_differs` and the approver page shows "Reply-To differs from From. Replies go to the From address only."
-  - The subject becomes `Re: <subject>` (never doubled) and In-Reply-To is the original Message-ID.
+  - The subject becomes `Re: <subject>` (never doubled). The original Message-ID is stored as `in_reply_to` and covered by the approval, but n8n's Send Email node can't set custom headers, so v1 replies don't thread in the customer's mail client.
 - **Grounding** (`policy.check_grounding`, no model):
   - Every fact-shaped token in the body (money, phone, email address, URL, time, percentage, duration) must appear in the profile as a whole token: `$1` is not in `$149`, and `2 hours` is not in `12 hours`. The reply's own To address is allowed.
   - The customer's email can ground only their own details: a phone number, an amount, a time, a percentage or a duration. URLs and email addresses must come from the profile, because the sender is unauthenticated and can't vouch for a link it supplies.
@@ -472,6 +472,14 @@ The decision is read back from the helper, never taken from the resume call's bo
 - **Close** takes no body; the outcome comes from the recorded approval. A rejected approval closes the draft as `rejected`. A pending approval past its expiry is expired first and closes the draft as `expired`. A draft with no approval, or with a live or approved one, gets 409.
 - Draft statuses: `draft` → `pending` (approval requested) → `approved` (released) → `sent`, or `rejected`, `expired` or `failed`. Every move is a conditional update, so two callers cannot both win the same move.
 - The app role may update only `status`, `approval_id` and `sent_at` on `inbox.drafts`, and only the hold columns (`quarantined`, `route`, `injection_reasons`) on `inbox.triage`. A stored draft's recipient and body can't be rewritten through the app's connection, and the approval hash would catch it anyway.
+
+### Known limits (v1)
+
+All of these fail closed: nothing is sent, and a person can still answer from their own mail client.
+
+- A crash between `consume()` and the status update leaves the draft `pending` with its approval used up. Release and close then both answer 409, and the draft stays as it is.
+- An approval granted after its expiry, or a resume call that arrives before anyone decided, ends the draft's execution at Close (409). A later decision resumes nothing.
+- Retention: `inbox.messages` keeps every fetched body, and the app role cannot delete rows. n8n keeps successful executions, which include reply bodies and quarantine evidence. With real mail, set a retention period for both.
 
 ### Evals
 
