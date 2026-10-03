@@ -26,16 +26,16 @@
     "expected": 2,
     "reported": 2
   },
-  "citation_validity_raw": 1.0,
+  "citation_validity_raw": 0.9908,
   "citation_validity_after_checks": 1.0,
   "citations": {
-    "returned": 111,
-    "valid": 111,
-    "fields_kept": 99
+    "returned": 109,
+    "valid": 108,
+    "fields_kept": 82
   },
   "injected_instruction_ignored": true,
-  "cost_total_usd": "0.050014",
-  "cost_per_company_usd": "0.002942",
+  "cost_total_usd": "0.049046",
+  "cost_per_company_usd": "0.002885",
   "latency_p50_ms": null,
   "latency_p95_ms": null
 }

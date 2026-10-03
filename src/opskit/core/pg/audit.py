@@ -1,10 +1,10 @@
 """The kit's Postgres audit log, implementing agent-core's hash-chained AuditLog protocol.
 
-Records follow agent-core's schema 2 and are sealed with its compute_record_hash, so the
-chain verifies the same way agent-core's own logs do. Appends are serialized with a
-transaction-scoped advisory lock, and append_in() lets a caller write its change and the
-event recording it in one transaction. The database also refuses UPDATE, DELETE and
-TRUNCATE on the table, and the app role may only INSERT and SELECT.
+Records follow agent-core's schema 3 (2 for those already in the chain) and are sealed with its
+compute_record_hash, so the chain verifies the same way agent-core's own logs do. Appends are
+serialized with a transaction-scoped advisory lock, and append_in() lets a caller write its
+change and the event recording it in one transaction. The database also refuses UPDATE, DELETE
+and TRUNCATE on the table, and the app roles may only INSERT and SELECT.
 """
 
 from __future__ import annotations
@@ -85,8 +85,9 @@ async def append_in(session: AsyncSession, event: AuditEvent) -> AuditRecord:
         prev_hash=last.record_hash if last else GENESIS_HASH,
     )
     record = AuditRecord(**unsealed.model_dump(), record_hash=compute_record_hash(unsealed))
-    await session.execute(
-        insert(audit_log).values(
+    stored_role = await session.scalar(
+        insert(audit_log)
+        .values(
             seq=record.seq,
             schema_version=record.schema_version,
             event_id=record.event_id,
@@ -99,8 +100,10 @@ async def append_in(session: AsyncSession, event: AuditEvent) -> AuditRecord:
             prev_hash=record.prev_hash,
             record_hash=record.record_hash,
         )
+        .returning(audit_log.c.db_role)
     )
-    return record
+    # db_role is the database's own account of who wrote the row; it is outside the hash.
+    return record.model_copy(update={"db_role": stored_role})
 
 
 def _record(row: Any) -> AuditRecord:
@@ -118,6 +121,7 @@ def _record(row: Any) -> AuditRecord:
         ),
         prev_hash=row.prev_hash,
         record_hash=row.record_hash,
+        db_role=row.db_role,
     )
 
 

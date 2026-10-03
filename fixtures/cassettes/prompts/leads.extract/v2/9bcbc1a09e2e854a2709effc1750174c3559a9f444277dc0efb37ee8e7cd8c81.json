@@ -4,26 +4,26 @@
     "attachments": [],
     "attempt": 1,
     "inputs": {
-      "city_hint": "Ashgrove Mills",
-      "company_name": "Ironwood Collision",
-      "documents": "<document url=\"corpus://ironwood.example/about.html\">\nAbout Ironwood Collision\nAbout Ironwood Collision\nIronwood repairs collision damage and repaints vehicles for insurers around Ashgrove Mills. Ironwood has operated since 2001.\nIndustry: Auto repair\nHome base: Ashgrove Mills\nTeam: 51-200 employees\nWebsite: ironwood.example\n</document>\n\n<document url=\"corpus://ironwood.example/press-award.html\">\nIronwood Collision wins a regional safety award\nIronwood Collision wins a regional safety award\nASHGROVE MILLS - Ironwood Collision received a regional workshop safety award on Friday. Media contact: 555-0188.\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-auto.html\">\nTri-Town Business Directory - Auto repair\nTri-Town Business Directory - Auto repair\nGarages and body shops. Note that two listings have similar names; check the town.\nIronwood Collision, Ashgrove Mills: Auto repair\nRedline Auto, Orlen Falls: Auto repair\nRedline Auto Works, Pellam: Auto repair\n</document>"
+      "city_hint": "Wexmoor",
+      "company_name": "Fernhollow Landscaping",
+      "documents": "<document url=\"corpus://fernhollow.example/about.html\">\nAbout Fernhollow Landscaping\nAbout Fernhollow Landscaping\nFernhollow Landscaping has served homeowners since 2011. Fernhollow designs and maintains residential gardens and lawns across the Wexmoor valley.\nIndustry: Landscaping\nBased in: Wexmoor\nTeam size: 11-50 employees\nWebsite: fernhollow.example\n</document>\n\n<document url=\"corpus://fernhollow.example/press-grand-opening.html\">\nFernhollow opens a second nursery yard\nFernhollow opens a second nursery yard\nWEXMOOR - Fernhollow Landscaping opened a second plant nursery yard this week. Visitors can book a garden walk by phone at 555-0142.\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-landscaping.html\">\nTri-Town Business Directory - Landscaping\nTri-Town Business Directory - Landscaping\nLocal landscaping businesses, listed alphabetically.\nFernhollow Landscaping, Wexmoor: Landscaping\nGreenmeadow Lawn Co, Tamsworth: Landscaping\n</document>"
     },
     "output_schema": "LeadExtraction",
     "prompt_id": "leads.extract",
-    "schema_sha256": "127089f0282e16a38f89db5cbe41bbfa8d322049146b9047bbd68e09abc20297",
+    "schema_sha256": "e9487dfa69373af116845b6df62dc49f29e9b196ea7f65e0024375ebd2ab9918",
     "system_sha256": "093255f7929dcb51c1b10433a5cc502eb01642a7f7c3a9df4f387a1abb816bc1",
     "template_sha256": "05911557acab5e7aee6da9295ea29e195b71d8512f0ed662cf74cac6bfef86c2",
     "tier": "small",
-    "version": 1
+    "version": 2
   },
-  "replay_hash": "23cb7a7dfa2baa5653f79ce2d227642f1e60bba056eec40c93f0b76c6ff550a6",
+  "replay_hash": "9bcbc1a09e2e854a2709effc1750174c3559a9f444277dc0efb37ee8e7cd8c81",
   "request": {
     "effort": null,
     "max_tokens": 16000,
     "messages": [
       {
         "attachments": [],
-        "content": "Company: Ironwood Collision\nCity (to tell similar names apart, not a source): Ashgrove Mills\n\n<document url=\"corpus://ironwood.example/about.html\">\nAbout Ironwood Collision\nAbout Ironwood Collision\nIronwood repairs collision damage and repaints vehicles for insurers around Ashgrove Mills. Ironwood has operated since 2001.\nIndustry: Auto repair\nHome base: Ashgrove Mills\nTeam: 51-200 employees\nWebsite: ironwood.example\n</document>\n\n<document url=\"corpus://ironwood.example/press-award.html\">\nIronwood Collision wins a regional safety award\nIronwood Collision wins a regional safety award\nASHGROVE MILLS - Ironwood Collision received a regional workshop safety award on Friday. Media contact: 555-0188.\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-auto.html\">\nTri-Town Business Directory - Auto repair\nTri-Town Business Directory - Auto repair\nGarages and body shops. Note that two listings have similar names; check the town.\nIronwood Collision, Ashgrove Mills: Auto repair\nRedline Auto, Orlen Falls: Auto repair\nRedline Auto Works, Pellam: Auto repair\n</document>",
+        "content": "Company: Fernhollow Landscaping\nCity (to tell similar names apart, not a source): Wexmoor\n\n<document url=\"corpus://fernhollow.example/about.html\">\nAbout Fernhollow Landscaping\nAbout Fernhollow Landscaping\nFernhollow Landscaping has served homeowners since 2011. Fernhollow designs and maintains residential gardens and lawns across the Wexmoor valley.\nIndustry: Landscaping\nBased in: Wexmoor\nTeam size: 11-50 employees\nWebsite: fernhollow.example\n</document>\n\n<document url=\"corpus://fernhollow.example/press-grand-opening.html\">\nFernhollow opens a second nursery yard\nFernhollow opens a second nursery yard\nWEXMOOR - Fernhollow Landscaping opened a second plant nursery yard this week. Visitors can book a garden walk by phone at 555-0142.\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-landscaping.html\">\nTri-Town Business Directory - Landscaping\nTri-Town Business Directory - Landscaping\nLocal landscaping businesses, listed alphabetically.\nFernhollow Landscaping, Wexmoor: Landscaping\nGreenmeadow Lawn Co, Tamsworth: Landscaping\n</document>",
         "role": "user"
       }
     ],
@@ -69,14 +69,6 @@
           "title": "Description",
           "type": "array"
         },
-        "domain": {
-          "description": "The company's website domain.",
-          "items": {
-            "$ref": "#/$defs/Cite"
-          },
-          "title": "Domain",
-          "type": "array"
-        },
         "employee_band": {
           "description": "Headcount range exactly as written, like 11-50.",
           "items": {
@@ -119,12 +111,12 @@
   "response": {
     "model": "claude-haiku-4-5-20251001",
     "stop_reason": "end_turn",
-    "text": "{\"domain\": [{\"value\": \"ironwood.example\", \"source_url\": \"corpus://ironwood.example/about.html\", \"quote\": \"Website: ironwood.example\"}], \"industry\": [{\"value\": \"Auto repair\", \"source_url\": \"corpus://ironwood.example/about.html\", \"quote\": \"Industry: Auto repair\"}], \"employee_band\": [{\"value\": \"51-200 employees\", \"source_url\": \"corpus://ironwood.example/about.html\", \"quote\": \"Team: 51-200 employees\"}], \"hq_city\": [{\"value\": \"Ashgrove Mills\", \"source_url\": \"corpus://ironwood.example/about.html\", \"quote\": \"Home base: Ashgrove Mills\"}], \"founded_year\": [{\"value\": \"2001\", \"source_url\": \"corpus://ironwood.example/about.html\", \"quote\": \"Ironwood has operated since 2001\"}], \"description\": [{\"value\": \"Ironwood repairs collision damage and repaints vehicles for insurers around Ashgrove Mills.\", \"source_url\": \"corpus://ironwood.example/about.html\", \"quote\": \"Ironwood repairs collision damage and repaints vehicles for insurers around Ashgrove Mills.\"}]}",
+    "text": "{\"industry\": [{\"value\": \"Landscaping\", \"source_url\": \"corpus://fernhollow.example/about.html\", \"quote\": \"Industry: Landscaping\"}, {\"value\": \"Landscaping\", \"source_url\": \"corpus://tritown-directory.example/listing-landscaping.html\", \"quote\": \"Fernhollow Landscaping, Wexmoor: Landscaping\"}], \"employee_band\": [{\"value\": \"11-50\", \"source_url\": \"corpus://fernhollow.example/about.html\", \"quote\": \"Team size: 11-50 employees\"}], \"hq_city\": [{\"value\": \"Wexmoor\", \"source_url\": \"corpus://fernhollow.example/about.html\", \"quote\": \"Based in: Wexmoor\"}], \"founded_year\": [{\"value\": \"2011\", \"source_url\": \"corpus://fernhollow.example/about.html\", \"quote\": \"Fernhollow Landscaping has served homeowners since 2011\"}], \"description\": [{\"value\": \"Fernhollow designs and maintains residential gardens and lawns across the Wexmoor valley.\", \"source_url\": \"corpus://fernhollow.example/about.html\", \"quote\": \"Fernhollow designs and maintains residential gardens and lawns across the Wexmoor valley.\"}]}",
     "usage": {
       "cache_creation_input_tokens": 0,
       "cache_read_input_tokens": 0,
-      "input_tokens": 1256,
-      "output_tokens": 296
+      "input_tokens": 1212,
+      "output_tokens": 319
     }
   },
   "sequence": 0

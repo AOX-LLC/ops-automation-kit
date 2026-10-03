@@ -8,7 +8,6 @@ record what happened; neither can send anything.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import Literal
 from uuid import UUID
 
@@ -110,8 +109,9 @@ async def mark_sent(request: Request, draft_id: UUID) -> Response:
 async def close(request: Request, draft_id: UUID) -> Response:
     """Record that a draft will never be sent; the outcome comes from the approval itself.
 
-    A rejected approval closes the draft as rejected. A pending approval past its expiry
-    (the workflow's Wait timed out) is expired first, then the draft is closed as expired.
+    A rejected approval closes the draft as rejected. An approval past its expiry (the
+    workflow's Wait timed out) is stored as expired first; an expired or withdrawn approval
+    closes the draft as expired.
     An approved draft is released, not closed, and a draft with no approval or a still-live
     one can't be closed.
     """
@@ -122,11 +122,12 @@ async def close(request: Request, draft_id: UUID) -> Response:
         # Nobody decided anything, so there is no outcome to record.
         raise HTTPException(status.HTTP_409_CONFLICT, "the draft has no approval; not closing")
     approval = await approvals.get(draft.approval_id)
-    if approval.status.value == "pending" and approval.is_expired(datetime.now(UTC)):
-        approval = await approvals.expire(draft.approval_id)
+    if approval.status.value == "expired":
+        # Reads report a request past its lifetime as expired; store it so the table agrees.
+        approval = await approvals.close_pending(draft.approval_id, principal=N8N_SERVICE)
     if approval.status.value == "rejected":
         outcome = "rejected"
-    elif approval.status.value == "expired":
+    elif approval.status.value in ("expired", "cancelled"):
         outcome = "expired"
     else:
         raise HTTPException(

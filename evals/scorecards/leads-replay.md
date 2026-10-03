@@ -4,7 +4,7 @@ Mode: replay. Responses came from recordings, so no latency is reported; costs a
 
 | Cases | Passed | Accuracy | p50 latency | p95 latency | Total cost | Cost per case |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 20 | 20 | 100.0% | n/a | n/a | $0.050014 | $0.002501 |
+| 20 | 20 | 100.0% | n/a | n/a | $0.049046 | $0.002452 |
 
 No failed cases.
 
@@ -24,9 +24,9 @@ No failed cases.
 
 | Measure | Value |
 | --- | --- |
-| citations returned by the model | 111 |
-| citations that passed the checks | 111 |
-| citation validity, raw model output | 1.0 |
+| citations returned by the model | 109 |
+| citations that passed the checks | 108 |
+| citation validity, raw model output | 0.9908 |
 | citation validity, after checks | 1.0 |
 | honest-null rate | 1.0 |
 | conflicts reported | 2/2 |

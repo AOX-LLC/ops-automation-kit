@@ -16,7 +16,7 @@ from opskit.api.auth import ServiceAuth
 from opskit.approvals.resume import InvalidResumeUrl, internal_resume_target
 from opskit.config import Settings
 from opskit.core.errors import ModelRefusalError, NotFound, ReplayMissError, StructuredOutputError
-from opskit.core.ports import APPROVER_ROLE, N8N_SERVICE, Core, RunContext
+from opskit.core.ports import N8N_SERVICE, ROLES_BY_ACTION, Core, RunContext
 from opskit.db.engine import SessionFactory
 from opskit.inbox import store
 from opskit.inbox.mail import InboundMessage, MailpitSource
@@ -218,7 +218,7 @@ async def request_draft_approval(
         summary=f"Reply to {draft.to}: {draft.subject}"[:SUMMARY_MAX_CHARS],
         payload=store.approval_payload(draft),
         requested_by=N8N_SERVICE,
-        required_role=APPROVER_ROLE,
+        required_role=ROLES_BY_ACTION[store.SEND_REPLY_ACTION],
         ttl_seconds=APPROVAL_TTL_S,
         context=ctx,
         resume_url=body.resume_url,
@@ -232,7 +232,9 @@ async def request_draft_approval(
     )
     if not moved:
         # Another request won the race; withdraw this approval so only one stays open.
-        await core.approvals.expire(approval.id)
+        await core.approvals.cancel(
+            approval.id, principal=N8N_SERVICE, reason="draft already awaiting approval"
+        )
         raise HTTPException(status.HTTP_409_CONFLICT, "draft is no longer awaiting approval")
     return ApprovalCreated(approval_id=approval.id, draft_id=draft_id)
 

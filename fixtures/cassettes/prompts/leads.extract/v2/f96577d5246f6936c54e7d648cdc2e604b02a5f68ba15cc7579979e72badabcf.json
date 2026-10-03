@@ -4,26 +4,26 @@
     "attachments": [],
     "attempt": 1,
     "inputs": {
-      "city_hint": "Wexmoor",
-      "company_name": "Fernhollow Landscaping",
-      "documents": "<document url=\"corpus://fernhollow.example/about.html\">\nAbout Fernhollow Landscaping\nAbout Fernhollow Landscaping\nFernhollow Landscaping has served homeowners since 2011. Fernhollow designs and maintains residential gardens and lawns across the Wexmoor valley.\nIndustry: Landscaping\nBased in: Wexmoor\nTeam size: 11-50 employees\nWebsite: fernhollow.example\n</document>\n\n<document url=\"corpus://fernhollow.example/press-grand-opening.html\">\nFernhollow opens a second nursery yard\nFernhollow opens a second nursery yard\nWEXMOOR - Fernhollow Landscaping opened a second plant nursery yard this week. Visitors can book a garden walk by phone at 555-0142.\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-landscaping.html\">\nTri-Town Business Directory - Landscaping\nTri-Town Business Directory - Landscaping\nLocal landscaping businesses, listed alphabetically.\nFernhollow Landscaping, Wexmoor: Landscaping\nGreenmeadow Lawn Co, Tamsworth: Landscaping\n</document>"
+      "city_hint": "Dunmere",
+      "company_name": "Bluebird Bakehouse",
+      "documents": "<document url=\"corpus://bluebirdbakehouse.example/about.html\">\nAbout Bluebird Bakehouse\nAbout Bluebird Bakehouse\nBluebird Bakehouse supplies wholesale bread and event cakes to cafes in Dunmere. The bakehouse opened in 2019.\nBusiness type: Bakery\nKitchen: Dunmere\nCrew: 11-50 employees\nWebsite: bluebirdbakehouse.example\n</document>\n\n<document url=\"corpus://bluebirdbakehouse.example/press-wholesale-launch.html\">\nBluebird Bakehouse launches a wholesale line\nBluebird Bakehouse launches a wholesale line\nDUNMERE - Bluebird Bakehouse starts delivering bread to cafes on Tuesdays. The company is separate from Bluebird Bakery. Orders: 555-0129.\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-bakeries.html\">\nTri-Town Business Directory - Bakeries\nTri-Town Business Directory - Bakeries\nBakeries and sweet shops. Two listings share most of a name; check the town.\nBluebird Bakery, Quillby: Bakery\nBluebird Bakehouse, Dunmere: Bakery\n</document>"
     },
     "output_schema": "LeadExtraction",
     "prompt_id": "leads.extract",
-    "schema_sha256": "127089f0282e16a38f89db5cbe41bbfa8d322049146b9047bbd68e09abc20297",
+    "schema_sha256": "e9487dfa69373af116845b6df62dc49f29e9b196ea7f65e0024375ebd2ab9918",
     "system_sha256": "093255f7929dcb51c1b10433a5cc502eb01642a7f7c3a9df4f387a1abb816bc1",
     "template_sha256": "05911557acab5e7aee6da9295ea29e195b71d8512f0ed662cf74cac6bfef86c2",
     "tier": "small",
-    "version": 1
+    "version": 2
   },
-  "replay_hash": "242742344a61d1a35f6646f7ded8d8f5c3fdd89ecdfdb4e2cbb5fbb73018814b",
+  "replay_hash": "f96577d5246f6936c54e7d648cdc2e604b02a5f68ba15cc7579979e72badabcf",
   "request": {
     "effort": null,
     "max_tokens": 16000,
     "messages": [
       {
         "attachments": [],
-        "content": "Company: Fernhollow Landscaping\nCity (to tell similar names apart, not a source): Wexmoor\n\n<document url=\"corpus://fernhollow.example/about.html\">\nAbout Fernhollow Landscaping\nAbout Fernhollow Landscaping\nFernhollow Landscaping has served homeowners since 2011. Fernhollow designs and maintains residential gardens and lawns across the Wexmoor valley.\nIndustry: Landscaping\nBased in: Wexmoor\nTeam size: 11-50 employees\nWebsite: fernhollow.example\n</document>\n\n<document url=\"corpus://fernhollow.example/press-grand-opening.html\">\nFernhollow opens a second nursery yard\nFernhollow opens a second nursery yard\nWEXMOOR - Fernhollow Landscaping opened a second plant nursery yard this week. Visitors can book a garden walk by phone at 555-0142.\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-landscaping.html\">\nTri-Town Business Directory - Landscaping\nTri-Town Business Directory - Landscaping\nLocal landscaping businesses, listed alphabetically.\nFernhollow Landscaping, Wexmoor: Landscaping\nGreenmeadow Lawn Co, Tamsworth: Landscaping\n</document>",
+        "content": "Company: Bluebird Bakehouse\nCity (to tell similar names apart, not a source): Dunmere\n\n<document url=\"corpus://bluebirdbakehouse.example/about.html\">\nAbout Bluebird Bakehouse\nAbout Bluebird Bakehouse\nBluebird Bakehouse supplies wholesale bread and event cakes to cafes in Dunmere. The bakehouse opened in 2019.\nBusiness type: Bakery\nKitchen: Dunmere\nCrew: 11-50 employees\nWebsite: bluebirdbakehouse.example\n</document>\n\n<document url=\"corpus://bluebirdbakehouse.example/press-wholesale-launch.html\">\nBluebird Bakehouse launches a wholesale line\nBluebird Bakehouse launches a wholesale line\nDUNMERE - Bluebird Bakehouse starts delivering bread to cafes on Tuesdays. The company is separate from Bluebird Bakery. Orders: 555-0129.\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-bakeries.html\">\nTri-Town Business Directory - Bakeries\nTri-Town Business Directory - Bakeries\nBakeries and sweet shops. Two listings share most of a name; check the town.\nBluebird Bakery, Quillby: Bakery\nBluebird Bakehouse, Dunmere: Bakery\n</document>",
         "role": "user"
       }
     ],
@@ -69,14 +69,6 @@
           "title": "Description",
           "type": "array"
         },
-        "domain": {
-          "description": "The company's website domain.",
-          "items": {
-            "$ref": "#/$defs/Cite"
-          },
-          "title": "Domain",
-          "type": "array"
-        },
         "employee_band": {
           "description": "Headcount range exactly as written, like 11-50.",
           "items": {
@@ -119,12 +111,12 @@
   "response": {
     "model": "claude-haiku-4-5-20251001",
     "stop_reason": "end_turn",
-    "text": "{\"domain\": [{\"value\": \"fernhollow.example\", \"source_url\": \"corpus://fernhollow.example/about.html\", \"quote\": \"Website: fernhollow.example\"}], \"industry\": [{\"value\": \"Landscaping\", \"source_url\": \"corpus://fernhollow.example/about.html\", \"quote\": \"Industry: Landscaping\"}], \"employee_band\": [{\"value\": \"11-50\", \"source_url\": \"corpus://fernhollow.example/about.html\", \"quote\": \"Team size: 11-50 employees\"}], \"hq_city\": [{\"value\": \"Wexmoor\", \"source_url\": \"corpus://fernhollow.example/about.html\", \"quote\": \"Based in: Wexmoor\"}], \"founded_year\": [{\"value\": \"2011\", \"source_url\": \"corpus://fernhollow.example/about.html\", \"quote\": \"Fernhollow Landscaping has served homeowners since 2011\"}], \"description\": [{\"value\": \"Fernhollow designs and maintains residential gardens and lawns across the Wexmoor valley.\", \"source_url\": \"corpus://fernhollow.example/about.html\", \"quote\": \"Fernhollow designs and maintains residential gardens and lawns across the Wexmoor valley.\"}]}",
+    "text": "{\"industry\": [{\"value\": \"Bakery\", \"source_url\": \"corpus://bluebirdbakehouse.example/about.html\", \"quote\": \"Business type: Bakery\"}], \"employee_band\": [{\"value\": \"11-50 employees\", \"source_url\": \"corpus://bluebirdbakehouse.example/about.html\", \"quote\": \"Crew: 11-50 employees\"}], \"hq_city\": [{\"value\": \"Dunmere\", \"source_url\": \"corpus://bluebirdbakehouse.example/about.html\", \"quote\": \"Kitchen: Dunmere\"}], \"founded_year\": [{\"value\": \"2019\", \"source_url\": \"corpus://bluebirdbakehouse.example/about.html\", \"quote\": \"The bakehouse opened in 2019\"}], \"description\": [{\"value\": \"Bluebird Bakehouse supplies wholesale bread and event cakes to cafes in Dunmere.\", \"source_url\": \"corpus://bluebirdbakehouse.example/about.html\", \"quote\": \"Bluebird Bakehouse supplies wholesale bread and event cakes to cafes in Dunmere.\"}]}",
     "usage": {
       "cache_creation_input_tokens": 0,
       "cache_read_input_tokens": 0,
-      "input_tokens": 1271,
-      "output_tokens": 311
+      "input_tokens": 1231,
+      "output_tokens": 278
     }
   },
   "sequence": 0

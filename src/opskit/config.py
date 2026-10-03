@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     db_name: str = "opskit"
     db_user: str = "opskit_app"
     db_password_secret: str = "opskit_app_password"  # noqa: S105 - a file name, not a value
+    # The approver role: used by the approver page's decision path and nothing else.
+    approver_db_user: str = "opskit_approver"
+    approver_db_password_secret: str = "opskit_approver_password"  # noqa: S105 - a file name
 
     n8n_public_url: str = "http://localhost:4300"
     n8n_internal_url: str = "http://n8n:5678"
@@ -81,11 +84,14 @@ class Settings(BaseSettings):
     def read_secret(self, name: str) -> str:
         return (self.secrets_dir / name).read_text(encoding="utf-8").strip()
 
-    def database_url(self) -> URL:
+    def database_url(self, *, approver: bool = False) -> URL:
+        """The requester role's URL, or with `approver=True` the approver role's."""
+        user = self.approver_db_user if approver else self.db_user
+        secret = self.approver_db_password_secret if approver else self.db_password_secret
         return URL.create(
             "postgresql+psycopg",
-            username=self.db_user,
-            password=self.read_secret(self.db_password_secret),
+            username=user,
+            password=self.read_secret(secret),
             host=self.db_host,
             port=self.db_port,
             database=self.db_name,

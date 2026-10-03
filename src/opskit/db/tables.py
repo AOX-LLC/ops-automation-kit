@@ -18,6 +18,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
@@ -61,8 +62,10 @@ approvals = Table(
     Column("resolved_at", DateTime(timezone=True)),
     Column("resolved_by", Text),
     Column("consumed_at", DateTime(timezone=True)),
+    Column("closed_at", DateTime(timezone=True)),
     Column("reason", Text),
-    Column("run_context", JSONB),
+    Column("run_context", JSONB(none_as_null=True)),
+    Column("delegates", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
     schema="core",
 )
 
@@ -93,6 +96,7 @@ audit_log = Table(
     Column("run_context", Text),
     Column("prev_hash", String(64), nullable=False),
     Column("record_hash", String(64), nullable=False, unique=True),
+    Column("db_role", Text),  # set by an insert trigger, whatever was sent; not in the hash
     schema="core",
 )
 

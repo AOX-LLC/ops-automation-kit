@@ -20,6 +20,8 @@ API_PORT = os.environ.get("KIT_API_PORT", "4301")
 N8N_PORT = os.environ.get("KIT_N8N_PORT", "4300")
 API_URL = f"http://127.0.0.1:{API_PORT}"
 SECRETS_DIR = "/run/kit-secrets"
+# Roles whose password is not on the postgres container's secrets mount: read from the api's.
+ROLE_PASSWORDS_FROM_API = {"opskit_approver": "opskit_approver_password"}
 ROLE_PASSWORD_FILES = {
     "opskit_app": "opskit_app_password",
     "opskit_owner": "opskit_owner_password",
@@ -166,7 +168,7 @@ def approver(
 
 
 def new_approval(
-    service: httpx.Client, *, expires_in_s: int = 600, kind: str = "test.approval"
+    service: httpx.Client, *, expires_in_s: int = 600, kind: str = "kit_smoke.echo"
 ) -> dict[str, Any]:
     run = service.post(
         "/v1/runs",
@@ -206,6 +208,12 @@ def psql(
 ) -> subprocess.CompletedProcess[str]:
     """Run one statement inside the postgres container; never raises on failure."""
     flags = ["-v", "ON_ERROR_STOP=1", "-tA"]
+    if role in ROLE_PASSWORDS_FROM_API:
+        password = compose(
+            "exec", "-T", "api", "cat", f"{SECRETS_DIR}/{ROLE_PASSWORDS_FROM_API[role]}"
+        ).stdout.strip()
+        args = ["psql", "-h", "127.0.0.1", "-U", role, "-d", db, *flags, "-c", sql]
+        return compose("exec", "-T", "-e", f"PGPASSWORD={password}", "postgres", *args, check=False)
     if role == "postgres":
         args = ["psql", "-U", "postgres", "-d", db, *flags, "-c", sql]
     else:
@@ -216,6 +224,20 @@ def psql(
         )
         args = ["sh", "-c", script, "_", sql]
     return compose("exec", "-T", "postgres", *args, check=False)
+
+
+def age_approval(approval_id: str) -> None:
+    """Make a pending approval's lifetime lapse. The guard trigger fixes `expires_at`, so a test
+    that needs time to pass switches it off for this one statement, as a superuser, and back
+    on (always-on, as the migration leaves it)."""
+    result = psql(
+        "alter table core.approvals disable trigger approvals_guard; "
+        "update core.approvals set expires_at = now() - interval '1 second', "
+        "created_at = now() - interval '2 seconds' "
+        f"where id = '{_quote(approval_id)}'; "
+        "alter table core.approvals enable always trigger approvals_guard"
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def audit_count(action: str, subject_id: str | None = None) -> int:

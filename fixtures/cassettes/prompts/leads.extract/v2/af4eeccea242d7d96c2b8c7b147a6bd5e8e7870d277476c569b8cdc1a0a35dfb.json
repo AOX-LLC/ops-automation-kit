@@ -4,26 +4,26 @@
     "attachments": [],
     "attempt": 1,
     "inputs": {
-      "city_hint": "Dunmere",
-      "company_name": "Bluebird Bakehouse",
-      "documents": "<document url=\"corpus://bluebirdbakehouse.example/about.html\">\nAbout Bluebird Bakehouse\nAbout Bluebird Bakehouse\nBluebird Bakehouse supplies wholesale bread and event cakes to cafes in Dunmere. The bakehouse opened in 2019.\nBusiness type: Bakery\nKitchen: Dunmere\nCrew: 11-50 employees\nWebsite: bluebirdbakehouse.example\n</document>\n\n<document url=\"corpus://bluebirdbakehouse.example/press-wholesale-launch.html\">\nBluebird Bakehouse launches a wholesale line\nBluebird Bakehouse launches a wholesale line\nDUNMERE - Bluebird Bakehouse starts delivering bread to cafes on Tuesdays. The company is separate from Bluebird Bakery. Orders: 555-0129.\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-bakeries.html\">\nTri-Town Business Directory - Bakeries\nTri-Town Business Directory - Bakeries\nBakeries and sweet shops. Two listings share most of a name; check the town.\nBluebird Bakery, Quillby: Bakery\nBluebird Bakehouse, Dunmere: Bakery\n</document>"
+      "city_hint": "Wexmoor",
+      "company_name": "Cedar Street Dental",
+      "documents": "<document url=\"corpus://cedarst.example/about.html\">\nAbout Cedar Street Dental\nAbout Cedar Street Dental\nCedar Street Dental provides general and preventive dentistry for families in Wexmoor. Our office has been open since 1999.\nPractice type: Dental care\nLocation: Wexmoor\nOnline: cedarst.example\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-dental.html\">\nTri-Town Business Directory - Dental\nTri-Town Business Directory - Dental\nDental practices accepting new patients.\nBrightwell Orthodontics, Vesper Hill: Dental care\nCedar Street Dental, Wexmoor: Dental care\nHarborlight Family Dentistry, Orlen Falls: Dental care\n</document>\n\n<document url=\"corpus://wexmoor-chamber.example/members.html\">\nWexmoor Chamber of Commerce - Member List\nWexmoor Chamber of Commerce - Member List\nWexmoor members and their size bands.\nCedar Street Dental, 11-50 employees, founded 1999\nAeroflow Heating and Cooling, Wexmoor\n</document>"
     },
     "output_schema": "LeadExtraction",
     "prompt_id": "leads.extract",
-    "schema_sha256": "127089f0282e16a38f89db5cbe41bbfa8d322049146b9047bbd68e09abc20297",
+    "schema_sha256": "e9487dfa69373af116845b6df62dc49f29e9b196ea7f65e0024375ebd2ab9918",
     "system_sha256": "093255f7929dcb51c1b10433a5cc502eb01642a7f7c3a9df4f387a1abb816bc1",
     "template_sha256": "05911557acab5e7aee6da9295ea29e195b71d8512f0ed662cf74cac6bfef86c2",
     "tier": "small",
-    "version": 1
+    "version": 2
   },
-  "replay_hash": "ae72649b34acdcd3abdbe51752d923fd029d555cfb1bafd54efad95b43be5825",
+  "replay_hash": "af4eeccea242d7d96c2b8c7b147a6bd5e8e7870d277476c569b8cdc1a0a35dfb",
   "request": {
     "effort": null,
     "max_tokens": 16000,
     "messages": [
       {
         "attachments": [],
-        "content": "Company: Bluebird Bakehouse\nCity (to tell similar names apart, not a source): Dunmere\n\n<document url=\"corpus://bluebirdbakehouse.example/about.html\">\nAbout Bluebird Bakehouse\nAbout Bluebird Bakehouse\nBluebird Bakehouse supplies wholesale bread and event cakes to cafes in Dunmere. The bakehouse opened in 2019.\nBusiness type: Bakery\nKitchen: Dunmere\nCrew: 11-50 employees\nWebsite: bluebirdbakehouse.example\n</document>\n\n<document url=\"corpus://bluebirdbakehouse.example/press-wholesale-launch.html\">\nBluebird Bakehouse launches a wholesale line\nBluebird Bakehouse launches a wholesale line\nDUNMERE - Bluebird Bakehouse starts delivering bread to cafes on Tuesdays. The company is separate from Bluebird Bakery. Orders: 555-0129.\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-bakeries.html\">\nTri-Town Business Directory - Bakeries\nTri-Town Business Directory - Bakeries\nBakeries and sweet shops. Two listings share most of a name; check the town.\nBluebird Bakery, Quillby: Bakery\nBluebird Bakehouse, Dunmere: Bakery\n</document>",
+        "content": "Company: Cedar Street Dental\nCity (to tell similar names apart, not a source): Wexmoor\n\n<document url=\"corpus://cedarst.example/about.html\">\nAbout Cedar Street Dental\nAbout Cedar Street Dental\nCedar Street Dental provides general and preventive dentistry for families in Wexmoor. Our office has been open since 1999.\nPractice type: Dental care\nLocation: Wexmoor\nOnline: cedarst.example\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-dental.html\">\nTri-Town Business Directory - Dental\nTri-Town Business Directory - Dental\nDental practices accepting new patients.\nBrightwell Orthodontics, Vesper Hill: Dental care\nCedar Street Dental, Wexmoor: Dental care\nHarborlight Family Dentistry, Orlen Falls: Dental care\n</document>\n\n<document url=\"corpus://wexmoor-chamber.example/members.html\">\nWexmoor Chamber of Commerce - Member List\nWexmoor Chamber of Commerce - Member List\nWexmoor members and their size bands.\nCedar Street Dental, 11-50 employees, founded 1999\nAeroflow Heating and Cooling, Wexmoor\n</document>",
         "role": "user"
       }
     ],
@@ -69,14 +69,6 @@
           "title": "Description",
           "type": "array"
         },
-        "domain": {
-          "description": "The company's website domain.",
-          "items": {
-            "$ref": "#/$defs/Cite"
-          },
-          "title": "Domain",
-          "type": "array"
-        },
         "employee_band": {
           "description": "Headcount range exactly as written, like 11-50.",
           "items": {
@@ -119,12 +111,12 @@
   "response": {
     "model": "claude-haiku-4-5-20251001",
     "stop_reason": "end_turn",
-    "text": "{\"domain\": [{\"value\": \"bluebirdbakehouse.example\", \"source_url\": \"corpus://bluebirdbakehouse.example/about.html\", \"quote\": \"Website: bluebirdbakehouse.example\"}], \"industry\": [{\"value\": \"Bakery\", \"source_url\": \"corpus://bluebirdbakehouse.example/about.html\", \"quote\": \"Business type: Bakery\"}], \"employee_band\": [{\"value\": \"11-50\", \"source_url\": \"corpus://bluebirdbakehouse.example/about.html\", \"quote\": \"Crew: 11-50 employees\"}], \"hq_city\": [{\"value\": \"Dunmere\", \"source_url\": \"corpus://bluebirdbakehouse.example/about.html\", \"quote\": \"Kitchen: Dunmere\"}], \"founded_year\": [{\"value\": \"2019\", \"source_url\": \"corpus://bluebirdbakehouse.example/about.html\", \"quote\": \"The bakehouse opened in 2019\"}], \"description\": [{\"value\": \"Bluebird Bakehouse supplies wholesale bread and event cakes to cafes in Dunmere.\", \"source_url\": \"corpus://bluebirdbakehouse.example/about.html\", \"quote\": \"Bluebird Bakehouse supplies wholesale bread and event cakes to cafes in Dunmere.\"}]}",
+    "text": "{\"industry\": [{\"value\": \"Dental care\", \"source_url\": \"corpus://cedarst.example/about.html\", \"quote\": \"Practice type: Dental care\"}, {\"value\": \"Dental care\", \"source_url\": \"corpus://tritown-directory.example/listing-dental.html\", \"quote\": \"Cedar Street Dental, Wexmoor: Dental care\"}], \"employee_band\": [{\"value\": \"11-50\", \"source_url\": \"corpus://wexmoor-chamber.example/members.html\", \"quote\": \"Cedar Street Dental, 11-50 employees, founded 1999\"}], \"hq_city\": [{\"value\": \"Wexmoor\", \"source_url\": \"corpus://cedarst.example/about.html\", \"quote\": \"Location: Wexmoor\"}], \"founded_year\": [{\"value\": \"1999\", \"source_url\": \"corpus://cedarst.example/about.html\", \"quote\": \"Our office has been open since 1999\"}, {\"value\": \"1999\", \"source_url\": \"corpus://wexmoor-chamber.example/members.html\", \"quote\": \"Cedar Street Dental, 11-50 employees, founded 1999\"}], \"description\": [{\"value\": \"Cedar Street Dental provides general and preventive dentistry for families in Wexmoor.\", \"source_url\": \"corpus://cedarst.example/about.html\", \"quote\": \"Cedar Street Dental provides general and preventive dentistry for families in Wexmoor.\"}]}",
     "usage": {
       "cache_creation_input_tokens": 0,
       "cache_read_input_tokens": 0,
-      "input_tokens": 1290,
-      "output_tokens": 330
+      "input_tokens": 1202,
+      "output_tokens": 367
     }
   },
   "sequence": 0

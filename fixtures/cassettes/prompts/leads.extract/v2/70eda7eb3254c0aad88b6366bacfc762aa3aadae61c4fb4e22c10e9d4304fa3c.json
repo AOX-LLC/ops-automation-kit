@@ -5,25 +5,25 @@
     "attempt": 1,
     "inputs": {
       "city_hint": "Pellam",
-      "company_name": "Copperline Plumbing and Heat",
-      "documents": "<document url=\"corpus://copperline.example/about.html\">\nAbout Copperline Plumbing and Heat\nAbout Copperline Plumbing and Heat\nCopperline repairs pipes and water heaters and installs radiant heating in Pellam. Copperline opened in 2010.\nTrade: HVAC and plumbing\nShop: Pellam\nTeam: 11-50 employees\nWebsite: copperline.example\n</document>\n\n<document url=\"corpus://pellam-chamber.example/members.html\">\nPellam Chamber of Commerce - Member List\nPellam Chamber of Commerce - Member List\nPellam members this year.\nCopperline Plumbing and Heat, Pellam, founded 2010\nRedline Auto Works, Pellam, founded 2017\n</document>\n\n<document url=\"corpus://tritown-directory.example/export-hvac.txt\">\nDirectory export - HVAC and plumbing\n====================================\n\n* Aeroflow Heating and Cooling | Wexmoor | HVAC and plumbing\n* Copperline Plumbing and Heat | Pellam | HVAC and plumbing\n* Mistral Climate Services | Alderton | HVAC and plumbing\n\n</document>"
+      "company_name": "Redline Auto Works",
+      "documents": "<document url=\"corpus://redlineworks.example/about.html\">\nAbout Redline Auto Works\nAbout Redline Auto Works\nRedline Auto Works restores and tunes classic cars in a single-bay garage in Pellam. The garage opened in 2017.\nTrade: Auto repair\nGarage: Pellam\nCrew: 1-10 employees\nWebsite: redlineworks.example\n</document>\n\n<document url=\"corpus://pellam-chamber.example/members.html\">\nPellam Chamber of Commerce - Member List\nPellam Chamber of Commerce - Member List\nPellam members this year.\nCopperline Plumbing and Heat, Pellam, founded 2010\nRedline Auto Works, Pellam, founded 2017\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-auto.html\">\nTri-Town Business Directory - Auto repair\nTri-Town Business Directory - Auto repair\nGarages and body shops. Note that two listings have similar names; check the town.\nIronwood Collision, Ashgrove Mills: Auto repair\nRedline Auto, Orlen Falls: Auto repair\nRedline Auto Works, Pellam: Auto repair\n</document>"
     },
     "output_schema": "LeadExtraction",
     "prompt_id": "leads.extract",
-    "schema_sha256": "127089f0282e16a38f89db5cbe41bbfa8d322049146b9047bbd68e09abc20297",
+    "schema_sha256": "e9487dfa69373af116845b6df62dc49f29e9b196ea7f65e0024375ebd2ab9918",
     "system_sha256": "093255f7929dcb51c1b10433a5cc502eb01642a7f7c3a9df4f387a1abb816bc1",
     "template_sha256": "05911557acab5e7aee6da9295ea29e195b71d8512f0ed662cf74cac6bfef86c2",
     "tier": "small",
-    "version": 1
+    "version": 2
   },
-  "replay_hash": "dbc13b3a724dca895b1ba02ed4417b8686f405e494202991c54c9bfad467da84",
+  "replay_hash": "70eda7eb3254c0aad88b6366bacfc762aa3aadae61c4fb4e22c10e9d4304fa3c",
   "request": {
     "effort": null,
     "max_tokens": 16000,
     "messages": [
       {
         "attachments": [],
-        "content": "Company: Copperline Plumbing and Heat\nCity (to tell similar names apart, not a source): Pellam\n\n<document url=\"corpus://copperline.example/about.html\">\nAbout Copperline Plumbing and Heat\nAbout Copperline Plumbing and Heat\nCopperline repairs pipes and water heaters and installs radiant heating in Pellam. Copperline opened in 2010.\nTrade: HVAC and plumbing\nShop: Pellam\nTeam: 11-50 employees\nWebsite: copperline.example\n</document>\n\n<document url=\"corpus://pellam-chamber.example/members.html\">\nPellam Chamber of Commerce - Member List\nPellam Chamber of Commerce - Member List\nPellam members this year.\nCopperline Plumbing and Heat, Pellam, founded 2010\nRedline Auto Works, Pellam, founded 2017\n</document>\n\n<document url=\"corpus://tritown-directory.example/export-hvac.txt\">\nDirectory export - HVAC and plumbing\n====================================\n\n* Aeroflow Heating and Cooling | Wexmoor | HVAC and plumbing\n* Copperline Plumbing and Heat | Pellam | HVAC and plumbing\n* Mistral Climate Services | Alderton | HVAC and plumbing\n\n</document>",
+        "content": "Company: Redline Auto Works\nCity (to tell similar names apart, not a source): Pellam\n\n<document url=\"corpus://redlineworks.example/about.html\">\nAbout Redline Auto Works\nAbout Redline Auto Works\nRedline Auto Works restores and tunes classic cars in a single-bay garage in Pellam. The garage opened in 2017.\nTrade: Auto repair\nGarage: Pellam\nCrew: 1-10 employees\nWebsite: redlineworks.example\n</document>\n\n<document url=\"corpus://pellam-chamber.example/members.html\">\nPellam Chamber of Commerce - Member List\nPellam Chamber of Commerce - Member List\nPellam members this year.\nCopperline Plumbing and Heat, Pellam, founded 2010\nRedline Auto Works, Pellam, founded 2017\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-auto.html\">\nTri-Town Business Directory - Auto repair\nTri-Town Business Directory - Auto repair\nGarages and body shops. Note that two listings have similar names; check the town.\nIronwood Collision, Ashgrove Mills: Auto repair\nRedline Auto, Orlen Falls: Auto repair\nRedline Auto Works, Pellam: Auto repair\n</document>",
         "role": "user"
       }
     ],
@@ -69,14 +69,6 @@
           "title": "Description",
           "type": "array"
         },
-        "domain": {
-          "description": "The company's website domain.",
-          "items": {
-            "$ref": "#/$defs/Cite"
-          },
-          "title": "Domain",
-          "type": "array"
-        },
         "employee_band": {
           "description": "Headcount range exactly as written, like 11-50.",
           "items": {
@@ -119,12 +111,12 @@
   "response": {
     "model": "claude-haiku-4-5-20251001",
     "stop_reason": "end_turn",
-    "text": "{\"domain\": [{\"value\": \"copperline.example\", \"source_url\": \"corpus://copperline.example/about.html\", \"quote\": \"Website: copperline.example\"}], \"industry\": [{\"value\": \"HVAC and plumbing\", \"source_url\": \"corpus://copperline.example/about.html\", \"quote\": \"Trade: HVAC and plumbing\"}], \"employee_band\": [{\"value\": \"11-50 employees\", \"source_url\": \"corpus://copperline.example/about.html\", \"quote\": \"Team: 11-50 employees\"}], \"hq_city\": [{\"value\": \"Pellam\", \"source_url\": \"corpus://copperline.example/about.html\", \"quote\": \"Shop: Pellam\"}], \"founded_year\": [{\"value\": \"2010\", \"source_url\": \"corpus://copperline.example/about.html\", \"quote\": \"Copperline opened in 2010\"}, {\"value\": \"2010\", \"source_url\": \"corpus://pellam-chamber.example/members.html\", \"quote\": \"Copperline Plumbing and Heat, Pellam, founded 2010\"}], \"description\": [{\"value\": \"Copperline repairs pipes and water heaters and installs radiant heating in Pellam.\", \"source_url\": \"corpus://copperline.example/about.html\", \"quote\": \"Copperline repairs pipes and water heaters and installs radiant heating in Pellam.\"}]}",
+    "text": "{\"industry\": [{\"value\": \"Auto repair\", \"source_url\": \"corpus://redlineworks.example/about.html\", \"quote\": \"Trade: Auto repair\"}, {\"value\": \"Auto repair\", \"source_url\": \"corpus://tritown-directory.example/listing-auto.html\", \"quote\": \"Redline Auto Works, Pellam: Auto repair\"}], \"employee_band\": [{\"value\": \"1-10 employees\", \"source_url\": \"corpus://redlineworks.example/about.html\", \"quote\": \"Crew: 1-10 employees\"}], \"hq_city\": [{\"value\": \"Pellam\", \"source_url\": \"corpus://redlineworks.example/about.html\", \"quote\": \"Garage: Pellam\"}], \"founded_year\": [{\"value\": \"2017\", \"source_url\": \"corpus://redlineworks.example/about.html\", \"quote\": \"The garage opened in 2017.\"}, {\"value\": \"2017\", \"source_url\": \"corpus://pellam-chamber.example/members.html\", \"quote\": \"Redline Auto Works, Pellam, founded 2017\"}], \"description\": [{\"value\": \"Redline Auto Works restores and tunes classic cars in a single-bay garage in Pellam.\", \"source_url\": \"corpus://redlineworks.example/about.html\", \"quote\": \"Redline Auto Works restores and tunes classic cars in a single-bay garage in Pellam.\"}]}",
     "usage": {
       "cache_creation_input_tokens": 0,
       "cache_read_input_tokens": 0,
-      "input_tokens": 1285,
-      "output_tokens": 360
+      "input_tokens": 1206,
+      "output_tokens": 350
     }
   },
   "sequence": 0

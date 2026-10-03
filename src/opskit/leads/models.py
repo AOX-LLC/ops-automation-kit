@@ -4,23 +4,36 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 FIELDS = ("domain", "industry", "employee_band", "hq_city", "founded_year", "description")
 
 type FieldName = Literal[
     "domain", "industry", "employee_band", "hq_city", "founded_year", "description"
 ]
+# "domain_mismatch" is no longer produced (the domain is derived, not asked for); the kind stays
+# so research rows stored by earlier versions still load.
 FindingKind = Literal["citation_rejected", "conflict", "unsupported_value", "domain_mismatch"]
 ResearchStatus = Literal["researched", "unresolved"]
 
 
 class FieldValue(BaseModel):
-    """A field that survived verification: the quote is in the cited document's text."""
+    """A field that survived verification: the quote is in the cited document's text.
+
+    A derived field (the domain) was computed in code from an input, not read from a page:
+    `source_url` is the website we were given and there is no quote.
+    """
 
     value: str | int
     source_url: str
-    quote: str
+    quote: str = ""
+    derived: bool = False
+
+    @model_validator(mode="after")
+    def _a_page_field_has_its_quote(self) -> FieldValue:
+        if not self.derived and not self.quote:
+            raise ValueError("a field read from a page needs its quote")
+        return self
 
 
 class Finding(BaseModel):

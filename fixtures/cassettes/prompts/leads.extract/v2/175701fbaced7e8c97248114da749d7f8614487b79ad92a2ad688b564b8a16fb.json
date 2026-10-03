@@ -4,26 +4,26 @@
     "attachments": [],
     "attempt": 1,
     "inputs": {
-      "city_hint": "Alderton",
-      "company_name": "Kettlebrook Mechanical",
-      "documents": "<document url=\"corpus://kettlebrook.example/about.html\">\nAbout Kettlebrook Mechanical\nAbout Kettlebrook Mechanical\nKettlebrook designs and installs large commercial boilers and chillers in Alderton. Our firm dates to 1990.\nTrade: HVAC and plumbing\nPlant: Alderton\nTeam: 51-200 employees\nWebsite: kettlebrook.example\n</document>\n\n<document url=\"corpus://kettlebrook.example/press-plant-tour.html\">\nKettlebrook hosts an open plant tour\nKettlebrook hosts an open plant tour\nALDERTON - Kettlebrook Mechanical invites apprentices to an open plant tour next month. Questions: 555-0171.\n</document>\n\n<document url=\"corpus://alderton-chamber.example/members.html\">\nAlderton Chamber of Commerce - Member List\nAlderton Chamber of Commerce - Member List\nMembers in good standing.\nKettlebrook Mechanical, Alderton, 51-200 employees\nMistral Climate Services, Alderton, 11-50 employees\n</document>"
+      "city_hint": "Quillby",
+      "company_name": "Bluebird Bakery",
+      "documents": "<document url=\"corpus://bluebird.example/about.html\">\nAbout Bluebird Bakery\nAbout Bluebird Bakery\nBluebird Bakery bakes sourdough loaves and morning pastries in Quillby. The ovens first lit in 2012.\nBusiness type: Bakery\nShop: Quillby\nCrew: 1-10 employees\nWebsite: bluebird.example\n</document>\n\n<document url=\"corpus://quillby-chamber.example/members.html\">\nQuillby Chamber of Commerce - Member List\nQuillby Chamber of Commerce - Member List\nWelcome our newest members for the year.\nBluebird Bakery, founded 2012, website bluebird.example\nLantern Ledger Bookkeeping, founded 2016, website lantern.example\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-bakeries.html\">\nTri-Town Business Directory - Bakeries\nTri-Town Business Directory - Bakeries\nBakeries and sweet shops. Two listings share most of a name; check the town.\nBluebird Bakery, Quillby: Bakery\nBluebird Bakehouse, Dunmere: Bakery\n</document>"
     },
     "output_schema": "LeadExtraction",
     "prompt_id": "leads.extract",
-    "schema_sha256": "127089f0282e16a38f89db5cbe41bbfa8d322049146b9047bbd68e09abc20297",
+    "schema_sha256": "e9487dfa69373af116845b6df62dc49f29e9b196ea7f65e0024375ebd2ab9918",
     "system_sha256": "093255f7929dcb51c1b10433a5cc502eb01642a7f7c3a9df4f387a1abb816bc1",
     "template_sha256": "05911557acab5e7aee6da9295ea29e195b71d8512f0ed662cf74cac6bfef86c2",
     "tier": "small",
-    "version": 1
+    "version": 2
   },
-  "replay_hash": "cd2e6c843f1258550729a07dd741bc74075ce0e598bb421fa2907cea5f881dd3",
+  "replay_hash": "175701fbaced7e8c97248114da749d7f8614487b79ad92a2ad688b564b8a16fb",
   "request": {
     "effort": null,
     "max_tokens": 16000,
     "messages": [
       {
         "attachments": [],
-        "content": "Company: Kettlebrook Mechanical\nCity (to tell similar names apart, not a source): Alderton\n\n<document url=\"corpus://kettlebrook.example/about.html\">\nAbout Kettlebrook Mechanical\nAbout Kettlebrook Mechanical\nKettlebrook designs and installs large commercial boilers and chillers in Alderton. Our firm dates to 1990.\nTrade: HVAC and plumbing\nPlant: Alderton\nTeam: 51-200 employees\nWebsite: kettlebrook.example\n</document>\n\n<document url=\"corpus://kettlebrook.example/press-plant-tour.html\">\nKettlebrook hosts an open plant tour\nKettlebrook hosts an open plant tour\nALDERTON - Kettlebrook Mechanical invites apprentices to an open plant tour next month. Questions: 555-0171.\n</document>\n\n<document url=\"corpus://alderton-chamber.example/members.html\">\nAlderton Chamber of Commerce - Member List\nAlderton Chamber of Commerce - Member List\nMembers in good standing.\nKettlebrook Mechanical, Alderton, 51-200 employees\nMistral Climate Services, Alderton, 11-50 employees\n</document>",
+        "content": "Company: Bluebird Bakery\nCity (to tell similar names apart, not a source): Quillby\n\n<document url=\"corpus://bluebird.example/about.html\">\nAbout Bluebird Bakery\nAbout Bluebird Bakery\nBluebird Bakery bakes sourdough loaves and morning pastries in Quillby. The ovens first lit in 2012.\nBusiness type: Bakery\nShop: Quillby\nCrew: 1-10 employees\nWebsite: bluebird.example\n</document>\n\n<document url=\"corpus://quillby-chamber.example/members.html\">\nQuillby Chamber of Commerce - Member List\nQuillby Chamber of Commerce - Member List\nWelcome our newest members for the year.\nBluebird Bakery, founded 2012, website bluebird.example\nLantern Ledger Bookkeeping, founded 2016, website lantern.example\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-bakeries.html\">\nTri-Town Business Directory - Bakeries\nTri-Town Business Directory - Bakeries\nBakeries and sweet shops. Two listings share most of a name; check the town.\nBluebird Bakery, Quillby: Bakery\nBluebird Bakehouse, Dunmere: Bakery\n</document>",
         "role": "user"
       }
     ],
@@ -69,14 +69,6 @@
           "title": "Description",
           "type": "array"
         },
-        "domain": {
-          "description": "The company's website domain.",
-          "items": {
-            "$ref": "#/$defs/Cite"
-          },
-          "title": "Domain",
-          "type": "array"
-        },
         "employee_band": {
           "description": "Headcount range exactly as written, like 11-50.",
           "items": {
@@ -119,12 +111,12 @@
   "response": {
     "model": "claude-haiku-4-5-20251001",
     "stop_reason": "end_turn",
-    "text": "{\"domain\": [{\"value\": \"kettlebrook.example\", \"source_url\": \"corpus://kettlebrook.example/about.html\", \"quote\": \"Website: kettlebrook.example\"}], \"industry\": [{\"value\": \"HVAC and plumbing\", \"source_url\": \"corpus://kettlebrook.example/about.html\", \"quote\": \"Trade: HVAC and plumbing\"}], \"employee_band\": [{\"value\": \"51-200 employees\", \"source_url\": \"corpus://kettlebrook.example/about.html\", \"quote\": \"Team: 51-200 employees\"}], \"hq_city\": [{\"value\": \"Alderton\", \"source_url\": \"corpus://kettlebrook.example/about.html\", \"quote\": \"Plant: Alderton\"}], \"founded_year\": [{\"value\": \"1990\", \"source_url\": \"corpus://kettlebrook.example/about.html\", \"quote\": \"Our firm dates to 1990\"}], \"description\": [{\"value\": \"Kettlebrook designs and installs large commercial boilers and chillers in Alderton.\", \"source_url\": \"corpus://kettlebrook.example/about.html\", \"quote\": \"Kettlebrook designs and installs large commercial boilers and chillers in Alderton.\"}]}",
+    "text": "{\"industry\": [{\"value\": \"Bakery\", \"source_url\": \"corpus://bluebird.example/about.html\", \"quote\": \"Business type: Bakery\"}, {\"value\": \"Bakery\", \"source_url\": \"corpus://tritown-directory.example/listing-bakeries.html\", \"quote\": \"Bluebird Bakery, Quillby: Bakery\"}], \"employee_band\": [{\"value\": \"1-10\", \"source_url\": \"corpus://bluebird.example/about.html\", \"quote\": \"Crew: 1-10 employees\"}], \"hq_city\": [{\"value\": \"Quillby\", \"source_url\": \"corpus://bluebird.example/about.html\", \"quote\": \"Bluebird Bakery bakes sourdough loaves and morning pastries in Quillby\"}], \"founded_year\": [{\"value\": \"2012\", \"source_url\": \"corpus://bluebird.example/about.html\", \"quote\": \"The ovens first lit in 2012\"}, {\"value\": \"2012\", \"source_url\": \"corpus://quillby-chamber.example/members.html\", \"quote\": \"Bluebird Bakery, founded 2012\"}], \"description\": [{\"value\": \"Bluebird Bakery bakes sourdough loaves and morning pastries in Quillby.\", \"source_url\": \"corpus://bluebird.example/about.html\", \"quote\": \"Bluebird Bakery bakes sourdough loaves and morning pastries in Quillby.\"}]}",
     "usage": {
       "cache_creation_input_tokens": 0,
       "cache_read_input_tokens": 0,
-      "input_tokens": 1237,
-      "output_tokens": 305
+      "input_tokens": 1225,
+      "output_tokens": 378
     }
   },
   "sequence": 0

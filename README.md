@@ -8,7 +8,7 @@ Three n8n + Claude workflows for small businesses, runnable from one `docker com
 
 n8n orchestrates. A small Python helper API does the work.
 
-**Status:** Phase 3b: the receipts, inbox and leads workflows run end to end (in replay by default) on agent-core v0.1.0a2.
+**Status:** Phase 3c: the receipts, inbox and leads workflows run end to end (in replay by default) on agent-core v0.1.0a3.
 
 <!-- GIF arrives with Phase 4 -->
 
@@ -64,7 +64,7 @@ All model calls, approvals and audit writes go through one module, `opskit.core`
 4. The decision is saved in one transaction with an audit row. A dispatcher then calls the resume URL.
 5. n8n continues: an IF node checks the decision, and only an approved reply goes to Send Email.
 
-n8n's service token cannot approve anything. The approver page accepts only the session cookie, and no `/v1` route can decide an approval. After resuming, the workflow reads the recorded decision from `GET /v1/approvals/{id}` and branches on it, never on the resume request's body.
+n8n's service token cannot approve anything. The approver page accepts only the session cookie, and no `/v1` route can decide an approval. The database enforces it too: the n8n-facing API connects as a requester role that has no right to write a decision, and a trigger refuses any move to approved or rejected unless the connection is the separate approver role, which only the approver page's decision path uses. After resuming, the workflow reads the recorded decision from `GET /v1/approvals/{id}` and branches on it, never on the resume request's body.
 
 **Local-only cookies.** The stack serves plain HTTP on 127.0.0.1, so the approver cookie is sent without `Secure` and n8n runs with `N8N_SECURE_COOKIE=false`. Put TLS in front and turn both back on before exposing either beyond your machine.
 

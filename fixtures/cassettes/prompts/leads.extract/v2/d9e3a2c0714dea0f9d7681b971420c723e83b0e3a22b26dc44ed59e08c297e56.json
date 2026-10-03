@@ -10,13 +10,13 @@
     },
     "output_schema": "LeadExtraction",
     "prompt_id": "leads.extract",
-    "schema_sha256": "127089f0282e16a38f89db5cbe41bbfa8d322049146b9047bbd68e09abc20297",
+    "schema_sha256": "e9487dfa69373af116845b6df62dc49f29e9b196ea7f65e0024375ebd2ab9918",
     "system_sha256": "093255f7929dcb51c1b10433a5cc502eb01642a7f7c3a9df4f387a1abb816bc1",
     "template_sha256": "05911557acab5e7aee6da9295ea29e195b71d8512f0ed662cf74cac6bfef86c2",
     "tier": "small",
-    "version": 1
+    "version": 2
   },
-  "replay_hash": "7965fced5cf48618dd2bbddc8655e37037ecb62691d4c81c3539ef21ae75b939",
+  "replay_hash": "d9e3a2c0714dea0f9d7681b971420c723e83b0e3a22b26dc44ed59e08c297e56",
   "request": {
     "effort": null,
     "max_tokens": 16000,
@@ -69,14 +69,6 @@
           "title": "Description",
           "type": "array"
         },
-        "domain": {
-          "description": "The company's website domain.",
-          "items": {
-            "$ref": "#/$defs/Cite"
-          },
-          "title": "Domain",
-          "type": "array"
-        },
         "employee_band": {
           "description": "Headcount range exactly as written, like 11-50.",
           "items": {
@@ -119,12 +111,12 @@
   "response": {
     "model": "claude-haiku-4-5-20251001",
     "stop_reason": "end_turn",
-    "text": "{\"domain\": [{\"value\": \"aeroflow.example\", \"source_url\": \"corpus://aeroflow.example/about.html\", \"quote\": \"Website: aeroflow.example\"}], \"industry\": [{\"value\": \"HVAC and plumbing\", \"source_url\": \"corpus://aeroflow.example/about.html\", \"quote\": \"Trade: HVAC and plumbing\"}], \"employee_band\": [{\"value\": \"51-200 employees\", \"source_url\": \"corpus://aeroflow.example/about.html\", \"quote\": \"Team: 51-200 employees\"}], \"hq_city\": [{\"value\": \"Wexmoor\", \"source_url\": \"corpus://aeroflow.example/about.html\", \"quote\": \"Main office: Wexmoor\"}], \"founded_year\": [{\"value\": \"2002\", \"source_url\": \"corpus://aeroflow.example/about.html\", \"quote\": \"Aeroflow was founded in 2002\"}], \"description\": [{\"value\": \"Aeroflow installs and services furnaces and air conditioners for homes and offices in Wexmoor.\", \"source_url\": \"corpus://aeroflow.example/about.html\", \"quote\": \"Aeroflow installs and services furnaces and air conditioners for homes and offices in Wexmoor.\"}]}",
+    "text": "{\"industry\": [{\"value\": \"HVAC and plumbing\", \"source_url\": \"corpus://aeroflow.example/about.html\", \"quote\": \"Trade: HVAC and plumbing\"}, {\"value\": \"HVAC and plumbing\", \"source_url\": \"corpus://tritown-directory.example/export-hvac.txt\", \"quote\": \"Aeroflow Heating and Cooling | Wexmoor | HVAC and plumbing\"}], \"employee_band\": [{\"value\": \"51-200 employees\", \"source_url\": \"corpus://aeroflow.example/about.html\", \"quote\": \"Team: 51-200 employees\"}], \"hq_city\": [{\"value\": \"Wexmoor\", \"source_url\": \"corpus://aeroflow.example/about.html\", \"quote\": \"Main office: Wexmoor\"}], \"founded_year\": [{\"value\": \"2002\", \"source_url\": \"corpus://aeroflow.example/about.html\", \"quote\": \"Aeroflow was founded in 2002\"}], \"description\": [{\"value\": \"Aeroflow installs and services furnaces and air conditioners for homes and offices in Wexmoor.\", \"source_url\": \"corpus://aeroflow.example/about.html\", \"quote\": \"Aeroflow installs and services furnaces and air conditioners for homes and offices in Wexmoor.\"}]}",
     "usage": {
       "cache_creation_input_tokens": 0,
       "cache_read_input_tokens": 0,
-      "input_tokens": 1381,
-      "output_tokens": 323
+      "input_tokens": 1322,
+      "output_tokens": 341
     }
   },
   "sequence": 0

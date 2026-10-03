@@ -10,13 +10,13 @@
     },
     "output_schema": "LeadExtraction",
     "prompt_id": "leads.extract",
-    "schema_sha256": "127089f0282e16a38f89db5cbe41bbfa8d322049146b9047bbd68e09abc20297",
+    "schema_sha256": "e9487dfa69373af116845b6df62dc49f29e9b196ea7f65e0024375ebd2ab9918",
     "system_sha256": "093255f7929dcb51c1b10433a5cc502eb01642a7f7c3a9df4f387a1abb816bc1",
     "template_sha256": "05911557acab5e7aee6da9295ea29e195b71d8512f0ed662cf74cac6bfef86c2",
     "tier": "small",
-    "version": 1
+    "version": 2
   },
-  "replay_hash": "53d3de5ad643ce8048da18c07f50808561bdfeed11c2f8563967fb5c470026ad",
+  "replay_hash": "62b9956aead693c6d5f9b6744fbaf0202d1b80f7a327866afb6c293cc3bcf2eb",
   "request": {
     "effort": null,
     "max_tokens": 16000,
@@ -69,14 +69,6 @@
           "title": "Description",
           "type": "array"
         },
-        "domain": {
-          "description": "The company's website domain.",
-          "items": {
-            "$ref": "#/$defs/Cite"
-          },
-          "title": "Domain",
-          "type": "array"
-        },
         "employee_band": {
           "description": "Headcount range exactly as written, like 11-50.",
           "items": {
@@ -119,12 +111,12 @@
   "response": {
     "model": "claude-haiku-4-5-20251001",
     "stop_reason": "end_turn",
-    "text": "{\"domain\": [{\"value\": \"harborlight.example\", \"source_url\": \"corpus://harborlight.example/about.html\", \"quote\": \"Site: harborlight.example\"}], \"industry\": [{\"value\": \"Dental care\", \"source_url\": \"corpus://harborlight.example/about.html\", \"quote\": \"Specialty: Dental care\"}, {\"value\": \"Dental care\", \"source_url\": \"corpus://tritown-directory.example/listing-dental.html\", \"quote\": \"Harborlight Family Dentistry, Orlen Falls: Dental care\"}], \"employee_band\": [{\"value\": \"11-50\", \"source_url\": \"corpus://harborlight.example/about.html\", \"quote\": \"Staff: 11-50 employees\"}, {\"value\": \"51-200\", \"source_url\": \"corpus://harborlight.example/press-new-wing.html\", \"quote\": \"the practice now counts 51-200 employees across three sites\"}], \"hq_city\": [{\"value\": \"Orlen Falls\", \"source_url\": \"corpus://harborlight.example/about.html\", \"quote\": \"Town: Orlen Falls\"}], \"founded_year\": [{\"value\": \"2008\", \"source_url\": \"corpus://harborlight.example/about.html\", \"quote\": \"We opened our doors in 2008\"}, {\"value\": \"2008\", \"source_url\": \"corpus://orlenfalls-chamber.example/members.html\", \"quote\": \"Harborlight Family Dentistry, Orlen Falls, founded 2008\"}], \"description\": [{\"value\": \"Harborlight offers family dentistry and same-week emergency appointments in Orlen Falls.\", \"source_url\": \"corpus://harborlight.example/about.html\", \"quote\": \"Harborlight offers family dentistry and same-week emergency appointments in Orlen Falls.\"}]}",
+    "text": "{\"industry\": [{\"value\": \"Dental care\", \"source_url\": \"corpus://harborlight.example/about.html\", \"quote\": \"Specialty: Dental care\"}, {\"value\": \"Dental care\", \"source_url\": \"corpus://tritown-directory.example/listing-dental.html\", \"quote\": \"Harborlight Family Dentistry, Orlen Falls: Dental care\"}], \"employee_band\": [{\"value\": \"11-50\", \"source_url\": \"corpus://harborlight.example/about.html\", \"quote\": \"Staff: 11-50 employees\"}, {\"value\": \"51-200\", \"source_url\": \"corpus://harborlight.example/press-new-wing.html\", \"quote\": \"the practice now counts 51-200 employees across three sites\"}], \"hq_city\": [{\"value\": \"Orlen Falls\", \"source_url\": \"corpus://harborlight.example/about.html\", \"quote\": \"Town: Orlen Falls\"}], \"founded_year\": [{\"value\": \"2008\", \"source_url\": \"corpus://harborlight.example/about.html\", \"quote\": \"We opened our doors in 2008\"}, {\"value\": \"2008\", \"source_url\": \"corpus://orlenfalls-chamber.example/members.html\", \"quote\": \"Harborlight Family Dentistry, Orlen Falls, founded 2008\"}], \"description\": [{\"value\": \"Harborlight offers family dentistry and same-week emergency appointments in Orlen Falls.\", \"source_url\": \"corpus://harborlight.example/about.html\", \"quote\": \"Harborlight offers family dentistry and same-week emergency appointments in Orlen Falls.\"}]}",
     "usage": {
       "cache_creation_input_tokens": 0,
       "cache_read_input_tokens": 0,
-      "input_tokens": 1364,
-      "output_tokens": 451
+      "input_tokens": 1305,
+      "output_tokens": 406
     }
   },
   "sequence": 0

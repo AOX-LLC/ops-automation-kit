@@ -4,26 +4,26 @@
     "attachments": [],
     "attempt": 1,
     "inputs": {
-      "city_hint": "Alderton",
-      "company_name": "Mistral Climate Services",
-      "documents": "<document url=\"corpus://mistral.example/about.html\">\nAbout Mistral Climate Services\nAbout Mistral Climate Services\nMistral maintains rooftop cooling units for restaurants and shops in Alderton. We started in 2014.\nTrade: HVAC and plumbing\nTown: Alderton\nTeam: 11-50 employees\nWebsite: mistral.example\n</document>\n\n<document url=\"corpus://alderton-chamber.example/members.html\">\nAlderton Chamber of Commerce - Member List\nAlderton Chamber of Commerce - Member List\nMembers in good standing.\nKettlebrook Mechanical, Alderton, 51-200 employees\nMistral Climate Services, Alderton, 11-50 employees\n</document>\n\n<document url=\"corpus://tritown-directory.example/export-hvac.txt\">\nDirectory export - HVAC and plumbing\n====================================\n\n* Aeroflow Heating and Cooling | Wexmoor | HVAC and plumbing\n* Copperline Plumbing and Heat | Pellam | HVAC and plumbing\n* Mistral Climate Services | Alderton | HVAC and plumbing\n\n</document>"
+      "city_hint": "Vesper Hill",
+      "company_name": "Brightwell Orthodontics",
+      "documents": "<document url=\"corpus://brightwell.example/about.html\">\nAbout Brightwell Orthodontics\nAbout Brightwell Orthodontics\nBrightwell fits braces and clear aligners for teenagers and adults in Vesper Hill. Our practice started in 2013.\nField: Dental care\nCity: Vesper Hill\nSize: 1-10 employees\nWebsite: brightwell.example\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-dental.html\">\nTri-Town Business Directory - Dental\nTri-Town Business Directory - Dental\nDental practices accepting new patients.\nBrightwell Orthodontics, Vesper Hill: Dental care\nCedar Street Dental, Wexmoor: Dental care\nHarborlight Family Dentistry, Orlen Falls: Dental care\n</document>"
     },
     "output_schema": "LeadExtraction",
     "prompt_id": "leads.extract",
-    "schema_sha256": "127089f0282e16a38f89db5cbe41bbfa8d322049146b9047bbd68e09abc20297",
+    "schema_sha256": "e9487dfa69373af116845b6df62dc49f29e9b196ea7f65e0024375ebd2ab9918",
     "system_sha256": "093255f7929dcb51c1b10433a5cc502eb01642a7f7c3a9df4f387a1abb816bc1",
     "template_sha256": "05911557acab5e7aee6da9295ea29e195b71d8512f0ed662cf74cac6bfef86c2",
     "tier": "small",
-    "version": 1
+    "version": 2
   },
-  "replay_hash": "2bb46f00e81f7e090910cafecd600c4d0bb384e8b9f5dc14caf826edfa00d4d4",
+  "replay_hash": "d8827420ed454e7e55239e4e535c0e54b34de6303c975e121416357c469b9859",
   "request": {
     "effort": null,
     "max_tokens": 16000,
     "messages": [
       {
         "attachments": [],
-        "content": "Company: Mistral Climate Services\nCity (to tell similar names apart, not a source): Alderton\n\n<document url=\"corpus://mistral.example/about.html\">\nAbout Mistral Climate Services\nAbout Mistral Climate Services\nMistral maintains rooftop cooling units for restaurants and shops in Alderton. We started in 2014.\nTrade: HVAC and plumbing\nTown: Alderton\nTeam: 11-50 employees\nWebsite: mistral.example\n</document>\n\n<document url=\"corpus://alderton-chamber.example/members.html\">\nAlderton Chamber of Commerce - Member List\nAlderton Chamber of Commerce - Member List\nMembers in good standing.\nKettlebrook Mechanical, Alderton, 51-200 employees\nMistral Climate Services, Alderton, 11-50 employees\n</document>\n\n<document url=\"corpus://tritown-directory.example/export-hvac.txt\">\nDirectory export - HVAC and plumbing\n====================================\n\n* Aeroflow Heating and Cooling | Wexmoor | HVAC and plumbing\n* Copperline Plumbing and Heat | Pellam | HVAC and plumbing\n* Mistral Climate Services | Alderton | HVAC and plumbing\n\n</document>",
+        "content": "Company: Brightwell Orthodontics\nCity (to tell similar names apart, not a source): Vesper Hill\n\n<document url=\"corpus://brightwell.example/about.html\">\nAbout Brightwell Orthodontics\nAbout Brightwell Orthodontics\nBrightwell fits braces and clear aligners for teenagers and adults in Vesper Hill. Our practice started in 2013.\nField: Dental care\nCity: Vesper Hill\nSize: 1-10 employees\nWebsite: brightwell.example\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-dental.html\">\nTri-Town Business Directory - Dental\nTri-Town Business Directory - Dental\nDental practices accepting new patients.\nBrightwell Orthodontics, Vesper Hill: Dental care\nCedar Street Dental, Wexmoor: Dental care\nHarborlight Family Dentistry, Orlen Falls: Dental care\n</document>",
         "role": "user"
       }
     ],
@@ -69,14 +69,6 @@
           "title": "Description",
           "type": "array"
         },
-        "domain": {
-          "description": "The company's website domain.",
-          "items": {
-            "$ref": "#/$defs/Cite"
-          },
-          "title": "Domain",
-          "type": "array"
-        },
         "employee_band": {
           "description": "Headcount range exactly as written, like 11-50.",
           "items": {
@@ -119,12 +111,12 @@
   "response": {
     "model": "claude-haiku-4-5-20251001",
     "stop_reason": "end_turn",
-    "text": "{\"domain\": [{\"value\": \"mistral.example\", \"source_url\": \"corpus://mistral.example/about.html\", \"quote\": \"Website: mistral.example\"}], \"industry\": [{\"value\": \"HVAC and plumbing\", \"source_url\": \"corpus://mistral.example/about.html\", \"quote\": \"Trade: HVAC and plumbing\"}], \"employee_band\": [{\"value\": \"11-50 employees\", \"source_url\": \"corpus://mistral.example/about.html\", \"quote\": \"Team: 11-50 employees\"}], \"hq_city\": [{\"value\": \"Alderton\", \"source_url\": \"corpus://mistral.example/about.html\", \"quote\": \"Town: Alderton\"}], \"founded_year\": [{\"value\": \"2014\", \"source_url\": \"corpus://mistral.example/about.html\", \"quote\": \"We started in 2014\"}], \"description\": [{\"value\": \"Mistral maintains rooftop cooling units for restaurants and shops in Alderton.\", \"source_url\": \"corpus://mistral.example/about.html\", \"quote\": \"Mistral maintains rooftop cooling units for restaurants and shops in Alderton.\"}]}",
+    "text": "{\"industry\": [{\"value\": \"Dental care\", \"source_url\": \"corpus://brightwell.example/about.html\", \"quote\": \"Brightwell fits braces and clear aligners for teenagers and adults\"}, {\"value\": \"Dental care\", \"source_url\": \"corpus://tritown-directory.example/listing-dental.html\", \"quote\": \"Brightwell Orthodontics, Vesper Hill: Dental care\"}], \"employee_band\": [{\"value\": \"1-10 employees\", \"source_url\": \"corpus://brightwell.example/about.html\", \"quote\": \"Size: 1-10 employees\"}], \"hq_city\": [{\"value\": \"Vesper Hill\", \"source_url\": \"corpus://brightwell.example/about.html\", \"quote\": \"Brightwell fits braces and clear aligners for teenagers and adults in Vesper Hill\"}], \"founded_year\": [{\"value\": \"2013\", \"source_url\": \"corpus://brightwell.example/about.html\", \"quote\": \"Our practice started in 2013\"}], \"description\": [{\"value\": \"Brightwell fits braces and clear aligners for teenagers and adults in Vesper Hill.\", \"source_url\": \"corpus://brightwell.example/about.html\", \"quote\": \"Brightwell fits braces and clear aligners for teenagers and adults in Vesper Hill.\"}]}",
     "usage": {
       "cache_creation_input_tokens": 0,
       "cache_read_input_tokens": 0,
-      "input_tokens": 1260,
-      "output_tokens": 292
+      "input_tokens": 1120,
+      "output_tokens": 322
     }
   },
   "sequence": 0

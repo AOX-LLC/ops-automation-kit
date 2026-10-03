@@ -4,26 +4,26 @@
     "attachments": [],
     "attempt": 1,
     "inputs": {
-      "city_hint": "Quillby",
-      "company_name": "Bluebird Bakery",
-      "documents": "<document url=\"corpus://bluebird.example/about.html\">\nAbout Bluebird Bakery\nAbout Bluebird Bakery\nBluebird Bakery bakes sourdough loaves and morning pastries in Quillby. The ovens first lit in 2012.\nBusiness type: Bakery\nShop: Quillby\nCrew: 1-10 employees\nWebsite: bluebird.example\n</document>\n\n<document url=\"corpus://quillby-chamber.example/members.html\">\nQuillby Chamber of Commerce - Member List\nQuillby Chamber of Commerce - Member List\nWelcome our newest members for the year.\nBluebird Bakery, founded 2012, website bluebird.example\nLantern Ledger Bookkeeping, founded 2016, website lantern.example\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-bakeries.html\">\nTri-Town Business Directory - Bakeries\nTri-Town Business Directory - Bakeries\nBakeries and sweet shops. Two listings share most of a name; check the town.\nBluebird Bakery, Quillby: Bakery\nBluebird Bakehouse, Dunmere: Bakery\n</document>"
+      "city_hint": "Ashgrove Mills",
+      "company_name": "Ironwood Collision",
+      "documents": "<document url=\"corpus://ironwood.example/about.html\">\nAbout Ironwood Collision\nAbout Ironwood Collision\nIronwood repairs collision damage and repaints vehicles for insurers around Ashgrove Mills. Ironwood has operated since 2001.\nIndustry: Auto repair\nHome base: Ashgrove Mills\nTeam: 51-200 employees\nWebsite: ironwood.example\n</document>\n\n<document url=\"corpus://ironwood.example/press-award.html\">\nIronwood Collision wins a regional safety award\nIronwood Collision wins a regional safety award\nASHGROVE MILLS - Ironwood Collision received a regional workshop safety award on Friday. Media contact: 555-0188.\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-auto.html\">\nTri-Town Business Directory - Auto repair\nTri-Town Business Directory - Auto repair\nGarages and body shops. Note that two listings have similar names; check the town.\nIronwood Collision, Ashgrove Mills: Auto repair\nRedline Auto, Orlen Falls: Auto repair\nRedline Auto Works, Pellam: Auto repair\n</document>"
     },
     "output_schema": "LeadExtraction",
     "prompt_id": "leads.extract",
-    "schema_sha256": "127089f0282e16a38f89db5cbe41bbfa8d322049146b9047bbd68e09abc20297",
+    "schema_sha256": "e9487dfa69373af116845b6df62dc49f29e9b196ea7f65e0024375ebd2ab9918",
     "system_sha256": "093255f7929dcb51c1b10433a5cc502eb01642a7f7c3a9df4f387a1abb816bc1",
     "template_sha256": "05911557acab5e7aee6da9295ea29e195b71d8512f0ed662cf74cac6bfef86c2",
     "tier": "small",
-    "version": 1
+    "version": 2
   },
-  "replay_hash": "aefa894354db996525bb8b212100b0e08bf8d3e9d95aa7bead5a3fe2c9ac67bd",
+  "replay_hash": "ccea13140766a23cdc617387557acc03e1426c4dd70d7288e61e3aac324f5eaa",
   "request": {
     "effort": null,
     "max_tokens": 16000,
     "messages": [
       {
         "attachments": [],
-        "content": "Company: Bluebird Bakery\nCity (to tell similar names apart, not a source): Quillby\n\n<document url=\"corpus://bluebird.example/about.html\">\nAbout Bluebird Bakery\nAbout Bluebird Bakery\nBluebird Bakery bakes sourdough loaves and morning pastries in Quillby. The ovens first lit in 2012.\nBusiness type: Bakery\nShop: Quillby\nCrew: 1-10 employees\nWebsite: bluebird.example\n</document>\n\n<document url=\"corpus://quillby-chamber.example/members.html\">\nQuillby Chamber of Commerce - Member List\nQuillby Chamber of Commerce - Member List\nWelcome our newest members for the year.\nBluebird Bakery, founded 2012, website bluebird.example\nLantern Ledger Bookkeeping, founded 2016, website lantern.example\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-bakeries.html\">\nTri-Town Business Directory - Bakeries\nTri-Town Business Directory - Bakeries\nBakeries and sweet shops. Two listings share most of a name; check the town.\nBluebird Bakery, Quillby: Bakery\nBluebird Bakehouse, Dunmere: Bakery\n</document>",
+        "content": "Company: Ironwood Collision\nCity (to tell similar names apart, not a source): Ashgrove Mills\n\n<document url=\"corpus://ironwood.example/about.html\">\nAbout Ironwood Collision\nAbout Ironwood Collision\nIronwood repairs collision damage and repaints vehicles for insurers around Ashgrove Mills. Ironwood has operated since 2001.\nIndustry: Auto repair\nHome base: Ashgrove Mills\nTeam: 51-200 employees\nWebsite: ironwood.example\n</document>\n\n<document url=\"corpus://ironwood.example/press-award.html\">\nIronwood Collision wins a regional safety award\nIronwood Collision wins a regional safety award\nASHGROVE MILLS - Ironwood Collision received a regional workshop safety award on Friday. Media contact: 555-0188.\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-auto.html\">\nTri-Town Business Directory - Auto repair\nTri-Town Business Directory - Auto repair\nGarages and body shops. Note that two listings have similar names; check the town.\nIronwood Collision, Ashgrove Mills: Auto repair\nRedline Auto, Orlen Falls: Auto repair\nRedline Auto Works, Pellam: Auto repair\n</document>",
         "role": "user"
       }
     ],
@@ -69,14 +69,6 @@
           "title": "Description",
           "type": "array"
         },
-        "domain": {
-          "description": "The company's website domain.",
-          "items": {
-            "$ref": "#/$defs/Cite"
-          },
-          "title": "Domain",
-          "type": "array"
-        },
         "employee_band": {
           "description": "Headcount range exactly as written, like 11-50.",
           "items": {
@@ -119,12 +111,12 @@
   "response": {
     "model": "claude-haiku-4-5-20251001",
     "stop_reason": "end_turn",
-    "text": "{\"domain\": [{\"value\": \"bluebird.example\", \"source_url\": \"corpus://bluebird.example/about.html\", \"quote\": \"Website: bluebird.example\"}], \"industry\": [{\"value\": \"Bakery\", \"source_url\": \"corpus://bluebird.example/about.html\", \"quote\": \"Business type: Bakery\"}], \"employee_band\": [{\"value\": \"1-10\", \"source_url\": \"corpus://bluebird.example/about.html\", \"quote\": \"Crew: 1-10 employees\"}], \"hq_city\": [{\"value\": \"Quillby\", \"source_url\": \"corpus://bluebird.example/about.html\", \"quote\": \"Shop: Quillby\"}], \"founded_year\": [{\"value\": \"2012\", \"source_url\": \"corpus://bluebird.example/about.html\", \"quote\": \"The ovens first lit in 2012\"}], \"description\": [{\"value\": \"Bluebird Bakery bakes sourdough loaves and morning pastries in Quillby.\", \"source_url\": \"corpus://bluebird.example/about.html\", \"quote\": \"Bluebird Bakery bakes sourdough loaves and morning pastries in Quillby.\"}]}",
+    "text": "{\"industry\": [{\"value\": \"Auto repair\", \"source_url\": \"corpus://ironwood.example/about.html\", \"quote\": \"Industry: Auto repair\"}, {\"value\": \"Auto repair\", \"source_url\": \"corpus://tritown-directory.example/listing-auto.html\", \"quote\": \"Ironwood Collision, Ashgrove Mills: Auto repair\"}], \"employee_band\": [{\"value\": \"51-200\", \"source_url\": \"corpus://ironwood.example/about.html\", \"quote\": \"Team: 51-200 employees\"}], \"hq_city\": [{\"value\": \"Ashgrove Mills\", \"source_url\": \"corpus://ironwood.example/about.html\", \"quote\": \"Home base: Ashgrove Mills\"}], \"founded_year\": [{\"value\": \"2001\", \"source_url\": \"corpus://ironwood.example/about.html\", \"quote\": \"Ironwood has operated since 2001\"}], \"description\": [{\"value\": \"Ironwood repairs collision damage and repaints vehicles for insurers around Ashgrove Mills.\", \"source_url\": \"corpus://ironwood.example/about.html\", \"quote\": \"Ironwood repairs collision damage and repaints vehicles for insurers around Ashgrove Mills.\"}]}",
     "usage": {
       "cache_creation_input_tokens": 0,
       "cache_read_input_tokens": 0,
-      "input_tokens": 1284,
-      "output_tokens": 309
+      "input_tokens": 1197,
+      "output_tokens": 300
     }
   },
   "sequence": 0

@@ -15,7 +15,9 @@ One EvalCase per company in samples/leads/companies.csv, run through the same
   (the honest-null check, including the two conflicts, which must also be reported);
 - description: scored on its citation only, since the model words it;
 - citations: every field kept quotes text that is really in the corpus file it cites (the
-  file is re-read here, apart from the repo's own check).
+  file is re-read here, apart from the repo's own check). The domain is the exception: code
+  derives it from the website given, so it quotes nothing and is left out of this scorer and of
+  the citation counts. It still counts in field accuracy.
 
 Citation validity is also reported on the model's raw output, before the repo's checks.
 """
@@ -167,8 +169,8 @@ class CitationScorer:
         shown = set(out.get("pages") or [])
         problems = []
         for name, value in (out.get("fields") or {}).items():
-            if value is None:
-                continue
+            if value is None or value.get("derived"):
+                continue  # derived from the website given: there is no page to quote
             text = corpus_text(value.get("source_url", ""))
             quote = normalize(value.get("quote") or "")
             if value.get("source_url") not in shown or text is None:
@@ -250,7 +252,7 @@ def summarise(card: Scorecard, mode: Mode) -> dict[str, Any]:
             if name not in problems:
                 correct += 1
                 per_field[name][0] += 1
-            kept += int(value is not None)
+            kept += int(value is not None and not value.get("derived"))
             if want["value"] is None:
                 nulls["expected"] += 1
                 nulls["honest"] += int(value is None)

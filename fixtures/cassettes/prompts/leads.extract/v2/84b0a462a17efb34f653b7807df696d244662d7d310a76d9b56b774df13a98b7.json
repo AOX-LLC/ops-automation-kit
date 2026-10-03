@@ -4,26 +4,26 @@
     "attachments": [],
     "attempt": 1,
     "inputs": {
-      "city_hint": "Vesper Hill",
-      "company_name": "Brightwell Orthodontics",
-      "documents": "<document url=\"corpus://brightwell.example/about.html\">\nAbout Brightwell Orthodontics\nAbout Brightwell Orthodontics\nBrightwell fits braces and clear aligners for teenagers and adults in Vesper Hill. Our practice started in 2013.\nField: Dental care\nCity: Vesper Hill\nSize: 1-10 employees\nWebsite: brightwell.example\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-dental.html\">\nTri-Town Business Directory - Dental\nTri-Town Business Directory - Dental\nDental practices accepting new patients.\nBrightwell Orthodontics, Vesper Hill: Dental care\nCedar Street Dental, Wexmoor: Dental care\nHarborlight Family Dentistry, Orlen Falls: Dental care\n</document>"
+      "city_hint": "Alderton",
+      "company_name": "Kettlebrook Mechanical",
+      "documents": "<document url=\"corpus://kettlebrook.example/about.html\">\nAbout Kettlebrook Mechanical\nAbout Kettlebrook Mechanical\nKettlebrook designs and installs large commercial boilers and chillers in Alderton. Our firm dates to 1990.\nTrade: HVAC and plumbing\nPlant: Alderton\nTeam: 51-200 employees\nWebsite: kettlebrook.example\n</document>\n\n<document url=\"corpus://kettlebrook.example/press-plant-tour.html\">\nKettlebrook hosts an open plant tour\nKettlebrook hosts an open plant tour\nALDERTON - Kettlebrook Mechanical invites apprentices to an open plant tour next month. Questions: 555-0171.\n</document>\n\n<document url=\"corpus://alderton-chamber.example/members.html\">\nAlderton Chamber of Commerce - Member List\nAlderton Chamber of Commerce - Member List\nMembers in good standing.\nKettlebrook Mechanical, Alderton, 51-200 employees\nMistral Climate Services, Alderton, 11-50 employees\n</document>"
     },
     "output_schema": "LeadExtraction",
     "prompt_id": "leads.extract",
-    "schema_sha256": "127089f0282e16a38f89db5cbe41bbfa8d322049146b9047bbd68e09abc20297",
+    "schema_sha256": "e9487dfa69373af116845b6df62dc49f29e9b196ea7f65e0024375ebd2ab9918",
     "system_sha256": "093255f7929dcb51c1b10433a5cc502eb01642a7f7c3a9df4f387a1abb816bc1",
     "template_sha256": "05911557acab5e7aee6da9295ea29e195b71d8512f0ed662cf74cac6bfef86c2",
     "tier": "small",
-    "version": 1
+    "version": 2
   },
-  "replay_hash": "3a775a051e947bcbdcbb7952ea8837f269b124e8caf449aae317e8aa639c2179",
+  "replay_hash": "84b0a462a17efb34f653b7807df696d244662d7d310a76d9b56b774df13a98b7",
   "request": {
     "effort": null,
     "max_tokens": 16000,
     "messages": [
       {
         "attachments": [],
-        "content": "Company: Brightwell Orthodontics\nCity (to tell similar names apart, not a source): Vesper Hill\n\n<document url=\"corpus://brightwell.example/about.html\">\nAbout Brightwell Orthodontics\nAbout Brightwell Orthodontics\nBrightwell fits braces and clear aligners for teenagers and adults in Vesper Hill. Our practice started in 2013.\nField: Dental care\nCity: Vesper Hill\nSize: 1-10 employees\nWebsite: brightwell.example\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-dental.html\">\nTri-Town Business Directory - Dental\nTri-Town Business Directory - Dental\nDental practices accepting new patients.\nBrightwell Orthodontics, Vesper Hill: Dental care\nCedar Street Dental, Wexmoor: Dental care\nHarborlight Family Dentistry, Orlen Falls: Dental care\n</document>",
+        "content": "Company: Kettlebrook Mechanical\nCity (to tell similar names apart, not a source): Alderton\n\n<document url=\"corpus://kettlebrook.example/about.html\">\nAbout Kettlebrook Mechanical\nAbout Kettlebrook Mechanical\nKettlebrook designs and installs large commercial boilers and chillers in Alderton. Our firm dates to 1990.\nTrade: HVAC and plumbing\nPlant: Alderton\nTeam: 51-200 employees\nWebsite: kettlebrook.example\n</document>\n\n<document url=\"corpus://kettlebrook.example/press-plant-tour.html\">\nKettlebrook hosts an open plant tour\nKettlebrook hosts an open plant tour\nALDERTON - Kettlebrook Mechanical invites apprentices to an open plant tour next month. Questions: 555-0171.\n</document>\n\n<document url=\"corpus://alderton-chamber.example/members.html\">\nAlderton Chamber of Commerce - Member List\nAlderton Chamber of Commerce - Member List\nMembers in good standing.\nKettlebrook Mechanical, Alderton, 51-200 employees\nMistral Climate Services, Alderton, 11-50 employees\n</document>",
         "role": "user"
       }
     ],
@@ -69,14 +69,6 @@
           "title": "Description",
           "type": "array"
         },
-        "domain": {
-          "description": "The company's website domain.",
-          "items": {
-            "$ref": "#/$defs/Cite"
-          },
-          "title": "Domain",
-          "type": "array"
-        },
         "employee_band": {
           "description": "Headcount range exactly as written, like 11-50.",
           "items": {
@@ -119,12 +111,12 @@
   "response": {
     "model": "claude-haiku-4-5-20251001",
     "stop_reason": "end_turn",
-    "text": "{\"domain\": [{\"value\": \"brightwell.example\", \"source_url\": \"corpus://brightwell.example/about.html\", \"quote\": \"Website: brightwell.example\"}], \"industry\": [{\"value\": \"Dental care\", \"source_url\": \"corpus://brightwell.example/about.html\", \"quote\": \"Field: Dental care\"}], \"employee_band\": [{\"value\": \"1-10 employees\", \"source_url\": \"corpus://brightwell.example/about.html\", \"quote\": \"Size: 1-10 employees\"}], \"hq_city\": [{\"value\": \"Vesper Hill\", \"source_url\": \"corpus://brightwell.example/about.html\", \"quote\": \"Brightwell fits braces and clear aligners for teenagers and adults in Vesper Hill.\"}], \"founded_year\": [{\"value\": \"2013\", \"source_url\": \"corpus://brightwell.example/about.html\", \"quote\": \"Our practice started in 2013.\"}], \"description\": [{\"value\": \"Brightwell fits braces and clear aligners for teenagers and adults in Vesper Hill.\", \"source_url\": \"corpus://brightwell.example/about.html\", \"quote\": \"Brightwell fits braces and clear aligners for teenagers and adults in Vesper Hill.\"}]}",
+    "text": "{\"industry\": [{\"value\": \"HVAC and plumbing\", \"source_url\": \"corpus://kettlebrook.example/about.html\", \"quote\": \"Trade: HVAC and plumbing\"}], \"employee_band\": [{\"value\": \"51-200 employees\", \"source_url\": \"corpus://kettlebrook.example/about.html\", \"quote\": \"Team: 51-200 employees\"}, {\"value\": \"51-200 employees\", \"source_url\": \"corpus://alderton-chamber.example/members.html\", \"quote\": \"Kettlebrook Mechanical, Alderton, 51-200 employees\"}], \"hq_city\": [{\"value\": \"Alderton\", \"source_url\": \"corpus://kettlebrook.example/about.html\", \"quote\": \"Plant: Alderton\"}], \"founded_year\": [{\"value\": \"1990\", \"source_url\": \"corpus://kettlebrook.example/about.html\", \"quote\": \"Our firm dates to 1990\"}], \"description\": [{\"value\": \"Kettlebrook designs and installs large commercial boilers and chillers in Alderton.\", \"source_url\": \"corpus://kettlebrook.example/about.html\", \"quote\": \"Kettlebrook designs and installs large commercial boilers and chillers in Alderton.\"}]}",
     "usage": {
       "cache_creation_input_tokens": 0,
       "cache_read_input_tokens": 0,
-      "input_tokens": 1179,
-      "output_tokens": 306
+      "input_tokens": 1178,
+      "output_tokens": 312
     }
   },
   "sequence": 0

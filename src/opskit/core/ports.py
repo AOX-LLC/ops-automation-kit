@@ -1,4 +1,4 @@
-"""The kit's view of models, approvals, audit and runs, backed by agent-core v0.1.0a2.
+"""The kit's view of models, approvals, audit and runs, backed by agent-core v0.1.0a3.
 
 Everything outside `opskit.core` imports these names from here, never from agent-core
 directly (import-linter enforces it), so the pinned library can change behind this module.
@@ -7,9 +7,9 @@ The name mapping from the Phase 1 draft follows agent-core's docs/compat-03.md.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from types import MappingProxyType
 from typing import Any, Protocol
 from uuid import UUID
 
@@ -38,6 +38,8 @@ __all__ = [
     "APPROVER",
     "APPROVER_ROLE",
     "N8N_SERVICE",
+    "ROLES_BY_ACTION",
+    "SWEEP_SERVICE",
     "ApprovalQueue",
     "ApprovalRequest",
     "ApprovalStatus",
@@ -73,6 +75,18 @@ type JsonObject = dict[str, Any]
 APPROVER_ROLE = "approver"
 APPROVER = Principal(id="approver", kind=PrincipalKind.HUMAN, roles=frozenset({APPROVER_ROLE}))
 N8N_SERVICE = Principal(id="service.n8n", kind=PrincipalKind.SERVICE)
+# The api's own expiry sweep; it only closes requests whose lifetime has passed.
+SWEEP_SERVICE = Principal(id="service.sweep", kind=PrincipalKind.SERVICE)
+
+
+# The approver side decides which role each action needs, never the requester. An action not
+# listed here cannot be requested through the API or decided. Test-only kinds do not belong here.
+ROLES_BY_ACTION: Mapping[str, str] = MappingProxyType(
+    {
+        "inbox.send_reply": APPROVER_ROLE,
+        "kit_smoke.echo": APPROVER_ROLE,
+    }
+)
 
 
 def run_uuid(ctx: RunContext) -> UUID:
@@ -90,8 +104,9 @@ class KitApprovalQueue(ApprovalQueue, Protocol):
     """agent-core's ApprovalQueue plus what the kit keeps in its own adapter.
 
     submit() also takes `resume_url`, the signed n8n URL to call once decided; it is
-    stored but never returned. The kit also keeps an expiry sweep and a string-cursor
-    page for the approver page, and shows the approver the payload it is approving.
+    stored but never returned. The kit also keeps a string-cursor page for the approver
+    page, shows the approver the payload it is approving, and closes a request whose wait is
+    over (`close_pending`).
     """
 
     async def submit(
@@ -103,6 +118,7 @@ class KitApprovalQueue(ApprovalQueue, Protocol):
         requested_by: Principal,
         required_role: str,
         ttl_seconds: int,
+        delegates: Collection[str] = (),
         context: RunContext | None = None,
         resume_url: str | None = None,
     ) -> ApprovalRequest: ...
@@ -113,9 +129,7 @@ class KitApprovalQueue(ApprovalQueue, Protocol):
         self, principal: Principal, *, limit: int = 50, cursor: str | None = None
     ) -> Page[ApprovalRequest]: ...
 
-    async def expire(self, request_id: UUID) -> ApprovalRequest: ...
-
-    async def expire_due(self, *, now: datetime) -> int: ...
+    async def close_pending(self, request_id: UUID, *, principal: Principal) -> ApprovalRequest: ...
 
 
 class RunStore(Protocol):
