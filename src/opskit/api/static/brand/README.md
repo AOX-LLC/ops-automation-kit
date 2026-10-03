@@ -1,0 +1,1 @@
+Replace logo.svg or set OPSKIT_BRAND_LOGO_URL to use your own logo. The URL must be same-origin (for example a path under /static/): the page's content security policy blocks an external URL. An empty value hides the logo.

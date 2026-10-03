@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     dropbox_dir: Path = Path("/data/dropbox")
 
     approver_session_hours: int = 8
+    # Shown beside "Approvals"; empty disables. Must be same-origin (the CSP blocks others).
+    brand_logo_url: str | None = "/static/brand/logo.svg"
 
     @model_validator(mode="after")
     def _live_mode_needs_a_key(self) -> Self:
