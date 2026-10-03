@@ -21,6 +21,7 @@ from opskit.api.routers import (
     inbox,
     inbox_release,
     inputs,
+    leads,
     receipts,
     reconcile,
     runs,
@@ -82,6 +83,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 worker.cancel()
             await asyncio.gather(*workers, return_exceptions=True)
             await sender.aclose()
+            web = getattr(app.state, "leads_web", None)
+            if web is not None:
+                await web.aclose()
             await engine.dispose()
 
     app = FastAPI(
@@ -103,6 +107,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         inputs,
         inbox,
         inbox_release,
+        leads,
         approver,
         receipts,
         reconcile,

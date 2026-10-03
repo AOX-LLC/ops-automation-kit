@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -23,6 +23,12 @@ class Settings(BaseSettings):
         default=Path("/app/config/agent-core.toml"), validation_alias="AGENT_CORE_CONFIG"
     )
     anthropic_api_key: SecretStr | None = Field(default=None, validation_alias=API_KEY_VARIABLE)
+
+    # Where company research reads from. "web" fetches each company's own public site and is
+    # for the manual live demo only: it needs AGENT_CORE_MODE=live.
+    leads_retrieval: Literal["corpus", "web"] = Field(
+        default="corpus", validation_alias="LEADS_RETRIEVAL"
+    )
 
     secrets_dir: Path = Path("/run/kit-secrets")
     db_host: str = "postgres"
@@ -58,6 +64,12 @@ class Settings(BaseSettings):
                 f"AGENT_CORE_MODE={self.agent_core_mode.value} needs {API_KEY_VARIABLE} "
                 "set to your own key"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _web_retrieval_needs_live_mode(self) -> Self:
+        if self.leads_retrieval == "web" and self.agent_core_mode is not Mode.LIVE:
+            raise ValueError("LEADS_RETRIEVAL=web needs AGENT_CORE_MODE=live")
         return self
 
     @property

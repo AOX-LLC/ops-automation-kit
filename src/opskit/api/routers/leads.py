@@ -1,0 +1,130 @@
+"""Leads for n8n: research one company and write its CRM record, then summarise the run."""
+
+from __future__ import annotations
+
+from collections import OrderedDict
+from uuid import UUID
+
+from fastapi import APIRouter, HTTPException, Request, status
+from pydantic import BaseModel, Field
+
+from opskit.api.auth import ServiceAuth
+from opskit.api.routers.inputs import read_companies
+from opskit.config import Settings
+from opskit.core.errors import ModelRefusalError, NotFound, ReplayMissError, StructuredOutputError
+from opskit.core.ports import Core, RunContext
+from opskit.db.engine import SessionFactory
+from opskit.leads import store
+from opskit.leads.extraction import research_company
+from opskit.leads.models import ResearchOutcome
+from opskit.leads.netguard import GuardedFetcher
+from opskit.leads.retrieval import Company, CorpusRetriever, Retriever, WebRetriever
+from opskit.leads.robots import RobotsCache
+from opskit.receipts.store import session_factory_of
+
+router = APIRouter(prefix="/v1/leads", tags=["leads"], dependencies=[ServiceAuth])
+
+RUNS_KEPT = 8  # robots decisions are cached per run; older runs' caches are dropped
+
+
+class ResearchRequest(BaseModel):
+    run_id: UUID
+    company_name: str = Field(min_length=1, max_length=200)
+    city_hint: str = Field(default="", max_length=100)
+    website: str | None = Field(default=None, max_length=253)
+
+
+class ResearchResult(BaseModel):
+    outcome: ResearchOutcome
+    crm_action: str | None = None
+    account_id: UUID | None = None
+
+
+def _database(request: Request) -> SessionFactory:
+    factory = session_factory_of(request.app)
+    if factory is None:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "database unavailable")
+    return factory
+
+
+def _core(request: Request) -> Core:
+    core: Core = request.app.state.core
+    return core
+
+
+async def _run_context(request: Request, run_id: UUID) -> RunContext:
+    try:
+        return await _core(request).runs.get(run_id)
+    except NotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "run not found") from exc
+
+
+class WebSession:
+    """One guarded fetcher for the process, and one robots.txt cache per run."""
+
+    def __init__(self) -> None:
+        self.fetcher = GuardedFetcher()
+        self._robots: OrderedDict[UUID, RobotsCache] = OrderedDict()
+
+    def retriever(self, run_id: UUID) -> WebRetriever:
+        cache = self._robots.get(run_id)
+        if cache is None:
+            cache = self._robots[run_id] = RobotsCache(self.fetcher)
+            while len(self._robots) > RUNS_KEPT:
+                self._robots.popitem(last=False)
+        return WebRetriever(self.fetcher, cache)
+
+    async def aclose(self) -> None:
+        await self.fetcher.aclose()
+
+
+def _retriever(request: Request, run_id: UUID) -> Retriever:
+    settings: Settings = request.app.state.settings
+    if settings.leads_retrieval == "web":
+        session: WebSession | None = getattr(request.app.state, "leads_web", None)
+        if session is None:
+            session = request.app.state.leads_web = WebSession()
+        return session.retriever(run_id)
+    leads_dir = settings.samples_dir / "leads"
+    domains = frozenset(
+        item.website for item in read_companies(leads_dir / "companies.csv") if item.website
+    )
+    return CorpusRetriever(leads_dir / "corpus", domains)
+
+
+@router.post("/research")
+async def research(request: Request, body: ResearchRequest) -> ResearchResult:
+    """Research one company and upsert its CRM record; a repeat returns the stored result."""
+    factory = _database(request)
+    ctx = await _run_context(request, body.run_id)
+    stored = await store.load_research(factory, body.run_id, body.company_name, body.city_hint)
+    if stored is not None:
+        return ResearchResult(
+            outcome=stored.outcome, crm_action=stored.crm_action, account_id=stored.account_id
+        )
+    company = Company(body.company_name, body.city_hint, body.website)
+    try:
+        outcome = await research_company(
+            _core(request).models, ctx, _retriever(request, body.run_id), company
+        )
+    except ReplayMissError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            f"no recording for replay key {exc.key or 'unknown'}",
+        ) from exc
+    except (ModelRefusalError, StructuredOutputError) as exc:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, f"research failed: {type(exc).__name__}"
+        ) from exc
+    upserted = await store.upsert_account(factory, outcome)
+    action = upserted.action if upserted else None
+    account_id = upserted.account_id if upserted else None
+    await store.save_research(
+        factory, body.run_id, outcome, crm_action=action, account_id=account_id
+    )
+    return ResearchResult(outcome=outcome, crm_action=action, account_id=account_id)
+
+
+@router.get("/summary")
+async def run_summary(request: Request, run_id: UUID) -> store.LeadsSummary:
+    return await store.summary(_database(request), run_id)
