@@ -179,7 +179,7 @@
       "id": "inbox-note-01",
       "name": "Note 01",
       "parameters": {
-        "content": "## Inbox triage with approvals\nn8n orchestrates; the helper API does the work. It triages each new message and drafts replies, and every reply waits for a human before anything is sent. There are no Code nodes: the logic lives in the helper.\n\nA message that looks like it is instructing an assistant is quarantined: it is listed in the summary email and never gets a draft. Each draft starts its own execution of \"Inbox reply approval\", so each one waits on its own signed resume URL.",
+        "content": "## Inbox triage with approvals\nn8n orchestrates; the helper API does the work. It triages each new message and drafts replies, and every reply waits for a human before anything is sent. There are no Code nodes: the logic lives in the helper.\n\nA message that looks like it is instructing an assistant is quarantined: it is listed in the summary email and never gets a draft. Each draft starts its own execution of \"Inbox reply approval\", so each one waits on its own signed resume URL.\n\nA message whose triage or draft call fails drops out of this run and the run still finishes; an untriaged message is picked up again next time.",
         "height": 220,
         "width": 620
       },
@@ -372,6 +372,7 @@
       },
       "id": "inbox-triage-01",
       "name": "Triage",
+      "onError": "continueRegularOutput",
       "parameters": {
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
@@ -495,6 +496,7 @@
       },
       "id": "inbox-draft-01",
       "name": "Create draft",
+      "onError": "continueRegularOutput",
       "parameters": {
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",

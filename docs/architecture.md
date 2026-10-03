@@ -405,6 +405,8 @@ Every 5 minutes / Webhook
             -> Summary (GET /v1/inbox/summary) -> Send summary email (to the owner) -> Finish run
 ```
 
+Triage and Create draft continue on error. A message whose call fails (a model error, or a draft that an overlapping run already made) drops out of this run, and the run still finishes and sends its summary. A message that was never triaged is listed again on the next run.
+
 `n8n/workflows/04-inbox-reply-approval.json` (`inboxReply000001`) handles one draft. Each draft runs in its own execution, so each one waits on its own signed resume URL (A6):
 
 ```
