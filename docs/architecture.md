@@ -39,6 +39,7 @@ kit-secrets ──► postgres ──► migrate ──► seed ◄── mailpi
 | --- | --- | --- | --- |
 | `kit-secrets` | api image | one-shot: create missing secrets in the `kit-secrets` volume and never overwrite | — |
 | `postgres` | `pgvector/pgvector:pg17` (digest-pinned) | initdb script creates roles and both DBs from secret files | 127.0.0.1:4302 |
+| `db-roles` | api image | one-shot, before `migrate`: create the `opskit_approver` role and set its password, as the Postgres superuser (idempotent; init scripts do not run on an existing database) | — |
 | `migrate` | api image | one-shot: `alembic upgrade heads` as `opskit_owner` | — |
 | `mailpit` | `axllent/mailpit` (digest-pinned) | SQLite store on a volume, no relay configured, so nothing leaves the box | 127.0.0.1:4303 web, 127.0.0.1:4304 SMTP |
 | `seed` | api image | one-shot, idempotent: sample manifest, demo CRM accounts, 25 emails into Mailpit | — |
@@ -59,7 +60,8 @@ Hardening for every service except Postgres: `cap_drop: [ALL]`, `security_opt: [
 | `postgres_superuser_password` | postgres |
 | `n8n_db_password` | postgres, n8n, n8n-import |
 | `opskit_owner_password` (migrations) | postgres, migrate |
-| `opskit_app_password` (runtime) | postgres, api, seed |
+| `opskit_app_password` (runtime, requester role) | postgres, api, seed |
+| `opskit_approver_password` (approver role, decision path only) | db-roles, api |
 | `n8n_encryption_key` | n8n, n8n-import |
 | `n8n_owner_password` + `.bcrypt` | n8n gets the hash only; the plaintext is shown by `make login` |
 | `approver_password` + `.bcrypt` | api gets the hash only; the plaintext is shown by `make login` |
@@ -80,9 +82,34 @@ A second worktree sets `COMPOSE_PROJECT_NAME=ops-automation-kit-2` and ports 431
 
 There are two databases. `n8n` belongs to n8n, which runs its own migrations there. `opskit` is the app's. `REVOKE CONNECT ... FROM PUBLIC` on both, so `n8n_user` cannot reach `opskit` and the app roles cannot reach `n8n`.
 
-The `opskit` database has two roles:
+The `opskit` database has three roles:
 - `opskit_owner` owns the schemas and runs migrations.
-- `opskit_app` is the runtime role. It gets `SELECT, INSERT, UPDATE` on working tables, and only `SELECT, INSERT` on `core.audit_log`.
+- `opskit_app` is the runtime role, and the **requester** side of approvals (everything n8n reaches). It gets `SELECT, INSERT, UPDATE` on working tables and only `SELECT, INSERT` on `core.audit_log`. On `core.approvals` it has `SELECT, INSERT` and `UPDATE (status, consumed_at, closed_at)`: no decision column.
+- `opskit_approver` is the **approver** side. Only the approver page's decision path connects as it. It has `SELECT` on `core.approvals`, `UPDATE (status, decision, resolved_by, resolved_at, reason, closed_at)`, `SELECT, INSERT` on `core.outbox` and `core.audit_log`, and nothing else. It is created by the `db-roles` step, not by the init script, so a database made before the split gets it too.
+
+### Approval roles (Phase 3c)
+
+| Code path | Role |
+| --- | --- |
+| every `/v1` route, the queue's `submit`, `get`, `consume`, `cancel`, `close_pending`, the 60 s expiry sweep, the resume outbox worker, approver sessions and login audit, the approver page's reads | `opskit_app` |
+| `PgApprovalQueue.resolve`, called from `POST /approver/approvals/{id}/decision`: lock, policy, status update, `approval.decided` audit record and the outbox row, in one transaction | `opskit_approver` |
+| migrations | `opskit_owner` |
+
+A trigger on `core.approvals` (`approvals_guard`, enabled always) checks every insert, update and delete. It reads `current_user` and `session_user`, so `SET ROLE` cannot cross sides, and it uses the database clock:
+
+| From | To | Role | Also |
+| --- | --- | --- | --- |
+| (insert) | pending | requester | undecided; lifetime at most 7 days |
+| pending | approved, rejected | approver | `decision`, `resolved_by` (not the requester), `resolved_at`; not expired |
+| pending | cancelled | requester | `closed_at` |
+| pending | expired | requester or approver | `closed_at`; `expires_at` already past |
+| approved | consumed | requester | `consumed_at`; not expired |
+
+Everything else is refused, including delete and truncate, and no update changes the request itself (action, payload, hash, requester, role, lifetime, resume URL, delegates). So direct SQL with the requester's credentials cannot approve, and neither can the owner or a superuser who has not logged in as the approver. A superuser can still drop the trigger.
+
+**What this does not cover.** The api container holds both passwords, because one process serves `/v1` and the approver page. The split protects against a bug or injection on the n8n-facing paths and a leaked requester credential. It does not protect against compromise of the whole api process; separate containers would be needed for that. The database also cannot know *who* the approver is (every human shares the role), so the policy, in `PgApprovalQueue.resolve`, still checks that the decider is a human holding the role the **approver side** lists for that action (`ROLES_BY_ACTION`), who is not the requester. An action not in that list cannot be requested through the API or decided.
+
+**Upgrading.** `core_0004` adds `closed_at` and `delegates`. `core_0006` checks the two roles are unprivileged and not members of each other, cancels approved, unused requests that have no `approval.decided` audit record (the old app role could set `status` with plain SQL), reports consumed ones that have none, then installs the trigger and the grants. The audit check rules out a plain flip, not a forged event, since the old app role could also append audit rows. `core_0005` adds audit schema 3: records already in the chain keep schema 2 and still verify, new ones must be schema 3, and `db_role` is set by an insert trigger to the inserting role.
 
 Alembic is split into one branch per domain (`core`, `crm`, `receipts`, `leads`, `inbox`) and run with `alembic upgrade heads`. Phases 2 and 3 run in parallel, and each only adds revisions to its own branch, so their migration heads never conflict.
 
@@ -290,12 +317,12 @@ IF status == approved                    2xx → delivered_at; audit approval.re
    - **Audit:** every decision writes `approval.decided` with `actor='approver'`. Every login success and failure writes `approver.login` with the outcome, never the password.
    - **n8n's token cannot reach it.** `/approver/*` accepts only the session cookie. A Bearer service token there gets a 401. The service routes under `/v1/*` never accept the session cookie, and no `/v1` route can decide an approval.
 5. **Defense in depth.** After the Wait node resumes, the workflow reads the decision from `GET /v1/approvals/{id}` and branches on that, never on the resume body, since holding the resume URL is not approval. From Phase 3, the endpoint that hands over a draft for sending also requires `status='approved'`.
-6. **Timeout.** When the Wait limit elapses, n8n resumes with no body. The workflow then calls `POST /v1/approvals/{id}/expire`. A helper sweeper also expires overdue rows every 60 s. A decision after expiry gets a 409, shown on the page as "expired".
+6. **Timeout.** When the Wait limit elapses, n8n resumes with no body. The workflow then calls `POST /v1/approvals/{id}/expire`, which ends the wait: the request is stored as expired if its lifetime has passed, otherwise it is withdrawn (cancelled) by the requester. A helper sweeper also stores overdue rows as expired every 60 s, and every read reports a lapsed pending request as expired whether or not the sweep has run. A decision after expiry or withdrawal gets a 409, shown on the page.
 7. **Race.** If a decision lands before n8n has parked the execution, the resume call fails and the outbox retries it. Delivery is at-least-once; the IF branch keys on `approval_id`, and side effects are idempotent per approval.
 
 ## A7. Replay mode and cassettes
 
-Model calls go through agent-core v0.1.0a2. Its settings are in `config/agent-core.toml`; `AGENT_CORE_MODE` overrides `mode`.
+Model calls go through agent-core v0.1.0a3. Its settings are in `config/agent-core.toml`; `AGENT_CORE_MODE` overrides `mode`.
 
 - **Modes:**
 
@@ -337,7 +364,7 @@ Model calls go through agent-core v0.1.0a2. Its settings are in `config/agent-co
 | Prompts, tiers, attachments | agent-core's `Tier`, `PromptRef` and `Attachment` (`Attachment.from_bytes`). |
 | Run context | agent-core's `RunContext(run_id=str(uuid), external_ids={"workflow", "n8n_workflow_id", "n8n_execution_id"})`. |
 | Models | agent-core's `ModelClient.call(...) -> CallResult`, wrapped by `MeteredModelClient`, which writes `core.model_calls` and a `model.call` audit record after each call. |
-| Approvals | `PgApprovalQueue` implements agent-core's `ApprovalQueue`: `submit` (with an extra `resume_url` keyword), `get`, `list_pending(principal, after=UUID)`, `resolve(principal)` and `consume`. `RoleApproverPolicy` runs inside `resolve`. The kit keeps its own extras: `expire`, `expire_due`, `list_pending_page` (string cursor, `Page`) and the outbox. |
+| Approvals | `PgApprovalQueue` implements agent-core's `ApprovalQueue`: `submit` (with `delegates` and an extra `resume_url` keyword), `get`, `list_pending(principal, after=UUID)`, `resolve(principal)`, `consume` (the requester or a named delegate only), `cancel` and `expire_due(principal, now, limit)`. `RoleApproverPolicy(roles_by_action=ROLES_BY_ACTION)` runs inside `resolve`. The kit keeps its own extras: `close_pending`, `list_pending_page` (string cursor, `Page`) and the outbox. |
 | Audit | `PgAuditLog` implements agent-core's `AuditLog`: `append(AuditEvent) -> AuditRecord`, `iter_records`, `head`, `verify`. Records are hash-chained with agent-core's `compute_record_hash` (schema 2), and appends are serialised with a transaction-scoped advisory lock. `append_in(session, event)` writes inside a caller's transaction. |
 | Principals | The approver is `Principal("approver", HUMAN, {"approver"})` and `required_role = "approver"`. n8n is `Principal("service.n8n", SERVICE)`, which can request approvals but never resolve them. |
 
@@ -469,7 +496,7 @@ The decision is read back from the helper, never taken from the resume call's bo
 - Approval action `inbox.send_reply`, TTL 72 hours. The approval payload is `store.approval_payload(draft)`: draft_id, to, subject, in_reply_to and body. agent-core binds the approval to the payload's hash.
 - The approver page shows the envelope and body, and offers **Approve and send** or **Reject (stays unsent)**. There is no edit: a reply that needs changes is rejected and written by hand.
 - **Release** rebuilds the payload from the stored draft and calls `consume()`, which is single use and checks the hash first. If the draft changed after approval, the hash no longer matches: the release is refused (409), `approval.consume_denied` is audited, and nothing is sent. A second release of the same approval is also refused.
-- **Close** takes no body; the outcome comes from the recorded approval. A rejected approval closes the draft as `rejected`. A pending approval past its expiry is expired first and closes the draft as `expired`. A draft with no approval, or with a live or approved one, gets 409.
+- **Close** takes no body; the outcome comes from the recorded approval. A rejected approval closes the draft as `rejected`. An approval past its expiry is stored as expired first, and an expired or withdrawn approval closes the draft as `expired`. A draft with no approval, or with a live or approved one, gets 409.
 - Draft statuses: `draft` → `pending` (approval requested) → `approved` (released) → `sent`, or `rejected`, `expired` or `failed`. Every move is a conditional update, so two callers cannot both win the same move.
 - The app role may update only `status`, `approval_id` and `sent_at` on `inbox.drafts`, and only the hold columns (`quarantined`, `route`, `injection_reasons`) on `inbox.triage`. A stored draft's recipient and body can't be rewritten through the app's connection, and the approval hash would catch it anyway.
 
