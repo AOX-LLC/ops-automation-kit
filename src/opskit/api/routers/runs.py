@@ -17,10 +17,14 @@ router = APIRouter(prefix="/v1/runs", tags=["runs"], dependencies=[ServiceAuth])
 Workflow = Literal["kit_smoke", "receipts", "leads", "inbox"]
 
 
+N8N_ID_PATTERN = r"^([A-Za-z0-9][A-Za-z0-9._:/-]{0,63})?$"
+
+
 class StartRun(BaseModel):
     workflow: Workflow
-    n8n_workflow_id: str | None = Field(default=None, max_length=64)
-    n8n_execution_id: str | None = Field(default=None, max_length=64)
+    # The form core_0010 enforces (and agent-core's id pattern): a 422 here, not a 500 there.
+    n8n_workflow_id: str | None = Field(default=None, max_length=64, pattern=N8N_ID_PATTERN)
+    n8n_execution_id: str | None = Field(default=None, max_length=64, pattern=N8N_ID_PATTERN)
 
 
 class RunStarted(BaseModel):
