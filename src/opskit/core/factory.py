@@ -28,12 +28,19 @@ def build_model_client(settings: Settings) -> AgentClient:
     return AgentClient(config, api_key=key)
 
 
-def build_core(settings: Settings, session_factory: SessionFactory) -> Core:
+def build_core(
+    settings: Settings,
+    session_factory: SessionFactory,
+    approver_session_factory: SessionFactory | None = None,
+) -> Core:
+    """`approver_session_factory` is the approver role's; only the api passes it."""
     client = build_model_client(settings)
     return Core(
         models=MeteredModelClient(client, session_factory),
         approvals=PgApprovalQueue(
-            session_factory, policy=RoleApproverPolicy(roles_by_action=ROLES_BY_ACTION)
+            session_factory,
+            policy=RoleApproverPolicy(roles_by_action=ROLES_BY_ACTION),
+            approver_session_factory=approver_session_factory,
         ),
         audit=PgAuditLog(session_factory),
         runs=PgRunStore(session_factory, client.config.mode),

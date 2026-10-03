@@ -75,10 +75,32 @@ services:
     pids_limit: 256
     networks: [kit]
 
+  # Creates the approver database role (or refreshes its password) as the Postgres superuser.
+  # Not in the init script: that runs only on an empty data directory, so a database made
+  # before the role split would never get the role.
+  db-roles:
+    <<: [*api-image, *hardened]
+    depends_on:
+      postgres: { condition: service_healthy }
+    command: ["python", "-m", "opskit.bootstrap.db_roles"]
+    healthcheck: { disable: true }
+    read_only: true
+    volumes:
+      - type: volume
+        source: kit-secrets
+        target: /run/kit-secrets
+        read_only: true
+        volume: { subpath: dbroles }
+    mem_limit: 128m
+    pids_limit: 64
+    restart: "no"
+    networks: [kit]
+
   migrate:
     <<: [*api-image, *hardened]
     depends_on:
       postgres: { condition: service_healthy }
+      db-roles: { condition: service_completed_successfully }
     environment:
       OPSKIT_DB_USER: opskit_owner
       OPSKIT_DB_PASSWORD_SECRET: opskit_owner_password

@@ -39,7 +39,7 @@ def test_even_owner_and_superuser_hit_the_append_only_trigger(role: str, sql: st
 def test_app_role_can_append() -> None:
     sql = (
         "begin; insert into core.audit_log (seq, schema_version, event_id, occurred_at, action, "
-        "actor_id, payload, prev_hash, record_hash) values (9000000000, 2, gen_random_uuid(), "
+        "actor_id, payload, prev_hash, record_hash) values (9000000000, 3, gen_random_uuid(), "
         "now(), 'itest.append', 'itest', '{}', repeat('0', 64), repeat('f', 64)); rollback;"
     )
     assert psql(sql, role="opskit_app").returncode == 0
@@ -80,9 +80,10 @@ def test_app_role_cannot_grant_itself_update_on_the_audit_log() -> None:
 def test_app_role_is_not_privileged() -> None:
     row = psql(
         "select rolsuper, rolcreaterole, rolcreatedb, rolbypassrls from pg_roles "
-        "where rolname in ('opskit_app', 'opskit_owner', 'n8n_user') order by rolname"
+        "where rolname in ('opskit_app', 'opskit_approver', 'opskit_owner', 'n8n_user') "
+        "order by rolname"
     ).stdout.split()
-    assert row == ["f|f|f|f"] * 3
+    assert row == ["f|f|f|f"] * 4
 
 
 def test_audit_hash_chain_verifies() -> None:
@@ -128,3 +129,37 @@ def test_app_role_can_move_a_draft_and_hold_a_message() -> None:
         "update inbox.triage set quarantined = quarantined, route = route where false",
     ):
         assert psql(sql, role="opskit_app").returncode == 0, sql
+
+
+def test_db_role_is_set_by_the_database_and_cannot_be_forged() -> None:
+    """A version 3 record carries the role that inserted it, whatever the insert said. The block
+    raises at the end so nothing is kept in the hash chain."""
+    sql = (
+        "do $$ declare stored text; begin "
+        "insert into core.audit_log (seq, schema_version, event_id, occurred_at, action, "
+        "actor_id, payload, prev_hash, record_hash, db_role) values (9000000001, 3, "
+        "gen_random_uuid(), now(), 'itest.append', 'itest', '{}', repeat('0', 64), "
+        "repeat('e', 64), 'opskit_approver') returning db_role into stored; "
+        "raise exception 'stored db_role=%', stored; end $$"
+    )
+    result = psql(sql, role="opskit_app")
+    assert "stored db_role=opskit_app" in result.stderr, result.stderr
+
+
+def test_a_new_record_cannot_claim_schema_2_to_dodge_attribution() -> None:
+    v2 = (
+        "begin; insert into core.audit_log (seq, schema_version, event_id, occurred_at, action, "
+        "actor_id, payload, prev_hash, record_hash) values (9000000002, 2, gen_random_uuid(), "
+        "now(), 'itest.append', 'itest', '{}', repeat('0', 64), repeat('d', 64)); rollback;"
+    )
+    for role in ("opskit_app", "opskit_approver", "opskit_owner", "postgres"):
+        result = psql(v2, role=role)
+        assert result.returncode != 0, role
+        assert "must be schema 3" in result.stderr or "permission denied" in result.stderr
+
+
+def test_every_version_3_record_names_its_role_and_older_ones_have_none() -> None:
+    wrong = psql(
+        "select count(*) from core.audit_log where (schema_version = 3) <> (db_role is not null)"
+    )
+    assert wrong.stdout.strip() == "0"

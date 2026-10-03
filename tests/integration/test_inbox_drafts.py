@@ -6,6 +6,7 @@ let n8n release and send, and check that only what was approved is ever sent, on
 
 from __future__ import annotations
 
+import os
 import time
 from collections.abc import Callable
 from email import policy
@@ -18,6 +19,7 @@ from tests.integration.conftest import (
     N8N_PORT,
     REPO_ROOT,
     ApproverClient,
+    age_approval,
     audit_count,
     compose,
     psql,
@@ -26,7 +28,7 @@ from tests.integration.conftest import (
 pytestmark = pytest.mark.integration
 
 MESSAGES = REPO_ROOT / "samples" / "inbox" / "messages"
-MAILPIT = "http://127.0.0.1:4303"
+MAILPIT = f"http://127.0.0.1:{os.environ.get('KIT_MAILPIT_WEB_PORT', '4303')}"
 
 
 def _header(file: str, name: str) -> str:
@@ -129,7 +131,7 @@ def test_a_draft_changed_after_approval_is_never_sent(approver: ApproverClient) 
         "select payload from core.audit_log where action = 'approval.consume_denied' "
         f"and subject_id = '{approval_id}'"
     )
-    assert "ApprovalPayloadMismatchError" in reasons
+    assert "payload_mismatch" in reasons
 
 
 def test_an_approved_draft_is_sent_once(approver: ApproverClient, service: httpx.Client) -> None:
@@ -159,10 +161,7 @@ def test_an_expired_approval_closes_the_draft_as_expired(
     approver: ApproverClient, service: httpx.Client
 ) -> None:
     draft_id, approval_id, _ = _take_pending_draft()
-    _sql(
-        "update core.approvals set expires_at = now() - interval '1 second' "
-        f"where id = '{approval_id}'"
-    )
+    age_approval(approval_id)
 
     assert service.post(f"/v1/inbox/drafts/{draft_id}/close").status_code == 204
     assert _draft_status(draft_id) == "expired"

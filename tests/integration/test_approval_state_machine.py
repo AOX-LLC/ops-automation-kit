@@ -90,11 +90,18 @@ def test_expire_call_then_decision_is_refused(
     approval_id = make_approval()["approval_id"]
     expired = service.post(f"/v1/approvals/{approval_id}/expire")
     assert expired.status_code == 200
-    assert expired.json()["status"] == "expired"
-    assert service.post(f"/v1/approvals/{approval_id}/expire").json()["status"] == "expired"
+    # The wait ended before the lifetime did, so the requester withdraws the request.
+    assert expired.json()["status"] == "cancelled"
+    assert service.post(f"/v1/approvals/{approval_id}/expire").json()["status"] == "cancelled"
+    assert (
+        psql(
+            f"select closed_at is not null from core.approvals where id = '{approval_id}'"
+        ).stdout.strip()
+        == "t"
+    )
     response = approver.decide(approval_id, "approve", csrf=approver.page_csrf())
     assert response.status_code == 409
-    assert status_of(service, approval_id) == "expired"
+    assert status_of(service, approval_id) == "cancelled"
 
 
 def test_expire_does_not_undo_a_decision(

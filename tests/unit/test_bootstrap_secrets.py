@@ -40,3 +40,31 @@ def test_second_run_changes_nothing(tmp_path) -> None:  # type: ignore[no-untype
     before = snapshot(tmp_path)
     assert kit_secrets.ensure_secrets(tmp_path) == 0
     assert snapshot(tmp_path) == before
+
+
+def test_the_approver_password_reaches_only_the_api_and_the_db_roles_step(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    kit_secrets.ensure_secrets(tmp_path)
+    name = "opskit_approver_password"
+    holders = {path.parent.name for path in tmp_path.rglob(name)}
+    assert holders == {"api", "dbroles"}
+    assert (tmp_path / "api" / name).read_text() == (tmp_path / "dbroles" / name).read_text()
+    assert (tmp_path / "api" / name).read_text() != (
+        tmp_path / "api" / "opskit_app_password"
+    ).read_text()
+    # n8n and the migration step never see it.
+    assert not (tmp_path / "n8n" / name).exists()
+    assert not (tmp_path / "migrate" / name).exists()
+
+
+def test_an_existing_volume_gains_the_approver_password_and_keeps_the_rest(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    kit_secrets.ensure_secrets(tmp_path)
+    for path in tmp_path.rglob("opskit_approver_password"):
+        path.parent.chmod(0o700)
+        path.unlink()
+    (tmp_path / "dbroles" / "postgres_superuser_password").parent.chmod(0o700)
+    before = snapshot(tmp_path)
+    assert kit_secrets.ensure_secrets(tmp_path) == 2
+    after = snapshot(tmp_path)
+    assert {k: v for k, v in after.items() if "approver_password" not in k} == {
+        k: v for k, v in before.items() if "approver_password" not in k
+    }

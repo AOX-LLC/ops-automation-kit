@@ -32,7 +32,7 @@ from opskit.approvals.resume import N8nResumeSender
 from opskit.config import Settings
 from opskit.core.factory import build_core, build_resume_worker
 from opskit.core.ports import SWEEP_SERVICE, Core
-from opskit.db.engine import make_engine, make_session_factory
+from opskit.db.engine import make_approver_engine, make_engine, make_session_factory
 
 log = logging.getLogger(__name__)
 # httpx logs full request URLs at INFO; a resume URL's signature must never reach a log.
@@ -56,10 +56,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         engine = make_engine(settings)
         session_factory = make_session_factory(engine)
-        core = build_core(settings, session_factory)
+        approver_engine = make_approver_engine(settings)
+        core = build_core(settings, session_factory, make_session_factory(approver_engine))
         sender = N8nResumeSender(settings)
         app.state.settings = settings
         app.state.engine = engine
+        app.state.approver_engine = approver_engine
         app.state.core = core
         app.state.session_factory = session_factory
         if settings.leads_retrieval == "web":
@@ -88,6 +90,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             web = getattr(app.state, "leads_web", None)
             if web is not None:
                 await web.aclose()
+            await approver_engine.dispose()
             await engine.dispose()
 
     app = FastAPI(

@@ -37,6 +37,7 @@ from aox_agent_core.errors import (
     ApprovalNotFoundError,
     ApprovalNotGrantedError,
     ApprovalPayloadMismatchError,
+    ConfigError,
     NotAuthorizedToResolveError,
     NotTheRequesterError,
 )
@@ -176,8 +177,19 @@ def _cancel_refusal(
 
 
 class PgApprovalQueue:
-    def __init__(self, session_factory: SessionFactory, *, policy: RoleApproverPolicy) -> None:
+    """Two database roles meet here. Everything but `resolve` runs on the requester role's
+    sessions (the n8n-facing API); `resolve` alone runs on the approver role's, so the only
+    code holding a connection that can approve is the approver page's decision path."""
+
+    def __init__(
+        self,
+        session_factory: SessionFactory,
+        *,
+        policy: RoleApproverPolicy,
+        approver_session_factory: SessionFactory | None = None,
+    ) -> None:
         self._session_factory = session_factory
+        self._approver_session_factory = approver_session_factory
         self._policy = policy
 
     async def submit(
@@ -303,8 +315,10 @@ class PgApprovalQueue:
         reason: str | None = None,
         context: RunContext | None = None,
     ) -> ApprovalRequest:
+        if self._approver_session_factory is None:
+            raise ConfigError("this queue has no approver-role connection; it cannot resolve")
         now = datetime.now(UTC)
-        async with self._session_factory.begin() as session:
+        async with self._approver_session_factory.begin() as session:
             row = (
                 await session.execute(
                     select(*REQUEST_COLUMNS, approvals.c.resume_url)
