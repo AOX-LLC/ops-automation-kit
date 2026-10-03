@@ -464,6 +464,22 @@ async def test_the_recorded_aeroflow_band_with_its_unit_is_kept_as_the_bare_band
 
 
 CONTACT_QUOTES = [
+    "Springfield office. Orders: 555-0129.",
+    "Springfield office. Dispatch line: 555-0154.",
+    "Springfield office. Media contact: 555-0188.",
+    "Springfield office. Questions: 555-0171.",
+    "Springfield office. Visitors can book a garden walk by phone at 555-0142.",
+    "Springfield office. Reach the office at 555-0163.",
+    "Springfield office, Jane Doe, 555-0142",
+    "Springfield office, WhatsApp: 555-0142",
+    "Springfield office, (555)010-0142",
+    "Springfield office, 555 - 010 - 0142",
+    "Springfield office, 07700 900123",
+    "Springfield office, 030 12345678",
+    "Springfield office, email jane at acme.example",
+    "Springfield office, 555\u034f-010-0142",  # combining grapheme joiner
+    "Springfield office, 555\u2015010\u20150142",  # horizontal bar
+    "Springfield office, Ask Jane Doe [contact details removed]",  # touches a redacted span
     "Springfield office, contact Jane Doe at jane@acme.example",
     "Springfield office, call 555-0142",
     "Springfield office, 555-0142",
@@ -510,6 +526,7 @@ def test_a_contact_detail_page_form_does_not_matter_when_the_model_normalises_it
     ascii_quote = "Springfield office, call 555-0142"
     got = verify(ACME, LeadExtraction(hq_city=[cite("Springfield", ascii_quote)]), [page])
     assert got.fields["hq_city"] is None  # matches the page after normalising, then refused
+    assert [f.detail for f in got.findings] == ["quote contains contact details"]
 
 
 @pytest.mark.parametrize(
@@ -557,6 +574,9 @@ async def test_the_web_retriever_redacts_contact_details_before_the_model_sees_t
     assert "555-0142" not in text and "jane@acme.example" not in text
 
 
+JANE_LINE = "Ask for Jane Doe, jane@acme.example, 555-0142."
+
+
 async def test_research_outcome_carries_the_cited_spans_and_never_the_page_text() -> None:
     contact = Document(
         "https://acme.example/contact",
@@ -586,6 +606,7 @@ async def test_research_outcome_carries_the_cited_spans_and_never_the_page_text(
     for private in ("Jane Doe", "jane@acme.example", "555-0142"):
         assert private not in stored
     assert out.fields["description"] is None  # the one cite that quoted them was refused
+    assert [f.detail for f in out.findings] == ["quote contains contact details"]
     assert set(out.model_dump()) == {
         *("company_name", "city_hint", "website", "domain", "status", "reason", "fields"),
         *("findings", "pages", "raw_cites", "valid_cites", "replay_key", "cost_usd", "latency_ms"),
@@ -608,3 +629,45 @@ def test_redaction_removes_local_numbers_but_keeps_headcount_bands() -> None:
     cleaned = redact_contact_details(text)
     assert "501-1000 employees" in cleaned and "2002-2010" in cleaned
     assert "555 0142" not in cleaned and "555.0100" not in cleaned
+
+
+def test_a_quote_touching_a_redacted_span_is_refused_so_a_name_cannot_slip_through() -> None:
+    from opskit.leads.retrieval import redact_contact_details
+
+    page = "Office manager Jane Doe, Springfield, jane.doe@acme.example"
+    redacted = redact_contact_details(page)
+    assert "jane.doe" not in redacted
+    doc = Document(URL, redacted, own=True)
+    got = verify(ACME, LeadExtraction(hq_city=[cite("Springfield", redacted)]), [doc])
+    assert got.fields["hq_city"] is None
+    assert [f.detail for f in got.findings] == ["quote contains contact details"]
+
+
+def test_a_contact_detail_cut_by_the_page_limit_is_redacted_whole() -> None:
+    from opskit.leads.retrieval import CUT_MARGIN, MAX_DOC_CHARS, WebRetriever
+
+    html = "<p>" + "x" * (MAX_DOC_CHARS - 10) + " jane.doe@acme.example</p>"
+    assert CUT_MARGIN > 0 and len(html) > MAX_DOC_CHARS
+    fake = FakeWeb({"/": html})
+
+    async def run() -> str:
+        got = await WebRetriever(fake, RobotsCache(fake)).fetch(
+            Company("Acme", "X", "acme.example")
+        )  # type: ignore[arg-type]
+        return got.documents[0].text
+
+    import asyncio
+
+    text = asyncio.run(run())
+    assert "jane" not in text and "acme.example" not in text and len(text) <= MAX_DOC_CHARS
+
+
+def test_a_page_of_twenty_thousand_hostile_characters_is_redacted_quickly() -> None:
+    import time
+
+    from opskit.leads.retrieval import redact_contact_details
+
+    for hostile in ("a" * 20_000, "1-" * 10_000, "a@" + "a-" * 10_000, "a at " * 4_000):
+        started = time.monotonic()
+        redact_contact_details(hostile)
+        assert time.monotonic() - started < 1.0

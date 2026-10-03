@@ -188,6 +188,8 @@ def _check_cite(
         return reject("unknown source")
     if not quote_n or len(cite.quote) > MAX_QUOTE_CHARS or quote_n not in normalize(doc.text):
         return reject(f"quote not in {cite.source_url}")
+    if len(cite.value) > MAX_QUOTE_CHARS:
+        return reject("value too long")
     if has_contact_details(cite.quote) or has_contact_details(cite.value):
         return reject("quote contains contact details")
     if not doc.own:

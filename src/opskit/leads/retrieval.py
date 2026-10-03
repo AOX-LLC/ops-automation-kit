@@ -20,6 +20,7 @@ from opskit.leads.netguard import FetchRefused, GuardedFetcher
 from opskit.leads.robots import RobotsCache
 
 MAX_DOC_CHARS = 20_000
+CUT_MARGIN = 256
 PAGE_PATHS = (
     "/",
     "/about",
@@ -104,61 +105,69 @@ class _TextExtractor(HTMLParser):
             self.parts.append(data)
 
 
-def html_to_text(html: str) -> str:
-    """Visible text only: scripts and styles dropped, capped at MAX_DOC_CHARS."""
+def html_to_text(html: str, limit: int = MAX_DOC_CHARS) -> str:
+    """Visible text only: scripts and styles dropped, capped at `limit` characters."""
     extractor = _TextExtractor()
     extractor.feed(html)
     extractor.close()
     lines = (" ".join(line.split()) for line in "".join(extractor.parts).split("\n"))
-    return "\n".join(line for line in lines if line)[:MAX_DOC_CHARS]
+    return "\n".join(line for line in lines if line)[:limit]
 
 
-# Dashes, curly quotes and no-break spaces, by code point, mapped to plain ASCII.
-_UNIFY = {
-    **dict.fromkeys((0x2010, 0x2011, 0x2012, 0x2013, 0x2014, 0x2212), "-"),
-    **dict.fromkeys((0x2018, 0x2019), "'"),
-    **dict.fromkeys((0x201C, 0x201D), '"'),
-    0xA0: " ",
-}
-
-
-# Contact details: email addresses (plain and spelled out), and phone numbers in the usual
+# Contact details: email addresses (plain and spelled out) and phone numbers in the usual
 # shapes. Live pages have them redacted before the model sees the text, and a quote that
-# still carries one is refused (see extraction.py). Deliberately not a bare 7-digit match:
-# "501-1000 employees" is a headcount band, so those need a cue word ("call 555-0142").
+# still carries one, or touches a redacted span, is refused (see extraction.py). Every
+# quantifier is bounded and the local part of an address is anchored, so a hostile page of
+# 20,000 "a" characters cannot make the match quadratic.
+_LOCAL = r"(?<![\w.+-])[\w.+-]{1,64}"
+_HOST = r"[\w-]{1,63}"
+REDACTED = "[contact details removed]"
+_CUES = (
+    "call|phone|telephone|tel|fax|mobile|cell|text|dial|whatsapp|sms|contact|reach|orders|questions"
+)
 CONTACT_DETAILS = re.compile(
-    r"[\w.+-]+\s*@\s*[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}"  # jane@host.com, jane @ host.com
-    r"|[\w.+-]+\s*(?:\[at\]|\(at\)|\{at\})\s*[\w-]+"  # jane [at] host
-    r"|[\w.+-]+\s+at\s+[\w-]+\s+(?:dot|\[dot\]|\(dot\))\s+[a-z]{2,}"  # jane at host dot com
-    r"|\+\d[\d\s().-]{6,}\d"  # +44 20 7946 0958
+    rf"{re.escape(REDACTED)}"
+    rf"|{_LOCAL}\s{{0,3}}@\s{{0,3}}{_HOST}(?:\.{_HOST}){{0,6}}\.[a-z]{{2,24}}"  # jane@host.com
+    rf"|{_LOCAL}\s{{0,3}}(?:\[at\]|\(at\)|\{{at\}})\s{{0,3}}{_HOST}"  # jane [at] host
+    rf"|{_LOCAL}\s{{1,3}}at\s{{1,3}}{_HOST}\s{{1,3}}(?:dot|\[dot\]|\(dot\))\s{{1,3}}[a-z]{{2,24}}"
+    rf"|(?:e-?mail|mail|write|contact|reach)\b\W{{0,12}}{_LOCAL}\s{{1,3}}at\s{{1,3}}{_HOST}\.[a-z]{{2,24}}"
+    r"|\+\d[\d\s().-]{6,20}\d"  # +44 20 7946 0958
     r"|(?<![\w-])\d{10,}(?!\d)"  # 5550100142
-    r"|(?<!\d)\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}(?!\d)"  # (555) 010-0142, 555.010.0142
-    r"|(?<!\d)0\d{2,4}[\s-]\d{3,4}[\s-]\d{3,4}(?!\d)"  # 020 7946 0958
-    r"|(?:call|phone|tel|telephone|fax|mobile|cell|text|ph)\b\W{0,12}\d{3}[\s.-]?\d{4}(?!\d)",
+    r"|(?<!\d)\(?\d{3}\)?[ .\-/]{1,3}\d{3}[ .\-/]{1,3}\d{4}(?!\d)"  # 555 - 010 - 0142
+    r"|(?<!\d)\(\d{3}\)[ .\-/]{0,3}\d{3}[ .\-/]{1,3}\d{4}(?!\d)"  # (555)010-0142
+    r"|(?<!\d)0\d{2,4}[ -]\d{5,8}(?!\d)"  # 07700 900123, 030 12345678
+    r"|(?<!\d)0\d{2,4}[ -]\d{3,4}[ -]\d{3,4}(?!\d)"  # 020 7946 0958
+    rf"|(?<![a-z])(?:{_CUES})\b[^\d\n]{{0,25}}\d{{3}}[ .\-]?\d{{4}}(?!\d)",
     re.I,
 )
-_UNIFY_DASH = {
-    **dict.fromkeys((0x2010, 0x2011, 0x2012, 0x2013, 0x2014, 0x2212), "-"),
-    0xA0: " ",
-    0x2009: " ",
-    0x202F: " ",
-}
-
-
-_REDACTED = "[contact details removed]"
-
-
-def visible(text: str) -> str:
-    """The text as a reader sees it: invisible format characters removed, NFKC folded, and
-    typographic dashes and spaces made plain."""
-    shown = "".join(c for c in text if unicodedata.category(c) != "Cf")
-    return unicodedata.normalize("NFKC", shown).translate(_UNIFY_DASH)
-
-
 # A bare seven-digit number, 555-0142 or 555 0142. It is a phone number unless it reads as a
 # range: "501-1000 employees" counts upward and its second half has no leading zero. A
 # phone's line number often starts with 0 or does not climb ("555-0142", "555-0100").
-_LOCAL_NUMBER = re.compile(r"(?<![\d$])(\d{3})[\s.-](\d{4})(?!\d)")
+_LOCAL_NUMBER = re.compile(r"(?<![\d$-])(\d{3})[ .-](\d{4})(?![\d-])")
+
+# Dashes and spaces that are not the plain ASCII ones, mapped to the plain ones.
+_DASHES_AND_SPACES = {
+    **dict.fromkeys((0x2010, 0x2011, 0x2012, 0x2013, 0x2014, 0x2015, 0x2212), "-"),
+    **dict.fromkeys((0xB7, 0x2027, 0x2219, 0x2E3A, 0x2E3B), "-"),
+    **dict.fromkeys((0xA0, 0x2009, 0x202F), " "),
+}
+# Invisible code points that are not format characters (category Cf) but render as nothing.
+_INVISIBLE = {0x034F, 0x115F, 0x1160, 0x17B4, 0x17B5, 0x3164, 0xFFA0}
+_INVISIBLE |= set(range(0x180B, 0x1810)) | set(range(0xFE00, 0xFE10))
+_INVISIBLE |= set(range(0xE0100, 0xE01F0))
+# For matching a quote against a page: also curly quotes.
+_UNIFY = {
+    **_DASHES_AND_SPACES,
+    **dict.fromkeys((0x2018, 0x2019), "'"),
+    **dict.fromkeys((0x201C, 0x201D), '"'),
+}
+
+
+def visible(text: str) -> str:
+    """The text as a reader sees it: invisible characters removed, NFKC folded, and typographic
+    dashes and spaces made plain."""
+    shown = "".join(c for c in text if unicodedata.category(c) != "Cf" and ord(c) not in _INVISIBLE)
+    return unicodedata.normalize("NFKC", shown).translate(_DASHES_AND_SPACES)
 
 
 def _is_local_number(match: re.Match[str]) -> bool:
@@ -174,8 +183,8 @@ def has_contact_details(text: str) -> bool:
 
 
 def redact_contact_details(text: str) -> str:
-    seen = CONTACT_DETAILS.sub(_REDACTED, visible(text))
-    return _LOCAL_NUMBER.sub(lambda m: _REDACTED if _is_local_number(m) else m.group(0), seen)
+    seen = CONTACT_DETAILS.sub(REDACTED, visible(text))
+    return _LOCAL_NUMBER.sub(lambda m: REDACTED if _is_local_number(m) else m.group(0), seen)
 
 
 def normalize(text: str) -> str:
@@ -263,9 +272,11 @@ class WebRetriever:
                 result.notes.append(f"{path}: same page as an earlier path")
                 continue
             seen.add(page.url)
-            text = html_to_text(page.text) if page.content_type == "text/html" else page.text
-            # People's email addresses and phone numbers never reach the model or the quotes.
-            text = redact_contact_details(text[:MAX_DOC_CHARS])
+            # Cut with a margin, redact, then cut: a contact detail that straddles the limit is
+            # redacted whole instead of being left half-visible at the end.
+            room = MAX_DOC_CHARS + CUT_MARGIN
+            text = html_to_text(page.text, room) if page.content_type == "text/html" else page.text
+            text = redact_contact_details(text[:room])[:MAX_DOC_CHARS]
             result.documents.append(Document(url=page.url, text=text, own=True))
             result.notes.append(f"{path}: fetched {page.url}")
         if not result.documents:
