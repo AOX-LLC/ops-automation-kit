@@ -105,7 +105,7 @@ services:
     <<: [*api-image, *hardened]
     user: "0:0"
     cap_add: [CHOWN]
-    command: ["python", "-c", "import os; os.makedirs('/exports', exist_ok=True); os.chown('/exports', 1000, 1000); os.chmod('/exports', 0o755)"]
+    command: ["python", "-c", "import os; os.chown('/exports', 1000, 1000)"]
     healthcheck: { disable: true }
     read_only: true
     volumes:
