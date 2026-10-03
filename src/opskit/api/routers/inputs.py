@@ -1,4 +1,4 @@
-"""Read-only listings of the files and messages the workflow skeletons process."""
+"""Read-only listings of the files the workflow skeletons process."""
 
 from __future__ import annotations
 
@@ -11,11 +11,10 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated
 
-import httpx
 from fastapi import APIRouter, HTTPException, Query, Request, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel
 
 from opskit.api.auth import ServiceAuth
 from opskit.config import Settings
@@ -30,7 +29,6 @@ RECEIPT_TYPES = {
     ".jpeg": "image/jpeg",
     ".pdf": "application/pdf",
 }
-MAILPIT_TIMEOUT_S = 5.0
 CURSOR_PATTERN = re.compile(r"[A-Za-z0-9_-]+")
 
 Limit = Annotated[int, Query(ge=1, le=100)]
@@ -49,16 +47,6 @@ class LeadItem(BaseModel):
     city_hint: str
 
 
-class InboxItem(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    mailpit_id: str
-    message_id: str
-    from_: str = Field(alias="from")
-    subject: str
-    received_at: str
-
-
 class ReceiptPage(BaseModel):
     items: list[ReceiptItem]
     next_cursor: str | None
@@ -66,11 +54,6 @@ class ReceiptPage(BaseModel):
 
 class LeadPage(BaseModel):
     items: list[LeadItem]
-    next_cursor: str | None
-
-
-class InboxPage(BaseModel):
-    items: list[InboxItem]
     next_cursor: str | None
 
 
@@ -170,17 +153,6 @@ def page_by_offset[T](items: list[T], offset: int, limit: int) -> tuple[list[T],
     return page, encode_cursor(str(offset + limit)) if more else None
 
 
-def inbox_item(raw: dict[str, Any]) -> InboxItem:
-    sender = raw.get("From") or {}
-    return InboxItem(
-        mailpit_id=str(raw.get("ID", "")),
-        message_id=str(raw.get("MessageID", "")),
-        from_=str(sender.get("Address", "")),
-        subject=str(raw.get("Subject", "")),
-        received_at=str(raw.get("Created", "")),
-    )
-
-
 HASH_CACHE_MAX_ENTRIES = 4096
 _hash_cache: dict[tuple[Path, int, int], str] = {}
 _hash_cache_lock = threading.Lock()
@@ -235,35 +207,3 @@ def pending_leads(request: Request, limit: Limit = 50, cursor: Cursor = None) ->
     companies = read_companies(settings.samples_dir / "leads" / "companies.csv")
     items, next_cursor = page_by_offset(companies, decode_offset(cursor), limit)
     return LeadPage(items=items, next_cursor=next_cursor)
-
-
-async def fetch_mailpit_page(
-    client: httpx.AsyncClient, api_url: str, start: int, limit: int
-) -> dict[str, Any]:
-    response = await client.get(
-        f"{api_url}/api/v1/messages", params={"start": start, "limit": limit}
-    )
-    response.raise_for_status()
-    body: dict[str, Any] = response.json()
-    return body
-
-
-@router.get("/inbox/pending")
-async def pending_inbox(request: Request, limit: Limit = 50, cursor: Cursor = None) -> InboxPage:
-    settings: Settings = request.app.state.settings
-    start = decode_offset(cursor)
-    shared: httpx.AsyncClient | None = getattr(request.app.state, "http_client", None)
-    try:
-        if shared is not None:
-            body = await fetch_mailpit_page(shared, settings.mailpit_api_url, start, limit)
-        else:
-            async with httpx.AsyncClient(timeout=MAILPIT_TIMEOUT_S) as client:
-                body = await fetch_mailpit_page(client, settings.mailpit_api_url, start, limit)
-    except (httpx.HTTPError, ValueError) as exc:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "mailpit unavailable") from exc
-    items = [inbox_item(m) for m in body.get("messages", [])]
-    total = int(body.get("messages_count", body.get("total", 0)))
-    more = start + len(items) < total and bool(items)
-    return InboxPage(
-        items=items, next_cursor=encode_cursor(str(start + len(items))) if more else None
-    )
