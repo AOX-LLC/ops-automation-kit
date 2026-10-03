@@ -203,6 +203,12 @@ async def test_a_grounded_draft_is_ready_and_calls_the_mid_tier() -> None:
     assert set(models.calls[0][1]) == {"inputs", "output", "tier", "context"}
 
 
+async def test_hidden_characters_never_reach_the_stored_draft() -> None:
+    models = FakeModels(DraftReply(body="Thanks\u200b for\u202e writing."))
+    outcome = await draft_reply(models, CTX, _message(), _outcome(), PROFILE)  # type: ignore[arg-type]
+    assert outcome.body == "Thanks for writing."
+
+
 async def test_an_ungrounded_draft_is_failed() -> None:
     models = FakeModels(DraftReply(body="A visit costs $120."))
     outcome = await draft_reply(models, CTX, _message(), _outcome(), PROFILE)  # type: ignore[arg-type]

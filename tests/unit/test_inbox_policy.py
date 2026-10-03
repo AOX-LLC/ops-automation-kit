@@ -70,6 +70,16 @@ def test_envelope_uses_the_single_from_address() -> None:
     assert envelope.reply_to_differs is False
 
 
+def test_envelope_drops_hidden_characters_from_the_subject() -> None:
+    envelope = reply_envelope(
+        from_header="Cass <cass@mail.example>",
+        reply_to_header=None,
+        subject="Invoice\u202e fdp.exe\u200b",
+        message_id="m1@x.example",
+    )
+    assert envelope.subject == "Re: Invoice fdp.exe"
+
+
 def test_envelope_does_not_double_the_re_prefix() -> None:
     assert _envelope("a@mail.example", subject="RE: Hi").subject == "RE: Hi"
 

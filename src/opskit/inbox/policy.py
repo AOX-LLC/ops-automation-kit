@@ -18,6 +18,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from opskit.core.ports import JsonValue, PromptRef
+from opskit.inbox.injection import HIDDEN_CHARS
 
 Category = Literal[
     "sales_inquiry",
@@ -180,7 +181,8 @@ def reply_envelope(
         raise RecipientError("the From header must hold exactly one valid address")
     to = addresses[0].lower()
     reply_to = parseaddr(reply_to_header or "")[1].lower()
-    clean_subject = " ".join(subject.split()) or "your message"
+    # Hidden characters are dropped, so the approver sees the subject that will be sent.
+    clean_subject = " ".join(HIDDEN_CHARS.sub("", subject).split()) or "your message"
     if not clean_subject.lower().startswith("re:"):
         clean_subject = f"Re: {clean_subject}"
     return Envelope(

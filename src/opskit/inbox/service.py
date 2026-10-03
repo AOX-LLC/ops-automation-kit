@@ -184,7 +184,10 @@ async def draft_reply(
             differs=envelope.reply_to_differs,
         )
         return failed.model_copy(update={"in_reply_to": envelope.in_reply_to})
-    draft: DraftReply = result.output
+    # Zero-width and bidi characters are dropped, so what the approver reads is what is sent.
+    draft = result.output.model_copy(
+        update={"body": injection.HIDDEN_CHARS.sub("", result.output.body)}
+    )
     report = policy.check_grounding(
         draft, profile=profile, email_text=msg.body_text, allowed_addresses=[envelope.to]
     )
