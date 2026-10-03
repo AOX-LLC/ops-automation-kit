@@ -9,10 +9,12 @@ sent:
 - the connection goes to that vetted IP, so a DNS change between the check and the connect
   (rebinding) can't redirect it, while TLS still verifies the certificate and SNI against
   the original hostname;
-- https only, ports 443 (and 80 only for an http URL that redirects to https), at most 3
-  redirects, each re-checked and kept on the same site;
-- the body cap and the total deadline are enforced while streaming, so an oversized or
-  slow page is abandoned mid-download.
+- https only, port 443, at most 3 redirects, each re-checked and kept on the same host
+  (a leading "www." aside);
+- connections are never reused: a pooled connection is keyed by IP, so reusing one for a
+  second hostname would skip that hostname's certificate check;
+- the response must be uncompressed, and the body cap and the total deadline are enforced
+  while streaming, so an oversized or slow page is abandoned mid-download.
 """
 
 from __future__ import annotations
@@ -28,7 +30,7 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import httpx
 
-USER_AGENT = "ops-automation-kit/0.1 (+company research; respects robots.txt)"
+USER_AGENT = "ops-automation-kit/0.1 (+company research)"
 MAX_BODY_BYTES = 512 * 1024
 CONNECT_TIMEOUT_S = 3.0
 READ_TIMEOUT_S = 5.0
@@ -89,9 +91,10 @@ class FetchResult:
 
 
 def _site(host: str) -> str:
-    """The registrable-ish site: the last two labels (enough to keep redirects on-site)."""
-    labels = host.lower().rstrip(".").split(".")
-    return ".".join(labels[-2:])
+    """The host, less a leading "www.". Redirects stay on it: a sibling subdomain or another
+    tenant of a shared suffix (`*.co.uk`, `*.github.io`) is a different site."""
+    host = host.lower().rstrip(".")
+    return host.removeprefix("www.")
 
 
 class GuardedFetcher:
@@ -112,7 +115,8 @@ class GuardedFetcher:
             trust_env=False,  # never route through an environment proxy
             follow_redirects=False,
             timeout=httpx.Timeout(READ_TIMEOUT_S, connect=CONNECT_TIMEOUT_S),
-            headers={"User-Agent": USER_AGENT},
+            headers={"User-Agent": USER_AGENT, "Accept-Encoding": "identity"},
+            limits=httpx.Limits(max_keepalive_connections=0),
         )
 
     async def aclose(self) -> None:
@@ -148,7 +152,7 @@ class GuardedFetcher:
                 url=response_url,
                 status=status,
                 content_type=content_type,
-                text=body.decode(charset, errors="replace"),
+                text=_decode(body, charset),
             )
         raise FetchRefused("too many redirects")
 
@@ -199,15 +203,26 @@ class GuardedFetcher:
         declared = response.headers.get("content-length")
         if declared and declared.isdigit() and int(declared) > self._policy.max_body_bytes:
             raise FetchRefused("page is larger than the size cap")
+        # Compressed bodies are refused outright: a small compressed chunk can expand far past
+        # the cap before a per-chunk check sees it.
+        encoding = response.headers.get("content-encoding", "identity").strip().lower()
+        if encoding not in ("", "identity"):
+            raise FetchRefused(f"compressed responses are refused ({encoding})")
         chunks: list[bytes] = []
         size = 0
-        # Decoded bytes, so a compressed page is capped on what it expands to.
-        async for chunk in response.aiter_bytes():
+        async for chunk in response.aiter_raw():
             size += len(chunk)
             if size > self._policy.max_body_bytes:
                 raise FetchRefused("page exceeded the size cap mid-download")
             chunks.append(chunk)
         return b"".join(chunks)
+
+
+def _decode(body: bytes, charset: str) -> str:
+    try:
+        return body.decode(charset, errors="replace")
+    except LookupError:  # a charset Python doesn't know
+        return body.decode("utf-8", errors="replace")
 
 
 def _charset(content_type: str) -> str:

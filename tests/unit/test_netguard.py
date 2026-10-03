@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+from opskit.leads import netguard
 from opskit.leads.netguard import FetchPolicy, FetchRefused, GuardedFetcher, is_public
 
 pytestmark = pytest.mark.skipif(shutil.which("openssl") is None, reason="needs openssl")
@@ -132,6 +133,24 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", "https://evil.example/steal")
             self.end_headers()
+        elif self.path == "/gzip":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Content-Length", "3")
+            self.end_headers()
+            self.wfile.write(b"abc")
+        elif self.path == "/odd-charset":
+            body = b"<p>Acme</p>"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=x-no-such-charset")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        elif self.path == "/subdomain":
+            self.send_response(302)
+            self.send_header("Location", "https://other.right.test/")
+            self.end_headers()
         elif self.path == "/binary":
             self.send_response(200)
             self.send_header("Content-Type", "application/octet-stream")
@@ -145,8 +164,14 @@ class QuietServer(ThreadingHTTPServer):
         """The fetcher hangs up mid-stream on purpose (caps, deadlines); that is not an error."""
 
 
-def _serve(certs: Path, name: str) -> Iterator[int]:
-    server = QuietServer(("127.0.0.1", 0), Handler)
+class KeepAliveHandler(Handler):
+    protocol_version = "HTTP/1.1"  # keeps the connection open, so a client could reuse it
+
+
+def _serve(
+    certs: Path, name: str, handler: type[BaseHTTPRequestHandler] = Handler
+) -> Iterator[int]:
+    server = QuietServer(("127.0.0.1", 0), handler)
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.load_cert_chain(certs / f"{name}.pem", certs / f"{name}.key")
     server.socket = context.wrap_socket(server.socket, server_side=True)
@@ -166,6 +191,11 @@ def right_server(certs: Path) -> Iterator[int]:
 @pytest.fixture
 def wrong_server(certs: Path) -> Iterator[int]:
     yield from _serve(certs, "wrong.test")
+
+
+@pytest.fixture
+def keepalive_server(certs: Path) -> Iterator[int]:
+    yield from _serve(certs, "right.test", KeepAliveHandler)
 
 
 def _fetcher(certs: Path, port: int, *, total: float = 3.0) -> GuardedFetcher:
@@ -279,3 +309,55 @@ async def test_scheme_credentials_and_ports_are_refused(url: str) -> None:
             await fetcher.fetch(url)
     finally:
         await fetcher.aclose()
+
+
+async def test_a_connection_is_never_reused_for_another_hostname(
+    certs: Path, keepalive_server: int
+) -> None:
+    # Both names resolve to the same IP; the second one's certificate must still be checked.
+    fetcher = _fetcher(certs, keepalive_server)
+    try:
+        await fetcher.fetch(f"https://right.test:{keepalive_server}/ok")
+        with pytest.raises(FetchRefused, match=r"connection to wrong\.test failed"):
+            await fetcher.fetch(f"https://wrong.test:{keepalive_server}/ok")
+    finally:
+        await fetcher.aclose()
+
+
+async def test_a_compressed_response_is_refused(certs: Path, right_server: int) -> None:
+    fetcher = _fetcher(certs, right_server)
+    try:
+        with pytest.raises(FetchRefused, match="compressed"):
+            await fetcher.fetch(f"https://right.test:{right_server}/gzip")
+    finally:
+        await fetcher.aclose()
+
+
+async def test_an_unknown_charset_falls_back_to_utf8(certs: Path, right_server: int) -> None:
+    fetcher = _fetcher(certs, right_server)
+    try:
+        result = await fetcher.fetch(f"https://right.test:{right_server}/odd-charset")
+    finally:
+        await fetcher.aclose()
+    assert "Acme" in result.text
+
+
+async def test_a_redirect_to_a_sibling_subdomain_is_refused(certs: Path, right_server: int) -> None:
+    fetcher = _fetcher(certs, right_server)
+    try:
+        with pytest.raises(FetchRefused, match=r"other\.right\.test is not on right\.test"):
+            await fetcher.fetch(f"https://right.test:{right_server}/subdomain")
+    finally:
+        await fetcher.aclose()
+
+
+@pytest.mark.parametrize(
+    ("a", "b", "same"),
+    [
+        ("www.acme.example", "acme.example", True),
+        ("evil.co.uk", "victim.co.uk", False),
+        ("evil.github.io", "victim.github.io", False),
+    ],
+)
+def test_site_is_the_host_less_www(a: str, b: str, same: bool) -> None:
+    assert (netguard._site(a) == netguard._site(b)) is same
