@@ -8,6 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field, StringConstraints
+from sqlalchemy.exc import IntegrityError
 
 from opskit.api.auth import ServiceAuth
 from opskit.api.routers.inputs import read_companies
@@ -28,6 +29,8 @@ from opskit.leads.retrieval import (
 )
 from opskit.leads.robots import RobotsCache
 from opskit.receipts.store import session_factory_of
+
+BOUND_VIOLATION = "23514"  # check_violation: a core.enforce_bounds() refusal
 
 router = APIRouter(prefix="/v1/leads", tags=["leads"], dependencies=[ServiceAuth])
 
@@ -140,12 +143,22 @@ async def research(request: Request, body: ResearchRequest) -> ResearchResult:
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY, f"research failed: {type(exc).__name__}"
         ) from exc
-    upserted = await store.upsert_account(factory, outcome)
-    action = upserted.action if upserted else None
-    account_id = upserted.account_id if upserted else None
-    await store.save_research(
-        factory, body.run_id, outcome, crm_action=action, account_id=account_id
-    )
+    try:
+        upserted = await store.upsert_account(factory, outcome)
+        action = upserted.action if upserted else None
+        account_id = upserted.account_id if upserted else None
+        await store.save_research(
+            factory, body.run_id, outcome, crm_action=action, account_id=account_id
+        )
+    except IntegrityError as exc:
+        if getattr(exc.orig, "sqlstate", None) != BOUND_VIOLATION:
+            raise
+        # What a website made the model quote does not fit a stored column (the database bounds
+        # every one). The company stays in the run, listed as failed, instead of dropping out.
+        await _record_failure(factory, body, f"{FAILED}: result too large to store")
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "research result too large to store"
+        ) from exc
     return ResearchResult(outcome=outcome, crm_action=action, account_id=account_id)
 
 

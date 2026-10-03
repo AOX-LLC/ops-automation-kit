@@ -21,8 +21,9 @@ from opskit.leads.robots import RobotsCache
 
 MAX_DOC_CHARS = 20_000
 CUT_MARGIN = 256
-# A page reached through redirects keeps its final URL in the stored research; longer is refused.
-MAX_PAGE_URL_CHARS = 2048
+# A page reached through redirects keeps its final URL in the stored research and, as a field's
+# source, in crm.account_sources.source_ref (512, see crm_0003); longer is refused.
+MAX_PAGE_URL_CHARS = 512
 PAGE_PATHS = (
     "/",
     "/about",
