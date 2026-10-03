@@ -94,6 +94,23 @@ async def _audit(
     )
 
 
+def _consume_refusal(
+    request: ApprovalRequest, action: str, payload: Mapping[str, JsonValue], now: datetime
+) -> Exception | None:
+    """Why this approval may not be used for this action now, or None if it may."""
+    if approval_payload_hash(action, payload) != request.payload_sha256:
+        return ApprovalPayloadMismatchError(
+            f"approval {request.id} does not cover this action and payload"
+        )
+    if request.status is ApprovalStatus.CONSUMED:
+        return ApprovalAlreadyResolvedError(f"approval {request.id} was already used")
+    if request.status is not ApprovalStatus.APPROVED:
+        return ApprovalNotGrantedError(f"approval {request.id} is {request.status.value}")
+    if request.is_expired(now):
+        return ApprovalExpiredError(f"approval {request.id} has expired")
+    return None
+
+
 class PgApprovalQueue:
     def __init__(self, session_factory: SessionFactory) -> None:
         self._session_factory = session_factory
@@ -314,8 +331,14 @@ class PgApprovalQueue:
         principal: Principal,
         context: RunContext | None = None,
     ) -> ApprovalRequest:
-        """Use an approval for its one permitted run, checking it covers this exact action."""
+        """Use an approval for its one permitted run, checking it covers this exact action.
+
+        The payload hash is checked first, so a changed payload is refused as a mismatch
+        whatever the status. Every refusal is audited (approval.consume_denied) and committed
+        before the error is raised.
+        """
         now = datetime.now(UTC)
+        refusal: Exception | None = None
         async with self._session_factory.begin() as session:
             row = (
                 await session.execute(
@@ -325,25 +348,28 @@ class PgApprovalQueue:
             if row is None:
                 raise ApprovalNotFoundError(f"approval {request_id} not found")
             request = _request(row)
-            if request.status is ApprovalStatus.CONSUMED:
-                raise ApprovalAlreadyResolvedError(f"approval {request_id} was already used")
-            if request.status is not ApprovalStatus.APPROVED:
-                raise ApprovalNotGrantedError(f"approval {request_id} is {request.status.value}")
-            if request.is_expired(now):
-                raise ApprovalExpiredError(f"approval {request_id} has expired")
-            if approval_payload_hash(action, payload) != request.payload_sha256:
-                raise ApprovalPayloadMismatchError(
-                    f"approval {request_id} does not cover this action and payload"
+            refusal = _consume_refusal(request, action, payload, now)
+            if refusal is not None:
+                await _audit(
+                    session,
+                    "approval.consume_denied",
+                    principal.id,
+                    request_id,
+                    {"reason": type(refusal).__name__},
+                    context,
                 )
-            row = (
-                await session.execute(
-                    update(approvals)
-                    .where(approvals.c.id == request_id)
-                    .values(status=ApprovalStatus.CONSUMED.value, consumed_at=now)
-                    .returning(*REQUEST_COLUMNS)
-                )
-            ).one()
-            await _audit(session, "approval.consumed", principal.id, request_id, {}, context)
+            else:
+                row = (
+                    await session.execute(
+                        update(approvals)
+                        .where(approvals.c.id == request_id)
+                        .values(status=ApprovalStatus.CONSUMED.value, consumed_at=now)
+                        .returning(*REQUEST_COLUMNS)
+                    )
+                ).one()
+                await _audit(session, "approval.consumed", principal.id, request_id, {}, context)
+        if refusal is not None:
+            raise refusal
         return _request(row)
 
     async def expire(self, request_id: UUID) -> ApprovalRequest:
