@@ -140,8 +140,13 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(b"abc")
 
 
+class QuietServer(ThreadingHTTPServer):
+    def handle_error(self, request: object, client_address: object) -> None:
+        """The fetcher hangs up mid-stream on purpose (caps, deadlines); that is not an error."""
+
+
 def _serve(certs: Path, name: str) -> Iterator[int]:
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server = QuietServer(("127.0.0.1", 0), Handler)
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.load_cert_chain(certs / f"{name}.pem", certs / f"{name}.key")
     server.socket = context.wrap_socket(server.socket, server_side=True)
