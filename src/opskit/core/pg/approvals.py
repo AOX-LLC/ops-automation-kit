@@ -4,12 +4,15 @@ Resolution runs agent-core's RoleApproverPolicy inside a row lock, so a request 
 once, only by a human holding the required role who did not ask for it. Each change and the
 audit record of it commit together; a decision also queues the n8n resume (the outbox) in
 the same transaction. Kept in the kit, beyond the protocol: the stored payload (shown to the
-approver), the resume URL, the expiry sweep and a string-cursor page.
+approver), the resume URL, closing a timed-out request and a string-cursor page.
+
+A pending request past its lifetime is reported as EXPIRED by every read, with `closed_at`
+equal to `expires_at`, whether or not the sweep has stored it yet.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -25,6 +28,7 @@ from aox_agent_core.approvals import (
     RoleApproverPolicy,
     approval_payload_hash,
 )
+from aox_agent_core.approvals.types import MAX_DELEGATES
 from aox_agent_core.audit import AuditEvent
 from aox_agent_core.context import RunContext
 from aox_agent_core.errors import (
@@ -34,9 +38,10 @@ from aox_agent_core.errors import (
     ApprovalNotGrantedError,
     ApprovalPayloadMismatchError,
     NotAuthorizedToResolveError,
+    NotTheRequesterError,
 )
 from pydantic import JsonValue
-from sqlalchemy import and_, insert, or_, select, update
+from sqlalchemy import and_, func, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opskit.core.pg.audit import append_in
@@ -59,15 +64,27 @@ REQUEST_COLUMNS = [
     approvals.c.resolved_by,
     approvals.c.resolved_at,
     approvals.c.consumed_at,
+    approvals.c.closed_at,
     approvals.c.reason,
     approvals.c.run_context,
+    approvals.c.delegates,
 ]
-_policy = RoleApproverPolicy()
+EXPIRE_BATCH_MAX = 500
 
 
 def _request(row: Any) -> ApprovalRequest:
     data = {column.name: getattr(row, column.name) for column in REQUEST_COLUMNS}
+    data["delegates"] = frozenset(data["delegates"] or ())
     return ApprovalRequest.model_validate(data)
+
+
+def _judged(request: ApprovalRequest, now: datetime) -> ApprovalRequest:
+    """What a reader sees: a pending request past its lifetime is expired, stored or not."""
+    if request.status is ApprovalStatus.PENDING and request.is_expired(now):
+        return request.model_copy(
+            update={"status": ApprovalStatus.EXPIRED, "closed_at": request.expires_at}
+        )
+    return request
 
 
 def _run_id(context: RunContext | None) -> UUID | None:
@@ -95,25 +112,73 @@ async def _audit(
 
 
 def _consume_refusal(
-    request: ApprovalRequest, action: str, payload: Mapping[str, JsonValue], now: datetime
-) -> Exception | None:
-    """Why this approval may not be used for this action now, or None if it may."""
-    if approval_payload_hash(action, payload) != request.payload_sha256:
-        return ApprovalPayloadMismatchError(
-            f"approval {request.id} does not cover this action and payload"
+    request: ApprovalRequest,
+    action: str,
+    payload: Mapping[str, JsonValue],
+    principal: Principal,
+    now: datetime,
+) -> tuple[Exception, str] | None:
+    """Why this approval may not be used by this principal for this action now, with the reason
+    recorded in the audit log; None if it may."""
+    if principal.id != request.requested_by and principal.id not in request.delegates:
+        return (
+            NotTheRequesterError(
+                f"approval {request.id} was made by {request.requested_by}; only they or a "
+                "delegate it named may use it"
+            ),
+            DenialReason.NOT_REQUESTER.value,
         )
-    if request.status is ApprovalStatus.CONSUMED:
-        return ApprovalAlreadyResolvedError(f"approval {request.id} was already used")
+    if approval_payload_hash(action, payload) != request.payload_sha256:
+        return (
+            ApprovalPayloadMismatchError(
+                f"approval {request.id} does not cover this action and payload"
+            ),
+            "payload_mismatch",
+        )
+    request = _judged(request, now)
+    if request.status is ApprovalStatus.EXPIRED:
+        return ApprovalExpiredError(f"approval {request.id} has expired"), "expired"
+    if request.status in {ApprovalStatus.PENDING, ApprovalStatus.REJECTED}:
+        return (
+            ApprovalNotGrantedError(f"approval {request.id} is {request.status.value}"),
+            "not_granted",
+        )
     if request.status is not ApprovalStatus.APPROVED:
-        return ApprovalNotGrantedError(f"approval {request.id} is {request.status.value}")
+        return (
+            ApprovalAlreadyResolvedError(f"approval {request.id} is {request.status.value}"),
+            "not_open",
+        )
     if request.is_expired(now):
-        return ApprovalExpiredError(f"approval {request.id} has expired")
+        return ApprovalExpiredError(f"approval {request.id} has expired"), "expired"
+    return None
+
+
+def _cancel_refusal(
+    request: ApprovalRequest, principal: Principal, now: datetime
+) -> tuple[Exception, str] | None:
+    """Why this principal may not withdraw this request now; only the requester may."""
+    if principal.id != request.requested_by:
+        return (
+            NotTheRequesterError(
+                f"approval {request.id} was made by {request.requested_by}; only they may cancel it"
+            ),
+            DenialReason.NOT_REQUESTER.value,
+        )
+    request = _judged(request, now)
+    if request.status is ApprovalStatus.EXPIRED:
+        return ApprovalExpiredError(f"approval {request.id} has expired"), "expired"
+    if request.status is not ApprovalStatus.PENDING:
+        return (
+            ApprovalAlreadyResolvedError(f"approval {request.id} is {request.status.value}"),
+            DenialReason.NOT_PENDING.value,
+        )
     return None
 
 
 class PgApprovalQueue:
-    def __init__(self, session_factory: SessionFactory) -> None:
+    def __init__(self, session_factory: SessionFactory, *, policy: RoleApproverPolicy) -> None:
         self._session_factory = session_factory
+        self._policy = policy
 
     async def submit(
         self,
@@ -124,11 +189,17 @@ class PgApprovalQueue:
         requested_by: Principal,
         required_role: str,
         ttl_seconds: int,
+        delegates: Collection[str] = (),
         context: RunContext | None = None,
         resume_url: str | None = None,
     ) -> ApprovalRequest:
         if not 0 < ttl_seconds <= TTL_SECONDS_MAX:
             raise ValueError(f"ttl_seconds must be between 1 and {TTL_SECONDS_MAX}")
+        delegate_ids = sorted(set(delegates))
+        if len(delegate_ids) > MAX_DELEGATES:
+            raise ValueError(f"at most {MAX_DELEGATES} delegates")
+        for delegate_id in delegate_ids:  # the same id rules as any principal
+            Principal(id=delegate_id, kind=PrincipalKind.SERVICE)
         now = datetime.now(UTC)
         statement = (
             insert(approvals)
@@ -142,6 +213,7 @@ class PgApprovalQueue:
                 required_role=required_role,
                 created_at=now,
                 expires_at=now + timedelta(seconds=ttl_seconds),
+                delegates=delegate_ids,
                 resume_url=resume_url,
                 run_context=context.as_json() if context is not None else None,
             )
@@ -154,7 +226,11 @@ class PgApprovalQueue:
                 "approval.requested",
                 requested_by.id,
                 request.id,
-                {"action": action, "expires_at": request.expires_at.isoformat()},
+                {
+                    "action": action,
+                    "expires_at": request.expires_at.isoformat(),
+                    "delegates": list[JsonValue](delegate_ids),
+                },
                 context,
             )
         return request
@@ -165,7 +241,7 @@ class PgApprovalQueue:
             row = (await session.execute(query)).one_or_none()
         if row is None:
             raise ApprovalNotFoundError(f"approval {request_id} not found")
-        return _request(row)
+        return _judged(_request(row), datetime.now(UTC))
 
     async def payload_of(self, request_id: UUID) -> JsonObject:
         query = select(approvals.c.payload).where(approvals.c.id == request_id)
@@ -239,7 +315,7 @@ class PgApprovalQueue:
             if row is None:
                 raise ApprovalNotFoundError(f"approval {request_id} not found")
             request = _request(row)
-            verdict = _policy.evaluate(principal, request, now=now)
+            verdict = self._policy.evaluate(principal, request, now=now)
             if not verdict.allowed:
                 denial = await self._record_denial(session, request, principal, verdict.reason)
             else:
@@ -260,7 +336,7 @@ class PgApprovalQueue:
     ) -> Exception:
         """Write the refusal (and an expiry, if that is why) and return the error to raise."""
         if reason is DenialReason.EXPIRED:
-            await self._expire_rows(session, approvals.c.id == request.id)
+            await self._store_expired(session, approvals.c.id == request.id, principal.id)
             return ApprovalExpiredError(f"approval {request.id} has expired")
         await _audit(
             session,
@@ -333,29 +409,23 @@ class PgApprovalQueue:
     ) -> ApprovalRequest:
         """Use an approval for its one permitted run, checking it covers this exact action.
 
-        The payload hash is checked first, so a changed payload is refused as a mismatch
-        whatever the status. Every refusal is audited (approval.consume_denied) and committed
-        before the error is raised.
+        Only the requester, or a delegate it named, may consume. The principal is checked first,
+        then the payload hash, so a changed payload is refused as a mismatch whatever the
+        status. Every refusal is audited (approval.consume_denied) and committed before the
+        error is raised.
         """
         now = datetime.now(UTC)
-        refusal: Exception | None = None
+        refusal: tuple[Exception, str] | None = None
         async with self._session_factory.begin() as session:
-            row = (
-                await session.execute(
-                    select(*REQUEST_COLUMNS).where(approvals.c.id == request_id).with_for_update()
-                )
-            ).one_or_none()
-            if row is None:
-                raise ApprovalNotFoundError(f"approval {request_id} not found")
-            request = _request(row)
-            refusal = _consume_refusal(request, action, payload, now)
+            row = await self._locked(session, request_id)
+            refusal = _consume_refusal(_request(row), action, payload, principal, now)
             if refusal is not None:
                 await _audit(
                     session,
                     "approval.consume_denied",
                     principal.id,
                     request_id,
-                    {"reason": type(refusal).__name__},
+                    {"reason": refusal[1]},
                     context,
                 )
             else:
@@ -369,28 +439,122 @@ class PgApprovalQueue:
                 ).one()
                 await _audit(session, "approval.consumed", principal.id, request_id, {}, context)
         if refusal is not None:
-            raise refusal
+            raise refusal[0]
         return _request(row)
 
-    async def expire(self, request_id: UUID) -> ApprovalRequest:
-        """Expire one request if it is still pending; any other state is left as it is."""
+    async def cancel(
+        self,
+        request_id: UUID,
+        *,
+        principal: Principal,
+        reason: str | None = None,
+        context: RunContext | None = None,
+    ) -> ApprovalRequest:
+        """The requester withdraws a pending request. A delegate may not."""
+        now = datetime.now(UTC)
+        refusal: tuple[Exception, str] | None = None
         async with self._session_factory.begin() as session:
-            await self._expire_rows(session, approvals.c.id == request_id)
-        return await self.get(request_id)
+            row = await self._locked(session, request_id)
+            refusal = _cancel_refusal(_request(row), principal, now)
+            if refusal is not None:
+                await _audit(
+                    session,
+                    "approval.cancel_denied",
+                    principal.id,
+                    request_id,
+                    {"reason": refusal[1]},
+                    context,
+                )
+            else:
+                row = (
+                    await session.execute(
+                        update(approvals)
+                        .where(approvals.c.id == request_id)
+                        .values(status=ApprovalStatus.CANCELLED.value, closed_at=func.now())
+                        .returning(*REQUEST_COLUMNS)
+                    )
+                ).one()
+                await _audit(
+                    session,
+                    "approval.cancelled",
+                    principal.id,
+                    request_id,
+                    {"cancel_reason": reason} if reason else {},
+                    context,
+                )
+        if refusal is not None:
+            raise refusal[0]
+        return _request(row)
 
-    async def expire_due(self, *, now: datetime) -> int:
+    async def _locked(self, session: AsyncSession, request_id: UUID) -> Any:
+        row = (
+            await session.execute(
+                select(*REQUEST_COLUMNS).where(approvals.c.id == request_id).with_for_update()
+            )
+        ).one_or_none()
+        if row is None:
+            raise ApprovalNotFoundError(f"approval {request_id} not found")
+        return row
+
+    async def close_pending(self, request_id: UUID, *, principal: Principal) -> ApprovalRequest:
+        """End a request whose wait is over: expired if its lifetime has passed, else withdrawn.
+
+        Any request that is no longer pending is returned as it is. This is the one call for a
+        workflow that stopped waiting (n8n's Wait timed out) and for a loser of a race.
+        """
         async with self._session_factory.begin() as session:
-            return await self._expire_rows(session, approvals.c.expires_at <= now)
+            await self._store_expired(session, approvals.c.id == request_id, principal.id)
+        request = await self.get(request_id)
+        if request.status is ApprovalStatus.PENDING:
+            try:
+                return await self.cancel(request_id, principal=principal, reason="wait ended")
+            except (ApprovalAlreadyResolvedError, ApprovalExpiredError):
+                return await self.get(request_id)
+        return request
 
-    async def _expire_rows(self, session: AsyncSession, condition: Any) -> int:
+    async def expire_due(
+        self, *, principal: Principal, now: datetime | None = None, limit: int = EXPIRE_BATCH_MAX
+    ) -> int:
+        """Store EXPIRED on pending requests past their lifetime; returns how many.
+
+        Works in batches of `limit`. A request counts as due only if the database's clock
+        agrees, so a skewed caller clock expires nothing early.
+        """
+        if limit < 1:
+            raise ValueError("limit must be at least 1")
+        total = 0
+        while True:
+            condition = approvals.c.id.in_(
+                select(approvals.c.id)
+                .where(
+                    approvals.c.status == ApprovalStatus.PENDING.value,
+                    approvals.c.expires_at <= (now or datetime.now(UTC)),
+                    approvals.c.expires_at <= func.now(),
+                )
+                .order_by(approvals.c.expires_at, approvals.c.id)
+                .limit(limit)
+                .with_for_update(skip_locked=True)
+            )
+            async with self._session_factory.begin() as session:
+                batch = await self._store_expired(session, condition, principal.id)
+            total += batch
+            if batch < limit:
+                return total
+
+    async def _store_expired(self, session: AsyncSession, condition: Any, actor_id: str) -> int:
+        """Store EXPIRED on pending rows matching `condition` that the database also finds due."""
         statement = (
             update(approvals)
-            .where(condition, approvals.c.status == ApprovalStatus.PENDING.value)
-            .values(status=ApprovalStatus.EXPIRED.value)
+            .where(
+                condition,
+                approvals.c.status == ApprovalStatus.PENDING.value,
+                approvals.c.expires_at <= func.now(),
+            )
+            .values(status=ApprovalStatus.EXPIRED.value, closed_at=func.now())
             .returning(approvals.c.id, approvals.c.run_context)
         )
         expired = (await session.execute(statement)).all()
         for request_id, run_context in expired:
             context = RunContext.model_validate(run_context) if run_context else None
-            await _audit(session, "approval.expired", "system", request_id, {}, context)
+            await _audit(session, "approval.expired", actor_id, request_id, {}, context)
         return len(expired)

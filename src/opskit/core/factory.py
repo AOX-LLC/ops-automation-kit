@@ -6,6 +6,7 @@ from collections.abc import Coroutine
 from typing import Any
 
 from aox_agent_core import AgentClient, load_config
+from aox_agent_core.approvals import RoleApproverPolicy
 
 from opskit.config import Settings
 from opskit.core.pg import outbox
@@ -14,7 +15,7 @@ from opskit.core.pg.audit import PgAuditLog
 from opskit.core.pg.metered import MeteredModelClient
 from opskit.core.pg.outbox import ResumeSender
 from opskit.core.pg.runs import PgRunStore
-from opskit.core.ports import Core, Mode
+from opskit.core.ports import ROLES_BY_ACTION, Core, Mode
 from opskit.db.engine import SessionFactory
 
 
@@ -31,7 +32,9 @@ def build_core(settings: Settings, session_factory: SessionFactory) -> Core:
     client = build_model_client(settings)
     return Core(
         models=MeteredModelClient(client, session_factory),
-        approvals=PgApprovalQueue(session_factory),
+        approvals=PgApprovalQueue(
+            session_factory, policy=RoleApproverPolicy(roles_by_action=ROLES_BY_ACTION)
+        ),
         audit=PgAuditLog(session_factory),
         runs=PgRunStore(session_factory, client.config.mode),
         mode=client.config.mode,

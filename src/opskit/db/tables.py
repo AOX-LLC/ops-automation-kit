@@ -18,6 +18,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
@@ -61,8 +62,10 @@ approvals = Table(
     Column("resolved_at", DateTime(timezone=True)),
     Column("resolved_by", Text),
     Column("consumed_at", DateTime(timezone=True)),
+    Column("closed_at", DateTime(timezone=True)),
     Column("reason", Text),
     Column("run_context", JSONB),
+    Column("delegates", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
     schema="core",
 )
 

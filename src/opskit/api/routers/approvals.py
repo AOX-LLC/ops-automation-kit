@@ -12,7 +12,13 @@ from pydantic import BaseModel, Field
 from opskit.api.auth import ServiceAuth
 from opskit.approvals.resume import InvalidResumeUrl, internal_resume_target
 from opskit.core.errors import ApprovalNotFoundError, NotFound
-from opskit.core.ports import APPROVER_ROLE, N8N_SERVICE, ApprovalRequest, Core, run_uuid
+from opskit.core.ports import (
+    N8N_SERVICE,
+    ROLES_BY_ACTION,
+    ApprovalRequest,
+    Core,
+    run_uuid,
+)
 
 router = APIRouter(prefix="/v1/approvals", tags=["approvals"], dependencies=[ServiceAuth])
 
@@ -65,6 +71,8 @@ async def request_approval(request: Request, body: RequestApproval) -> ApprovalV
         internal_resume_target(body.resume_url, request.app.state.settings)
     except InvalidResumeUrl as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    if body.kind not in ROLES_BY_ACTION:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "unknown approval kind")
     core = _core(request)
     try:
         ctx = await core.runs.get(body.run_id)
@@ -75,7 +83,7 @@ async def request_approval(request: Request, body: RequestApproval) -> ApprovalV
         summary=body.summary or f"Approve {body.kind}",
         payload=body.subject,
         requested_by=N8N_SERVICE,
-        required_role=APPROVER_ROLE,
+        required_role=ROLES_BY_ACTION[body.kind],
         ttl_seconds=body.expires_in_s,
         context=ctx,
         resume_url=body.resume_url,
@@ -98,7 +106,9 @@ async def get_approval(request: Request, approval_id: UUID) -> ApprovalView:
 
 @router.post("/{approval_id}/expire")
 async def expire_approval(request: Request, approval_id: UUID) -> ApprovalView:
+    """The workflow stopped waiting: expired if the lifetime has passed, otherwise withdrawn."""
     try:
-        return ApprovalView.of(await _core(request).approvals.expire(approval_id))
+        closed = await _core(request).approvals.close_pending(approval_id, principal=N8N_SERVICE)
+        return ApprovalView.of(closed)
     except ApprovalNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such approval") from exc

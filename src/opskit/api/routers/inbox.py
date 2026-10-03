@@ -232,7 +232,9 @@ async def request_draft_approval(
     )
     if not moved:
         # Another request won the race; withdraw this approval so only one stays open.
-        await core.approvals.expire(approval.id)
+        await core.approvals.cancel(
+            approval.id, principal=N8N_SERVICE, reason="draft already awaiting approval"
+        )
         raise HTTPException(status.HTTP_409_CONFLICT, "draft is no longer awaiting approval")
     return ApprovalCreated(approval_id=approval.id, draft_id=draft_id)
 

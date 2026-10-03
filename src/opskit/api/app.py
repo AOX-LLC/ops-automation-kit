@@ -6,7 +6,7 @@ import asyncio
 import contextlib
 import logging
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -31,7 +31,7 @@ from opskit.api.routers.health import load_build_info
 from opskit.approvals.resume import N8nResumeSender
 from opskit.config import Settings
 from opskit.core.factory import build_core, build_resume_worker
-from opskit.core.ports import Core
+from opskit.core.ports import SWEEP_SERVICE, Core
 from opskit.db.engine import make_engine, make_session_factory
 
 log = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ SWEEP_INTERVAL_S = 60
 async def _sweep_expired(core: Core) -> None:
     while True:
         try:
-            await core.approvals.expire_due(now=datetime.now(UTC))
+            await core.approvals.expire_due(principal=SWEEP_SERVICE)
         except Exception:
             log.exception("approval expiry sweep failed")
         await asyncio.sleep(SWEEP_INTERVAL_S)

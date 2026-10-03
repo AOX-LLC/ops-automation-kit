@@ -166,7 +166,7 @@ def approver(
 
 
 def new_approval(
-    service: httpx.Client, *, expires_in_s: int = 600, kind: str = "test.approval"
+    service: httpx.Client, *, expires_in_s: int = 600, kind: str = "kit_smoke.echo"
 ) -> dict[str, Any]:
     run = service.post(
         "/v1/runs",
