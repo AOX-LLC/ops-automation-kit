@@ -18,9 +18,7 @@ import io
 import os
 import re
 import stat
-import warnings
-from collections.abc import Iterator
-from contextlib import contextmanager
+import threading
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
@@ -48,6 +46,12 @@ MEDIA_TYPES = {
     ".pdf": "application/pdf",
 }
 _PDF_PAGE_OBJECT = re.compile(rb"/Type\s*/Page(?![A-Za-z])")
+_PDF_NAME = re.compile(rb"/[^\s/<>\[\](){}%]+")
+_PDF_NAME_HEX_ESCAPE = re.compile(rb"#([0-9A-Fa-f]{2})")
+_PDF_OBJECT_STREAM = re.compile(rb"/Type\s*/ObjStm(?![A-Za-z])")
+# Decoding is serialised: n8n runs two prepare() calls at a time, and two near-cap
+# images decoded together would double peak memory.
+_DECODE_LOCK = threading.Lock()
 _EXIF_ORIENTATION = 0x0112
 
 Status = Literal["extracted", "needs_review", "failed"]
@@ -149,6 +153,15 @@ class ExtractionOutcome(BaseModel):
     latency_ms: int | None = None
 
 
+def sha256_of_file(path: Path) -> str:
+    """SHA-256 of a file's bytes, read in chunks so a large file is never held in memory."""
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(HASH_CHUNK_BYTES), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _read_source(path: Path) -> tuple[bytes | None, str, str | None]:
     """(bytes or None, sha256 of the original, review reason). Never reads past the cap."""
     digest = hashlib.sha256()
@@ -182,9 +195,21 @@ def _ready(data: bytes, sha256: str, media_type: str, max_bytes: int) -> Prepare
             sha256,
             media_type,
         )
-    if media_type == "application/pdf" and (attachment.pdf_pages or 0) > MAX_PDF_PAGES:
-        return _review("too_many_pages", sha256, media_type)
+    if media_type == "application/pdf":
+        if attachment.pdf_pages is None:
+            return _review("uncountable_pdf", sha256, media_type)
+        if attachment.pdf_pages > MAX_PDF_PAGES:
+            return _review("too_many_pages", sha256, media_type)
     return Prepared(attachment=attachment, review_reason=None, sha256=sha256, media_type=media_type)
+
+
+def _normalise_pdf_names(data: bytes) -> bytes:
+    """Decode `#xx` hex escapes inside PDF names, so `/P#61ge` counts as `/Page`."""
+
+    def decode(name: re.Match[bytes]) -> bytes:
+        return _PDF_NAME_HEX_ESCAPE.sub(lambda m: bytes([int(m.group(1), 16)]), name.group(0))
+
+    return _PDF_NAME.sub(decode, data)
 
 
 def _prepare_pdf(data: bytes, sha256: str) -> Prepared:
@@ -193,25 +218,16 @@ def _prepare_pdf(data: bytes, sha256: str) -> Prepared:
         return _review("oversized_pdf", sha256, media_type)
     if not data.startswith(b"%PDF-"):
         return _review("unreadable_pdf", sha256, media_type)
-    pages = len(_PDF_PAGE_OBJECT.findall(data))
+    normalised = _normalise_pdf_names(data)
+    pages = len(_PDF_PAGE_OBJECT.findall(normalised))
+    if _PDF_OBJECT_STREAM.search(normalised) and pages <= MAX_PDF_PAGES:
+        # Page objects may be hidden in an object stream this check cannot read.
+        return _review("uncountable_pdf", sha256, media_type)
     if pages == 0:
         return _review("unreadable_pdf", sha256, media_type)
     if pages > MAX_PDF_PAGES:
         return _review("too_many_pages", sha256, media_type)
     return _ready(data, sha256, media_type, MAX_PDF_BYTES)
-
-
-@contextmanager
-def _pixel_limit() -> Iterator[None]:
-    """Cap decoded pixels and turn Pillow's bomb warning into an error, for this block only."""
-    previous = Image.MAX_IMAGE_PIXELS
-    Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", Image.DecompressionBombWarning)
-            yield
-    finally:
-        Image.MAX_IMAGE_PIXELS = previous
 
 
 def _flatten(image: Image.Image) -> Image.Image:
@@ -235,27 +251,36 @@ def _encode(image: Image.Image, image_format: str) -> bytes:
 
 def _prepare_image(data: bytes, sha256: str) -> Prepared:
     try:
-        with _pixel_limit(), Image.open(io.BytesIO(data)) as opened:
+        with Image.open(io.BytesIO(data)) as opened:
             image_format = opened.format
             if image_format not in ("PNG", "JPEG"):
                 return _review("unreadable_image", sha256, None)
             media_type = "image/png" if image_format == "PNG" else "image/jpeg"
-            oriented = opened.getexif().get(_EXIF_ORIENTATION, 1) != 1
-            opened.load()
-            image = ImageOps.exif_transpose(opened)
-            too_big_edge = max(image.size) > MAX_IMAGE_EDGE
-            needs_flatten = image.mode not in ("RGB", "L")
-            if not (oriented or too_big_edge or needs_flatten or len(data) > MAX_IMAGE_BYTES):
-                return _ready(data, sha256, media_type, MAX_IMAGE_BYTES)
-            if too_big_edge:
-                scale = MAX_IMAGE_EDGE / max(image.size)
-                size = (max(1, round(image.width * scale)), max(1, round(image.height * scale)))
-                image = image.resize(size, Image.Resampling.LANCZOS)
-            encoded = _encode(_flatten(image), image_format)
-    except (UnidentifiedImageError, Image.DecompressionBombError, Image.DecompressionBombWarning):
+            if opened.width * opened.height > MAX_IMAGE_PIXELS:
+                return _review("image_too_large", sha256, media_type)
+            with _DECODE_LOCK:
+                return _decode_and_prepare(opened, data, sha256, image_format, media_type)
+    except (UnidentifiedImageError, Image.DecompressionBombError):
         return _review("unreadable_image", sha256, None)
     except (OSError, ValueError, SyntaxError, MemoryError):
         return _review("unreadable_image", sha256, None)
+
+
+def _decode_and_prepare(
+    opened: Image.Image, data: bytes, sha256: str, image_format: str, media_type: str
+) -> Prepared:
+    oriented = opened.getexif().get(_EXIF_ORIENTATION, 1) != 1
+    opened.load()
+    image = ImageOps.exif_transpose(opened)
+    too_big_edge = max(image.size) > MAX_IMAGE_EDGE
+    needs_flatten = image.mode not in ("RGB", "L")
+    if not (oriented or too_big_edge or needs_flatten or len(data) > MAX_IMAGE_BYTES):
+        return _ready(data, sha256, media_type, MAX_IMAGE_BYTES)
+    if too_big_edge:
+        scale = MAX_IMAGE_EDGE / max(image.size)
+        size = (max(1, round(image.width * scale)), max(1, round(image.height * scale)))
+        image = image.resize(size, Image.Resampling.LANCZOS)
+    encoded = _encode(_flatten(image), image_format)
     if len(encoded) > MAX_IMAGE_BYTES:
         return _review("oversized_image", sha256, media_type)
     return _ready(encoded, sha256, media_type, MAX_IMAGE_BYTES)

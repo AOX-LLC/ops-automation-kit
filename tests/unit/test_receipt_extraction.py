@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import zlib
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
@@ -100,11 +101,61 @@ def test_large_image_is_downscaled(tmp_path: Path) -> None:
         assert shrunk.format == "PNG"
 
 
-def test_decompression_bomb_is_unreadable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(extraction, "MAX_IMAGE_PIXELS", 1_000)
+def test_header_over_pixel_cap_is_refused_without_decoding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A PNG whose IHDR claims 8000 x 8000 pixels: over our cap, under Pillow's own limit.
+    png = bytearray(_png_bytes((8, 8)))
+    png[16:24] = (8_000).to_bytes(4, "big") * 2
+    png[29:33] = zlib.crc32(bytes(png[12:29])).to_bytes(4, "big")  # keep the IHDR CRC valid
+
+    def fail_decode(*args: Any, **kwargs: Any) -> None:
+        raise AssertionError("decoded an image whose header is over the pixel cap")
+
+    monkeypatch.setattr(extraction, "_decode_and_prepare", fail_decode)
     path = tmp_path / "bomb.png"
-    path.write_bytes(_png_bytes((200, 200)))
-    assert prepare(path).review_reason == "unreadable_image"
+    path.write_bytes(bytes(png))
+    prepared = prepare(path)
+    assert prepared.review_reason == "image_too_large"
+    assert prepared.attachment is None
+
+
+def test_pixel_guard_leaves_pillow_globals_alone(tmp_path: Path) -> None:
+    before = Image.MAX_IMAGE_PIXELS
+    path = tmp_path / "ok.png"
+    path.write_bytes(_png_bytes((50, 50)))
+    prepare(path)
+    assert before == Image.MAX_IMAGE_PIXELS
+
+
+def test_pdf_with_escaped_page_names_is_still_counted(tmp_path: Path) -> None:
+    body = b"1 0 obj\n<< /Type /Page >>\nendobj\n"
+    for number in range(49):
+        body += b"%d 0 obj\n<< /Type /P#61ge >>\nendobj\n" % (number + 2)
+    path = tmp_path / "escaped.pdf"
+    path.write_bytes(b"%PDF-1.4\n" + body + b"%%EOF\n")
+    assert prepare(path).review_reason in {"too_many_pages", "uncountable_pdf"}
+
+
+def test_pdf_with_pages_in_a_non_flate_object_stream_is_uncountable(tmp_path: Path) -> None:
+    body = (
+        b"1 0 obj\n<< /Type /ObjStm /N 3 /First 20 /Filter /ASCIIHexDecode /Length 12 >>\n"
+        b"stream\n3C3C2F54797065>\nendstream\nendobj\n"
+    )
+    path = tmp_path / "objstm.pdf"
+    path.write_bytes(b"%PDF-1.5\n" + body + b"%%EOF\n")
+    assert prepare(path).review_reason == "uncountable_pdf"
+
+
+def test_uncountable_pdf_is_never_sent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from aox_agent_core.models.attachments import Attachment as CoreAttachment
+
+    monkeypatch.setattr(CoreAttachment, "pdf_pages", property(lambda self: None))
+    path = tmp_path / "plain.pdf"
+    path.write_bytes(_pdf(1))
+    prepared = prepare(path)
+    assert prepared.review_reason == "uncountable_pdf"
+    assert prepared.attachment is None
 
 
 def test_unsupported_type(tmp_path: Path) -> None:
