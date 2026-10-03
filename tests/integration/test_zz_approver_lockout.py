@@ -24,7 +24,7 @@ def clears_lock_afterwards() -> Iterator[None]:
 def failures() -> int:
     sql = (
         "select count(*) from core.audit_log "
-        "where action = 'approver.login' and details->>'outcome' = 'failure'"
+        "where action = 'approver.login' and payload::jsonb->>'outcome' = 'failure'"
     )
     return int(psql(sql).stdout.strip())
 
