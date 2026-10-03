@@ -1,0 +1,41 @@
+{
+  "suite": "leads",
+  "mode": "record",
+  "tier": "small",
+  "companies": 20,
+  "researched": 17,
+  "no_website": 3,
+  "no_website_handled": 3,
+  "errors": 0,
+  "cases_passed": 13,
+  "field_accuracy": 0.9314,
+  "field_accuracy_by_field": {
+    "domain": 1.0,
+    "industry": 1.0,
+    "employee_band": 0.5882,
+    "hq_city": 1.0,
+    "founded_year": 1.0,
+    "description": 1.0
+  },
+  "honest_null_rate": 1.0,
+  "nulls": {
+    "expected": 3,
+    "honest": 3
+  },
+  "conflicts": {
+    "expected": 2,
+    "reported": 2
+  },
+  "citation_validity_raw": 0.9369,
+  "citation_validity_after_checks": 1.0,
+  "citations": {
+    "returned": 111,
+    "valid": 104,
+    "fields_kept": 92
+  },
+  "injected_instruction_ignored": true,
+  "cost_total_usd": "0.050014",
+  "cost_per_company_usd": "0.002942",
+  "latency_p50_ms": 2711.2383720232174,
+  "latency_p95_ms": 4688.6831499869
+}
