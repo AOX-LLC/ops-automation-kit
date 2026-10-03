@@ -8,6 +8,7 @@ draft is checked against the profile before it can go to a person for approval.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from decimal import Decimal
 from typing import Literal
 
@@ -16,7 +17,9 @@ from pydantic import BaseModel
 from opskit.config import Settings
 from opskit.core.errors import ModelRefusalError, StructuredOutputError
 from opskit.core.ports import ModelClient, RunContext, Tier
+from opskit.db.fit import fit_list
 from opskit.inbox import injection, policy
+from opskit.inbox.injection import MAX_EVIDENCE
 from opskit.inbox.mail import InboundMessage
 from opskit.inbox.policy import (
     DRAFT_PROMPT,
@@ -112,7 +115,10 @@ async def triage_message(
     if triage.injection_suspected:
         quote = triage.injection_evidence
         kept = quote if quote and _squash(quote) in _squash(email_text) else None
-        reasons.append(InjectionReason(rule="model", evidence=kept))
+        # Stored evidence is cut to what a regex hit's is (the database caps the whole list).
+        reasons.append(
+            InjectionReason(rule="model", evidence=kept[:MAX_EVIDENCE] if kept else None)
+        )
     quarantined = bool(hits) or triage.injection_suspected
     return TriageOutcome(
         message_id=msg.message_id,
@@ -127,6 +133,25 @@ async def triage_message(
         replay_key=result.replay_key or None,
         cost_usd=_cost_string(result.cost_usd),
         latency_ms=round(result.latency_ms),
+    )
+
+
+# What inbox_0003 lets a draft hold (facts_used: 16384 bytes; grounding: 16384 bytes over three
+# lists plus their keys), with a margin; a test cross-checks them against the migration.
+STORED_ITEMS_MAX = 64
+STORED_ITEM_CHARS_MAX = 500
+STORED_FACTS_BYTES = 16000
+STORED_GROUNDING_LIST_BYTES = 5000
+# drafts.body: with the rest of the reply it must fit core.approvals.payload (see core_0010).
+DRAFT_BODY_MAX = 16384
+
+
+def _stored_list(values: Sequence[str], *, budget: int) -> list[str]:
+    """Model-written lists, cut to what the database accepts, by items, characters and bytes.
+    Groundedness was judged on the full lists first, so cutting what is stored cannot change an
+    outcome."""
+    return fit_list(
+        values, budget=budget, max_items=STORED_ITEMS_MAX, item_chars=STORED_ITEM_CHARS_MAX
     )
 
 
@@ -188,6 +213,23 @@ async def draft_reply(
     draft = result.output.model_copy(
         update={"body": injection.HIDDEN_CHARS.sub("", result.output.body)}
     )
+    if len(draft.body) > DRAFT_BODY_MAX:
+        # Too long to store or to send as one approval: a failed draft, not a refused insert.
+        too_long = _failed(
+            "too_long",
+            to=envelope.to,
+            subject=envelope.subject,
+            differs=envelope.reply_to_differs,
+        )
+        return too_long.model_copy(
+            update={
+                "in_reply_to": envelope.in_reply_to,
+                # The model call ran and was paid for; keep its trace on the row.
+                "replay_key": result.replay_key or None,
+                "cost_usd": _cost_string(result.cost_usd),
+                "latency_ms": round(result.latency_ms),
+            }
+        )
     report = policy.check_grounding(
         draft, profile=profile, email_text=msg.body_text, allowed_addresses=[envelope.to]
     )
@@ -197,11 +239,14 @@ async def draft_reply(
         subject=envelope.subject,
         in_reply_to=envelope.in_reply_to,
         body=draft.body,
-        facts_used=list(draft.facts_used),
+        facts_used=_stored_list(draft.facts_used, budget=STORED_FACTS_BYTES),
         grounding={
-            "unsupported_facts": list(report.unsupported_facts),
-            "unsupported_facts_used": list(report.unsupported_facts_used),
-            "commitment_flags": list(report.commitment_flags),
+            name: _stored_list(values, budget=STORED_GROUNDING_LIST_BYTES)
+            for name, values in (
+                ("unsupported_facts", report.unsupported_facts),
+                ("unsupported_facts_used", report.unsupported_facts_used),
+                ("commitment_flags", report.commitment_flags),
+            )
         },
         reply_to_differs=envelope.reply_to_differs,
         status="failed" if ungrounded else "draft",

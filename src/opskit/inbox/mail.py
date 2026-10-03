@@ -7,6 +7,7 @@ attachments are ignored.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -16,6 +17,10 @@ from urllib.parse import quote
 
 import httpx
 from pydantic import BaseModel
+
+from opskit.inbox.limits import identity_storable
+
+log = logging.getLogger(__name__)
 
 KIT_SENDER_SUFFIX = "@kit.example"
 PAGE_SIZE = 50
@@ -95,6 +100,7 @@ class MailpitSource:
         """
         found: dict[str, MailRef] = {}
         start = 0
+        unstorable = 0
         for _ in range(MAX_PAGES):
             response = await self._client.get(
                 f"{self._api_url}/api/v1/messages", params={"start": start, "limit": PAGE_SIZE}
@@ -103,6 +109,15 @@ class MailpitSource:
             body = response.json()
             page = body.get("messages") or []
             candidates = [r for r in page if r.get("MessageID") and not sent_by_kit(r)]
+            # An id too long to store is left out here, not after the limit is applied: if it
+            # were offered every time, enough of them would fill the window and starve the rest.
+            storable = [
+                r
+                for r in candidates
+                if identity_storable(str(r["MessageID"]), str(r.get("ID", "")))
+            ]
+            unstorable += len(candidates) - len(storable)
+            candidates = storable
             handled = await known([str(r["MessageID"]) for r in candidates])
             for raw in candidates:
                 message_id = str(raw["MessageID"])
@@ -113,6 +128,10 @@ class MailpitSource:
             total = int(body.get("messages_count", body.get("total", 0)))
             if not page or start >= total:
                 break
+        if unstorable:
+            log.warning(
+                "inbox: %d listed message(s) have ids too long to store; left alone", unstorable
+            )
         # Mailpit lists newest first; work through the inbox oldest first.
         return list(reversed(list(found.values())))[:limit]
 

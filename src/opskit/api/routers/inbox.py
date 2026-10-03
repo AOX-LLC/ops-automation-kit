@@ -119,8 +119,10 @@ async def pending(request: Request, limit: Limit = 50) -> PendingPage:
             source = MailpitSource(settings.mailpit_api_url, client)
             known = partial(store.triaged_among, factory)
             for ref in await source.list_new(known=known, limit=limit):
-                msg = await source.fetch(ref)
-                await store.save_message(factory, msg)
+                stored = await store.save_message(factory, await source.fetch(ref))
+                if stored is None:
+                    continue  # its identity cannot be stored; clamp_message logged why
+                msg = stored
                 items.append(
                     PendingItem(
                         message_id=msg.message_id,

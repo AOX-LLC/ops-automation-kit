@@ -17,6 +17,7 @@ from opskit.db.engine import SessionFactory
 from opskit.db.tables import inbox_drafts as drafts
 from opskit.db.tables import inbox_messages as messages
 from opskit.db.tables import inbox_triage as triage_table
+from opskit.inbox.limits import clamp_message
 from opskit.inbox.mail import InboundMessage
 from opskit.inbox.policy import Route
 from opskit.inbox.service import (
@@ -87,8 +88,17 @@ class InboxSummary(BaseModel):
 # --- messages -----------------------------------------------------------------------------
 
 
-async def save_message(session_factory: SessionFactory, msg: InboundMessage) -> None:
-    """Insert the message, or refresh its fetched copy."""
+async def save_message(
+    session_factory: SessionFactory, fetched: InboundMessage
+) -> InboundMessage | None:
+    """Insert the message, or refresh its fetched copy; returns what was stored.
+
+    The message is clamped to the database bounds first. None means its identity cannot be
+    stored, so nothing was written.
+    """
+    msg = clamp_message(fetched)
+    if msg is None:
+        return None
     values = {
         "message_id": msg.message_id,
         "mailpit_id": msg.mailpit_id,
@@ -106,6 +116,7 @@ async def save_message(session_factory: SessionFactory, msg: InboundMessage) -> 
     )
     async with session_factory() as session, session.begin():
         await session.execute(statement)
+    return msg
 
 
 async def load_message(session_factory: SessionFactory, message_id: str) -> InboundMessage | None:

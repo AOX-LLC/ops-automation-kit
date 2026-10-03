@@ -30,6 +30,7 @@ __all__ = [
     "ApprovalNotFoundError",
     "ApprovalNotGrantedError",
     "ApprovalPayloadMismatchError",
+    "ApprovalUnreadableError",
     "AttachmentError",
     "AuditIntegrityError",
     "AuditPayloadRejectedError",
@@ -50,3 +51,12 @@ class CoreError(Exception):
 class NotFound(CoreError):
     def __init__(self, kind: str, item_id: UUID) -> None:
         super().__init__(f"{kind} {item_id} not found")
+
+
+class ApprovalUnreadableError(ApprovalError):
+    """The stored approval cannot be parsed. It was left alone and recorded once in the audit
+    log; nothing was decided, used or withdrawn. Readers fail closed on it, row by row."""
+
+    def __init__(self, approval_id: UUID) -> None:
+        super().__init__(f"approval {approval_id} is stored in a form this application cannot read")
+        self.approval_id = approval_id

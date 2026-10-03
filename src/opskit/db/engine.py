@@ -17,14 +17,24 @@ type SessionFactory = async_sessionmaker[AsyncSession]
 def make_engine(settings: Settings) -> AsyncEngine:
     """The requester role's engine: everything the n8n-facing API does."""
     return create_async_engine(
-        settings.database_url(), pool_size=5, max_overflow=5, pool_pre_ping=True
+        settings.database_url(),
+        pool_size=5,
+        max_overflow=5,
+        pool_pre_ping=True,
+        # A refused statement's error text would otherwise carry fragments of the row (an
+        # email, a draft) into the logs.
+        hide_parameters=True,
     )
 
 
 def make_approver_engine(settings: Settings) -> AsyncEngine:
-    """The approver role's engine, for the approver page's decision path only."""
+    """The approver role's engine: the approver page's decision path and its login sessions."""
     return create_async_engine(
-        settings.database_url(approver=True), pool_size=2, max_overflow=2, pool_pre_ping=True
+        settings.database_url(approver=True),
+        pool_size=2,
+        max_overflow=2,
+        pool_pre_ping=True,
+        hide_parameters=True,
     )
 
 

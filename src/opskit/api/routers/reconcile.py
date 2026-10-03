@@ -77,6 +77,11 @@ async def reconcile_receipts(request: Request, body: ReconcileRequest) -> dict[s
                 )
             )
     except IntegrityError as exc:
+        if getattr(exc.orig, "sqlstate", None) == "23514":  # a database bound, not a missing run
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "the reconciliation is larger than the database accepts",
+            ) from exc
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such run") from exc
 
     return {

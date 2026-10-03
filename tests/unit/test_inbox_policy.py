@@ -329,3 +329,17 @@ def test_commitment_grounded_by_a_matching_profile_sentence() -> None:
     assert check_grounding(cancel, profile=profile, email_text="").commitment_flags == ()
     invented = DraftReply(body="Installation is free this month.", facts_used=[])
     assert check_grounding(invented, profile=profile, email_text="").commitment_flags
+
+
+def test_a_sender_address_longer_than_rfc_5321_allows_cannot_be_replied_to() -> None:
+    from opskit.inbox.policy import ADDRESS_MAX, RecipientError, reply_envelope
+
+    local = "a" * (ADDRESS_MAX - len("@mail.example"))
+    ok = reply_envelope(
+        from_header=f"{local}@mail.example", reply_to_header=None, subject="hi", message_id="m"
+    )
+    assert len(ok.to) == ADDRESS_MAX
+    with pytest.raises(RecipientError):
+        reply_envelope(
+            from_header=f"{local}a@mail.example", reply_to_header=None, subject="hi", message_id="m"
+        )

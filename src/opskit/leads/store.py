@@ -9,14 +9,21 @@ from uuid import UUID
 from pydantic import BaseModel
 from sqlalchemy import func, literal_column, select
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from opskit.db.engine import SessionFactory
+from opskit.db.fit import fit_list
 from opskit.db.tables import crm_account_sources as sources_table
 from opskit.db.tables import crm_accounts as accounts
 from opskit.db.tables import leads_research as research
 from opskit.leads.models import FIELDS, FieldValue, Finding, ResearchOutcome
 
 NO_WEBSITE_REASON = "no website given"
+# What leads_0003 lets a research row hold; the model's cites and a corpus can be longer.
+FINDINGS_MAX = 256
+FINDINGS_BYTES = 60000  # leads_0003: 65536
+PAGES_MAX = 64
+PAGES_BYTES = 16000  # leads_0003: 16384
 
 # The accounts columns research fills in. `domain` is the upsert key, so it is not one of them.
 ACCOUNT_FIELDS = tuple(name for name in FIELDS if name != "domain")
@@ -72,6 +79,21 @@ async def save_research(
     account_id: UUID | None,
 ) -> None:
     """Store a company's result; researching it again in the same run overwrites it."""
+    async with session_factory() as session, session.begin():
+        await save_research_in(
+            session, run_id, outcome, crm_action=crm_action, account_id=account_id
+        )
+
+
+async def save_research_in(
+    session: AsyncSession,
+    run_id: UUID,
+    outcome: ResearchOutcome,
+    *,
+    crm_action: str | None,
+    account_id: UUID | None,
+) -> None:
+    """save_research inside the caller's transaction."""
     values: dict[str, Any] = {
         "company_name": outcome.company_name,
         "city_hint": outcome.city_hint,
@@ -83,8 +105,13 @@ async def save_research(
             name: value.model_dump() if value is not None else None
             for name, value in outcome.fields.items()
         },
-        "findings": [finding.model_dump() for finding in outcome.findings],
-        "pages": outcome.pages,
+        # The database caps both lists; the model's cites and a corpus can be longer.
+        "findings": fit_list(
+            (finding.model_dump() for finding in outcome.findings),
+            budget=FINDINGS_BYTES,
+            max_items=FINDINGS_MAX,
+        ),
+        "pages": fit_list(outcome.pages, budget=PAGES_BYTES, max_items=PAGES_MAX),
         "raw_cites": outcome.raw_cites,
         "valid_cites": outcome.valid_cites,
         "replay_key": outcome.replay_key,
@@ -102,8 +129,7 @@ async def save_research(
             if name != "company_name" and name != "city_hint"
         },
     )
-    async with session_factory() as session, session.begin():
-        await session.execute(statement)
+    await session.execute(statement)
 
 
 async def load_research(
@@ -162,6 +188,12 @@ async def upsert_account(
     Keyed on the domain. A field the research did not verify never blanks a value the
     account already has, and never touches that field's existing source row.
     """
+    async with session_factory() as session, session.begin():
+        return await upsert_account_in(session, outcome)
+
+
+async def upsert_account_in(session: AsyncSession, outcome: ResearchOutcome) -> UpsertResult | None:
+    """upsert_account inside the caller's transaction."""
     if outcome.domain is None or outcome.status != "researched":
         return None
     researched = {name: _account_value(name, outcome.fields.get(name)) for name in ACCOUNT_FIELDS}
@@ -179,33 +211,32 @@ async def upsert_account(
         },
     ).returning(accounts.c.id, literal_column("(xmax = 0)").label("inserted"))
     found = {name: value for name, value in outcome.fields.items() if value is not None}
-    async with session_factory() as session, session.begin():
-        row = (await session.execute(account)).one()
-        if found:
-            source_rows = [
-                {
-                    "account_id": row.id,
-                    "field": name,
-                    "source_ref": value.source_url,
-                    "excerpt": (
-                        f"Derived from the website given: {value.source_url}"
-                        if value.derived
-                        else value.quote
-                    ),
-                }
-                for name, value in found.items()
-            ]
-            sources = insert(sources_table).values(source_rows)
-            await session.execute(
-                sources.on_conflict_do_update(
-                    index_elements=[sources_table.c.account_id, sources_table.c.field],
-                    set_={
-                        "source_ref": sources.excluded.source_ref,
-                        "excerpt": sources.excluded.excerpt,
-                        "found_at": func.now(),
-                    },
-                )
+    row = (await session.execute(account)).one()
+    if found:
+        source_rows = [
+            {
+                "account_id": row.id,
+                "field": name,
+                "source_ref": value.source_url,
+                "excerpt": (
+                    f"Derived from the website given: {value.source_url}"
+                    if value.derived
+                    else value.quote
+                ),
+            }
+            for name, value in found.items()
+        ]
+        sources = insert(sources_table).values(source_rows)
+        await session.execute(
+            sources.on_conflict_do_update(
+                index_elements=[sources_table.c.account_id, sources_table.c.field],
+                set_={
+                    "source_ref": sources.excluded.source_ref,
+                    "excerpt": sources.excluded.excerpt,
+                    "found_at": func.now(),
+                },
             )
+        )
     return UpsertResult(
         account_id=row.id,
         action="created" if row.inserted else "updated",

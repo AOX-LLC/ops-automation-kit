@@ -9,7 +9,8 @@ from collections.abc import AsyncIterator
 from datetime import timedelta
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from opskit.api.approver_session import LoginThrottle, SessionCodec, SessionStore
@@ -30,6 +31,7 @@ from opskit.api.routers import (
 from opskit.api.routers.health import load_build_info
 from opskit.approvals.resume import N8nResumeSender
 from opskit.config import Settings
+from opskit.core.errors import ApprovalUnreadableError
 from opskit.core.factory import build_core, build_resume_worker
 from opskit.core.ports import SWEEP_SERVICE, Core
 from opskit.db.engine import make_approver_engine, make_engine, make_session_factory
@@ -49,6 +51,16 @@ async def _sweep_expired(core: Core) -> None:
         await asyncio.sleep(SWEEP_INTERVAL_S)
 
 
+async def _approval_is_unreadable(_: Request, exc: Exception) -> JSONResponse:
+    """A stored approval nobody can parse: said plainly, with nothing decided, never a 500."""
+    return JSONResponse(
+        status_code=409,
+        content={
+            "detail": "this approval is stored in a form that cannot be read; it was left alone"
+        },
+    )
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
 
@@ -57,7 +69,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         engine = make_engine(settings)
         session_factory = make_session_factory(engine)
         approver_engine = make_approver_engine(settings)
-        core = build_core(settings, session_factory, make_session_factory(approver_engine))
+        approver_factory = make_session_factory(approver_engine)
+        core = build_core(settings, session_factory, approver_factory)
         sender = N8nResumeSender(settings)
         app.state.settings = settings
         app.state.engine = engine
@@ -72,8 +85,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             settings.read_secret("approver_session_secret"),
             max_age_s=settings.approver_session_hours * 3600,
         )
+        # Sessions live on the approver role's connection: the requester role cannot read them.
         app.state.session_store = SessionStore(
-            session_factory, lifetime=timedelta(hours=settings.approver_session_hours)
+            approver_factory, lifetime=timedelta(hours=settings.approver_session_hours)
         )
         app.state.login_throttle = LoginThrottle()
         workers = [
@@ -101,6 +115,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url=None,
         openapi_url=None,
     )
+    app.add_exception_handler(ApprovalUnreadableError, _approval_is_unreadable)
     app.state.build_info = load_build_info()
     app.add_middleware(SecurityHeaders)
     app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")

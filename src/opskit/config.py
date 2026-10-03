@@ -49,7 +49,9 @@ class Settings(BaseSettings):
     samples_dir: Path = Path("/data/samples")
     dropbox_dir: Path = Path("/data/dropbox")
 
-    approver_session_hours: int = 8
+    # The sessions table refuses an expiry more than 30 days out; one hour short of it, so a
+    # daylight-saving change in the server's time zone cannot push the maximum over.
+    approver_session_hours: int = Field(default=8, ge=1, le=719)
     # Shown beside "Approvals"; empty disables. Must be same-origin (the CSP blocks others).
     brand_logo_url: str | None = "/static/brand/aox-logo-black.png"
     # The logo's alt text. Change it together with the logo, so a screen reader names yours.

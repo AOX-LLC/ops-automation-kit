@@ -95,9 +95,12 @@ def test_session_past_its_absolute_expiry_is_refused(
     assert client.login(approver_password).status_code == 303
     assert client.client.get("/approver/").status_code == 200
     # Age this client's session (the newest row) past its absolute expiry.
+    # The guard fixes a session's expiry, so switch it off for this one statement.
     aged = psql(
+        "alter table core.approver_sessions disable trigger approver_sessions_guard; "
         "update core.approver_sessions set expires_at = now() - interval '1 second' "
-        "where id = (select id from core.approver_sessions order by created_at desc limit 1)"
+        "where id = (select id from core.approver_sessions order by created_at desc limit 1); "
+        "alter table core.approver_sessions enable always trigger approver_sessions_guard"
     )
     assert aged.returncode == 0, aged.stderr
     response = client.client.get("/approver/")

@@ -7,6 +7,7 @@ the stored draft the payload names. Email content is untrusted: the template esc
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -15,6 +16,10 @@ from uuid import UUID
 
 from opskit.db.engine import SessionFactory
 from opskit.inbox import store
+
+log = logging.getLogger(__name__)
+# What a stored row of the wrong shape raises: a model refusing it, or a column of the wrong type.
+_UNPARSABLE = (ValueError, TypeError, KeyError)
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,11 +56,19 @@ async def load_inbox_reply_view(
         draft_id = UUID(_text(payload, "draft_id"))
     except ValueError:
         return None
-    draft = await store.get_draft(session_factory, draft_id)
-    if draft is None or draft.approval_id != approval_id:
+    try:
+        draft = await store.get_draft(session_factory, draft_id)
+        if draft is None or draft.approval_id != approval_id:
+            return None
+        message = await store.load_message(session_factory, draft.message_id)
+        triage = await store.load_triage(session_factory, draft.message_id)
+    except _UNPARSABLE:
+        # A stored row of the wrong shape: show the approval as plain JSON, which is all the
+        # approver needs to decide on, rather than failing the page.
+        log.error(
+            "inbox draft %s could not be read; showing the approval without its view", draft_id
+        )
         return None
-    message = await store.load_message(session_factory, draft.message_id)
-    triage = await store.load_triage(session_factory, draft.message_id)
     if message is None or triage is None:
         return None
     flags = draft.grounding.get("commitment_flags")

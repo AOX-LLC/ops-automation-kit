@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from collections import OrderedDict
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field, StringConstraints
+from sqlalchemy.exc import IntegrityError
 
 from opskit.api.auth import ServiceAuth
 from opskit.api.routers.inputs import read_companies
@@ -28,6 +30,26 @@ from opskit.leads.retrieval import (
 )
 from opskit.leads.robots import RobotsCache
 from opskit.receipts.store import session_factory_of
+
+log = logging.getLogger(__name__)
+BOUND_VIOLATION = "23514"  # check_violation, which core.enforce_bounds() raises
+
+
+def _is_bound_refusal(exc: IntegrityError) -> bool:
+    """A refusal by core.enforce_bounds(): a check_violation that names no constraint (a native
+    CHECK constraint does, and that is a bug to surface, not a size to report)."""
+    orig = exc.orig
+    diag = getattr(orig, "diag", None)
+    return (
+        getattr(orig, "sqlstate", None) == BOUND_VIOLATION
+        and getattr(diag, "constraint_name", None) is None
+    )
+
+
+def _bound_message(exc: IntegrityError) -> str:
+    """The refusal's own text, `table.column: problem`: it names no value."""
+    return str(getattr(getattr(exc.orig, "diag", None), "message_primary", "unknown"))
+
 
 router = APIRouter(prefix="/v1/leads", tags=["leads"], dependencies=[ServiceAuth])
 
@@ -100,8 +122,15 @@ def _retriever(request: Request, run_id: UUID) -> Retriever:
     return CorpusRetriever(leads_dir / "corpus", domains)
 
 
-async def _record_failure(factory: SessionFactory, body: ResearchRequest, reason: str) -> None:
-    """Keep a company whose research failed in the run, so the summary lists it."""
+async def _record_failure(
+    factory: SessionFactory,
+    body: ResearchRequest,
+    reason: str,
+    *,
+    trace: ResearchOutcome | None = None,
+) -> None:
+    """Keep a company whose research failed in the run, so the summary lists it. `trace` is the
+    outcome of a model call that did run, so its cost and replay key are not lost."""
     outcome = ResearchOutcome(
         company_name=body.company_name,
         city_hint=body.city_hint,
@@ -110,6 +139,9 @@ async def _record_failure(factory: SessionFactory, body: ResearchRequest, reason
         status="unresolved",
         reason=reason,
         fields=empty_fields(),
+        replay_key=trace.replay_key if trace else None,
+        cost_usd=trace.cost_usd if trace else "0",
+        latency_ms=trace.latency_ms if trace else None,
     )
     await store.save_research(factory, body.run_id, outcome, crm_action=None, account_id=None)
 
@@ -140,12 +172,26 @@ async def research(request: Request, body: ResearchRequest) -> ResearchResult:
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY, f"research failed: {type(exc).__name__}"
         ) from exc
-    upserted = await store.upsert_account(factory, outcome)
-    action = upserted.action if upserted else None
-    account_id = upserted.account_id if upserted else None
-    await store.save_research(
-        factory, body.run_id, outcome, crm_action=action, account_id=account_id
-    )
+    try:
+        # One transaction: a refusal from either write rolls back both, so the CRM never holds
+        # an account the run does not record.
+        async with factory() as session, session.begin():
+            upserted = await store.upsert_account_in(session, outcome)
+            action = upserted.action if upserted else None
+            account_id = upserted.account_id if upserted else None
+            await store.save_research_in(
+                session, body.run_id, outcome, crm_action=action, account_id=account_id
+            )
+    except IntegrityError as exc:
+        if not _is_bound_refusal(exc):
+            raise
+        # What a website made the model quote does not fit a stored column (the database bounds
+        # every one). The company stays in the run, listed as failed, instead of dropping out.
+        log.warning("research result refused by a database bound: %s", _bound_message(exc))
+        await _record_failure(factory, body, f"{FAILED}: result too large to store", trace=outcome)
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "research result too large to store"
+        ) from exc
     return ResearchResult(outcome=outcome, crm_action=action, account_id=account_id)
 
 

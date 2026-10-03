@@ -106,6 +106,23 @@ async def append_in(session: AsyncSession, event: AuditEvent) -> AuditRecord:
     return record.model_copy(update={"db_role": stored_role})
 
 
+async def append_once_in(session: AsyncSession, event: AuditEvent) -> AuditRecord | None:
+    """Append unless a record with this action and subject already exists; None if it does.
+
+    The check and the append share the chain's advisory lock, so two callers cannot both pass it.
+    For a finding that would otherwise repeat on every read (an approval no reader can parse).
+    """
+    await session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": CHAIN_LOCK_KEY})
+    seen = await session.execute(
+        select(audit_log.c.seq)
+        .where(audit_log.c.action == event.action, audit_log.c.subject_id == event.subject_id)
+        .limit(1)
+    )
+    if seen.first() is not None:
+        return None
+    return await append_in(session, event)
+
+
 def _record(row: Any) -> AuditRecord:
     return AuditRecord(
         schema_version=row.schema_version,

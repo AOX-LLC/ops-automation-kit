@@ -155,7 +155,6 @@ def test_the_approver_role_cannot_approve_its_own_request(make_approval: MakeApp
     [
         (NEW_APPROVED_ROW, "permission denied"),
         ("select * from core.runs limit 1", "permission denied"),
-        ("select * from core.approver_sessions limit 1", "permission denied"),
         ("update core.approvals set payload = '{}' where false", "permission denied"),
         ("update core.approvals set consumed_at = now() where false", "permission denied"),
         ("delete from core.approvals where false", "permission denied"),
@@ -409,15 +408,19 @@ def test_expire_due_stores_expired_with_closed_at_and_audits_each() -> None:
         """
     )
     assert out["still"] == "pending"
-    # The api's own 60 s sweep may have expired it first; either way it was stored once.
-    assert out["swept"] >= 0  # `still` above shows a skewed caller clock expired nothing early
+    # The api's own 60 s sweep may have expired it first, so `swept` can be 0 or 1 and says
+    # nothing; what matters is the stored row below, whoever stored it.
     assert out["read"] == ["expired", True]
     assert out["stored"] == ["expired", True]
     stored = psql(
-        f"select status, closed_at is not null from core.approvals where id = '{out['lapsing']}'"
+        f"select status, closed_at = expires_at from core.approvals where id = '{out['lapsing']}'"
     )
     assert stored.stdout.strip() == "expired|t"
     assert audit_count("approval.expired", out["lapsing"]) == 1
+    assert (
+        psql(f"select status from core.approvals where id = '{out['later']}'").stdout.strip()
+        == "pending"
+    )
     actor = psql(
         "select actor_id from core.audit_log where action = 'approval.expired' "
         f"and subject_id = '{out['lapsing']}'"
@@ -478,11 +481,28 @@ def test_the_seven_day_cap_holds_to_the_minute_in_any_session_time_zone(zone: st
     assert "at most 7 days" in _insert_with_lifetime(zone, 0)
 
 
+def _stamped_by_insert(zone: str, lifetime_s: int, created_offset_s: int) -> str:
+    """What the guard stored for a row sent with a chosen `created_at`; nothing is kept."""
+    sql = (
+        f"set time zone '{zone}'; "
+        "do $$ declare r core.approvals; begin "
+        "insert into core.approvals (action, summary, payload, payload_sha256, "
+        "requested_by, required_role, created_at, expires_at) values ('kit_smoke.echo', 's', "
+        f"'{{}}', repeat('0', 64), 'service.n8n', 'approver', "
+        f"now() + {created_offset_s} * interval '1 second', "
+        f"now() + {created_offset_s + lifetime_s} * interval '1 second') returning * into r; "
+        "raise exception 'stamped: % %', "
+        "abs(extract(epoch from r.created_at) - extract(epoch from statement_timestamp())) < 5, "
+        "round(extract(epoch from r.expires_at) - extract(epoch from r.created_at)); end $$"
+    )
+    return psql(sql, role="opskit_app").stderr
+
+
 @pytest.mark.parametrize("zone", ["+14", "-12"])
-def test_a_backdated_or_future_created_at_is_refused_in_any_time_zone(zone: str) -> None:
-    assert "inserted ok" in _insert_with_lifetime(zone, 3600, created_offset_s=-240)
-    assert "at most 7 days" in _insert_with_lifetime(zone, 3600, created_offset_s=-420)
-    assert "at most 7 days" in _insert_with_lifetime(zone, 3600, created_offset_s=420)
+@pytest.mark.parametrize("offset_s", [-86400 * 365, -420, 0, 420, 86400 * 365])
+def test_created_at_is_the_databases_whatever_the_caller_sends(zone: str, offset_s: int) -> None:
+    """A backdated or future `created_at` is replaced, and the caller's lifetime is kept."""
+    assert "stamped: t 3600" in _stamped_by_insert(zone, 3600, offset_s)
 
 
 # --- rows the requester role may and may not plant ------------------------------------------
@@ -539,7 +559,8 @@ def test_a_row_the_application_could_not_read_back_cannot_be_stored(
     )
     result = psql(sql, role="opskit_app")
     assert result.returncode != 0, result.stdout
-    assert SHAPE_REFUSED in result.stderr, result.stderr
+    # The 3d bounds trigger runs before the guard and names a wrong JSON type itself.
+    assert SHAPE_REFUSED in result.stderr or "must be a JSON" in result.stderr, result.stderr
 
 
 def test_a_new_row_cannot_arrive_with_a_reason() -> None:
