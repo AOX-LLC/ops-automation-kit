@@ -49,6 +49,12 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - run: uv sync
       - run: uv run pytest tests/unit -q
+      - name: Receipts evals in replay (recorded calls only, no key, no spend)
+        run: >-
+          uv run python -m opskit.evals.receipts --label ci --out "$RUNNER_TEMP/scorecards"
+          --min-field-accuracy 0.95
+      - name: Recordings are valid a2 cassettes with no secrets
+        run: uv run aox-agent-core cassettes check fixtures/cassettes
 
   samples:
     name: samples reproduce
