@@ -26,5 +26,5 @@ source_modules =
     opskit.approvals
     opskit.seed
 forbidden_modules =
-    opskit.core.stub
+    opskit.core.pg
 allow_indirect_imports = True

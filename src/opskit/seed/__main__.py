@@ -7,6 +7,7 @@ import sys
 
 from opskit.config import Settings
 from opskit.core.factory import build_core
+from opskit.core.ports import AuditEvent
 from opskit.db.engine import make_engine, make_session_factory
 from opskit.seed import crm, mailpit, manifest
 
@@ -33,12 +34,7 @@ async def run(settings: Settings) -> dict[str, int]:
         }
         core = build_core(settings, session_factory)
         await core.audit.append(
-            ctx=None,
-            actor="seed",
-            action="seed.loaded",
-            subject_type=None,
-            subject_id=None,
-            details=dict(counts),
+            AuditEvent(action="seed.loaded", actor_id="seed", payload=dict(counts))
         )
         return counts
     finally:

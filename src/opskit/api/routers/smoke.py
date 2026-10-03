@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from opskit.api.auth import ServiceAuth
-from opskit.core.errors import FixtureMissing, LiveModeUnavailable, NotFound
+from opskit.core.errors import NotFound, ReplayMissError
 from opskit.core.ports import Core, PromptRef, Tier
 
 router = APIRouter(prefix="/v1/smoke", tags=["smoke"], dependencies=[ServiceAuth])
@@ -17,8 +17,9 @@ router = APIRouter(prefix="/v1/smoke", tags=["smoke"], dependencies=[ServiceAuth
 CLASSIFY_PROMPT = PromptRef(
     id="smoke.classify",
     version=1,
+    system="You label short messages. Answer only with the requested structure.",
     template=(
-        "Label this message as 'wiring_check' or 'other' and say why in one sentence.\n\n{text}"
+        "Label this message as 'wiring_check' or 'other' and say why in one sentence.\n\n${text}"
     ),
 )
 
@@ -45,20 +46,22 @@ async def classify(request: Request, body: ClassifyRequest) -> ClassifyResponse:
     core: Core = request.app.state.core
     try:
         ctx = await core.runs.get(body.run_id)
-        result = await core.models.structured(
-            ctx=ctx,
-            prompt=CLASSIFY_PROMPT,
-            tier=Tier.SMALL,
-            schema=SmokeLabel,
+        result = await core.models.call(
+            CLASSIFY_PROMPT,
             inputs={"text": body.text},
+            output=SmokeLabel,
+            tier=Tier.SMALL,
+            context=ctx,
         )
     except NotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such run") from exc
-    except (FixtureMissing, LiveModeUnavailable) as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+    except ReplayMissError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, f"no recording for replay key {exc.key}"
+        ) from exc
     return ClassifyResponse(
         label=result.output.label,
         reason=result.output.reason,
-        fixture_key=result.fixture_key,
+        fixture_key=result.replay_key,
         mode=result.mode.value,
     )

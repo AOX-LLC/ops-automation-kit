@@ -1,0 +1,67 @@
+{
+  "format_version": 2,
+  "prompt": {
+    "attachments": [],
+    "attempt": 1,
+    "inputs": {
+      "text": "Please confirm the kit is wired up."
+    },
+    "output_schema": "SmokeLabel",
+    "prompt_id": "smoke.classify",
+    "schema_sha256": "be69cb33602f1a64ee896ce5dcca72770666d31c8bfb593e02c7a694d4a05e2e",
+    "system_sha256": "5a7db8dae772781152844f3f830e36ac8482818b7896ef895017f7239225f958",
+    "template_sha256": "48114bb3da1bd036378c3ad6990016a0fb8d4256169a588ea5f505f0db81ca2a",
+    "tier": "small",
+    "version": 1
+  },
+  "replay_hash": "fbc70bd06b8c58725dda3a78403409bde9fc6763ae8f758b7d25a6c964ab2226",
+  "request": {
+    "effort": null,
+    "max_tokens": 16000,
+    "messages": [
+      {
+        "attachments": [],
+        "content": "Label this message as 'wiring_check' or 'other' and say why in one sentence.\n\nPlease confirm the kit is wired up.",
+        "role": "user"
+      }
+    ],
+    "model": "claude-haiku-4-5-20251001",
+    "output_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "enum": [
+            "wiring_check",
+            "other"
+          ],
+          "title": "Label",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "reason"
+      ],
+      "title": "SmokeLabel",
+      "type": "object"
+    },
+    "provider": "anthropic",
+    "system": "You label short messages. Answer only with the requested structure."
+  },
+  "response": {
+    "model": "claude-haiku-4-5-20251001",
+    "stop_reason": "end_turn",
+    "text": "{\"label\": \"wiring_check\", \"reason\": \"The message is directly asking for confirmation about whether the kit is properly wired up.\"}",
+    "usage": {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "input_tokens": 266,
+      "output_tokens": 34
+    }
+  },
+  "sequence": 0
+}

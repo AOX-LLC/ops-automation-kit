@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-from functools import cached_property
 from pathlib import Path
 from typing import Self
 
@@ -11,7 +9,7 @@ from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
 
-from opskit.core.ports import Mode, Tier
+from opskit.core.ports import Mode
 
 API_KEY_VARIABLE = "AGENT_CORE_ANTHROPIC_API_KEY"
 
@@ -19,8 +17,11 @@ API_KEY_VARIABLE = "AGENT_CORE_ANTHROPIC_API_KEY"
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="OPSKIT_", extra="ignore", frozen=True)
 
-    mock_mode: bool = Field(default=True, validation_alias="MOCK_MODE")
-    record_fixtures: bool = Field(default=False, validation_alias="RECORD_FIXTURES")
+    # agent-core's mode: replay (default, never spends) | live | record.
+    agent_core_mode: Mode = Field(default=Mode.REPLAY, validation_alias="AGENT_CORE_MODE")
+    agent_core_config: Path = Field(
+        default=Path("/app/config/agent-core.toml"), validation_alias="AGENT_CORE_CONFIG"
+    )
     anthropic_api_key: SecretStr | None = Field(default=None, validation_alias=API_KEY_VARIABLE)
 
     secrets_dir: Path = Path("/run/kit-secrets")
@@ -38,32 +39,24 @@ class Settings(BaseSettings):
 
     samples_dir: Path = Path("/data/samples")
     dropbox_dir: Path = Path("/data/dropbox")
-    fixtures_dir: Path = Path("/app/fixtures/model")
-    model_tiers_file: Path = Path("/app/config/model_tiers.json")
 
     approver_session_hours: int = 8
 
     @model_validator(mode="after")
     def _live_mode_needs_a_key(self) -> Self:
-        if self.record_fixtures and self.mock_mode:
-            raise ValueError("RECORD_FIXTURES=true needs MOCK_MODE=false")
-        if not self.mock_mode and not self.anthropic_api_key:
-            raise ValueError(f"MOCK_MODE=false needs {API_KEY_VARIABLE} set to your own key")
+        if self.agent_core_mode is not Mode.REPLAY and not self.anthropic_api_key:
+            raise ValueError(
+                f"AGENT_CORE_MODE={self.agent_core_mode.value} needs {API_KEY_VARIABLE} "
+                "set to your own key"
+            )
         return self
 
     @property
     def mode(self) -> Mode:
-        if self.mock_mode:
-            return Mode.MOCK
-        return Mode.RECORD if self.record_fixtures else Mode.LIVE
+        return self.agent_core_mode
 
     def read_secret(self, name: str) -> str:
         return (self.secrets_dir / name).read_text(encoding="utf-8").strip()
-
-    @cached_property
-    def model_tiers(self) -> dict[Tier, str]:
-        raw: dict[str, str] = json.loads(self.model_tiers_file.read_text(encoding="utf-8"))
-        return {Tier(name): model_id for name, model_id in raw.items()}
 
     def database_url(self) -> URL:
         return URL.create(

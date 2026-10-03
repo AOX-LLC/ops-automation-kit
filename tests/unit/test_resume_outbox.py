@@ -10,7 +10,7 @@ from uuid import uuid4
 
 import pytest
 
-from opskit.core.stub import resume_outbox
+from opskit.core.pg import outbox as resume_outbox
 
 ROW = SimpleNamespace(
     id=1,

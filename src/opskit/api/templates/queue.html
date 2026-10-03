@@ -7,8 +7,8 @@
   {% for approval in approvals %}
   <li class="card row">
     <div>
-      <a href="/approver/approvals/{{ approval.id }}">{{ approval.kind }}</a>
-      <p class="meta">Requested {{ approval.requested_at.strftime("%Y-%m-%d %H:%M UTC") }} ·
+      <a href="/approver/approvals/{{ approval.id }}">{{ approval.action }}</a>
+      <p class="meta">Requested {{ approval.created_at.strftime("%Y-%m-%d %H:%M UTC") }} ·
         expires {{ approval.expires_at.strftime("%Y-%m-%d %H:%M UTC") }}</p>
     </div>
   </li>

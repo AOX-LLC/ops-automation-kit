@@ -1,31 +1,40 @@
-"""Builds the Core. Phase 2 swaps these stubs for the pinned agent-core release here."""
+"""Builds the Core: agent-core's model client, plus the kit's own Postgres backends."""
 
 from __future__ import annotations
 
 from collections.abc import Coroutine
 from typing import Any
 
+from aox_agent_core import AgentClient, load_config
+
 from opskit.config import Settings
-from opskit.core.ports import Core
-from opskit.core.stub import resume_outbox
-from opskit.core.stub.approvals_pg import PgApprovalQueue
-from opskit.core.stub.audit_pg import PgAuditLog
-from opskit.core.stub.model_replay import ReplayModelClient
-from opskit.core.stub.resume_outbox import ResumeSender
-from opskit.core.stub.runs_pg import PgRunStore
+from opskit.core.pg import outbox
+from opskit.core.pg.approvals import PgApprovalQueue
+from opskit.core.pg.audit import PgAuditLog
+from opskit.core.pg.metered import MeteredModelClient
+from opskit.core.pg.outbox import ResumeSender
+from opskit.core.pg.runs import PgRunStore
+from opskit.core.ports import Core, Mode
 from opskit.db.engine import SessionFactory
 
 
+def build_model_client(settings: Settings) -> AgentClient:
+    """agent-core's client from the kit's config file. Replay needs no key and never spends."""
+    config = load_config(settings.agent_core_config)
+    key = settings.anthropic_api_key
+    if config.mode is Mode.REPLAY or key is None:
+        return AgentClient(config)
+    return AgentClient(config, api_key=key)
+
+
 def build_core(settings: Settings, session_factory: SessionFactory) -> Core:
+    client = build_model_client(settings)
     return Core(
-        models=ReplayModelClient(
-            fixtures_dir=settings.fixtures_dir,
-            session_factory=session_factory,
-            mode=settings.mode,
-        ),
+        models=MeteredModelClient(client, session_factory),
         approvals=PgApprovalQueue(session_factory),
         audit=PgAuditLog(session_factory),
-        runs=PgRunStore(session_factory, settings.mode),
+        runs=PgRunStore(session_factory, client.config.mode),
+        mode=client.config.mode,
     )
 
 
@@ -33,4 +42,4 @@ def build_resume_worker(
     session_factory: SessionFactory, send: ResumeSender
 ) -> Coroutine[Any, Any, None]:
     """The background loop that delivers approval decisions back to waiting n8n executions."""
-    return resume_outbox.run_forever(session_factory, send)
+    return outbox.run_forever(session_factory, send)

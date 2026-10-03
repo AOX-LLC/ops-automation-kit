@@ -1,94 +1,83 @@
-"""Interfaces for model calls, approvals, audit and run records.
+"""The kit's view of models, approvals, audit and runs, backed by agent-core v0.1.0a2.
 
-Shaped after agent-core's planned public interfaces so Phase 2 can swap the local
-stub for the pinned library by changing only `factory.py`.
+Everything outside `opskit.core` imports these names from here, never from agent-core
+directly (import-linter enforces it), so the pinned library can change behind this module.
+The name mapping from the Phase 1 draft follows agent-core's docs/compat-03.md.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from decimal import Decimal
-from enum import StrEnum
-from typing import Any, Literal, Protocol
+from datetime import datetime
+from typing import Any, Protocol
 from uuid import UUID
 
-from pydantic import BaseModel
+from aox_agent_core import (
+    Attachment,
+    CallResult,
+    Mode,
+    ModelClient,
+    PromptRef,
+    RunContext,
+    Tier,
+    Usage,
+)
+from aox_agent_core.approvals import (
+    ApprovalQueue,
+    ApprovalRequest,
+    ApprovalStatus,
+    Decision,
+    Principal,
+    PrincipalKind,
+)
+from aox_agent_core.audit import AuditEvent, AuditHead, AuditLog, AuditRecord
+from pydantic import JsonValue
 
-type JsonValue = bool | int | float | str | list[JsonValue] | dict[str, JsonValue] | None
+__all__ = [
+    "APPROVER",
+    "APPROVER_ROLE",
+    "N8N_SERVICE",
+    "ApprovalQueue",
+    "ApprovalRequest",
+    "ApprovalStatus",
+    "Attachment",
+    "AuditEvent",
+    "AuditHead",
+    "AuditLog",
+    "AuditRecord",
+    "CallResult",
+    "Core",
+    "Decision",
+    "JsonObject",
+    "JsonValue",
+    "KitApprovalQueue",
+    "Mode",
+    "ModelClient",
+    "Page",
+    "Principal",
+    "PrincipalKind",
+    "PromptRef",
+    "RunContext",
+    "RunStore",
+    "Tier",
+    "Usage",
+    "run_uuid",
+]
+
 type JsonObject = dict[str, Any]
 
-
-class Mode(StrEnum):
-    MOCK = "mock"
-    LIVE = "live"
-    RECORD = "record"
-
-
-class Tier(StrEnum):
-    SMALL = "small"
-    MID = "mid"
-    LARGE = "large"
+# Who acts in the kit. The approver page authenticates a human and acts as APPROVER;
+# n8n authenticates with the service token and acts as N8N_SERVICE, which can request
+# approvals but never resolve them (agent-core's RoleApproverPolicy needs a human).
+APPROVER_ROLE = "approver"
+APPROVER = Principal(id="approver", kind=PrincipalKind.HUMAN, roles=frozenset({APPROVER_ROLE}))
+N8N_SERVICE = Principal(id="service.n8n", kind=PrincipalKind.SERVICE)
 
 
-class ApprovalStatus(StrEnum):
-    PENDING = "pending"
-    APPROVED = "approved"
-    REJECTED = "rejected"
-    EXPIRED = "expired"
-
-
-class Decision(StrEnum):
-    APPROVED = "approved"
-    REJECTED = "rejected"
-
-
-@dataclass(frozen=True, slots=True)
-class RunContext:
-    run_id: UUID
-    workflow: str
-    mode: Mode
-    external_ids: Mapping[str, str]
-
-
-@dataclass(frozen=True, slots=True)
-class PromptRef:
-    id: str
-    version: int
-    template: str
-
-
-@dataclass(frozen=True, slots=True)
-class Attachment:
-    media_type: Literal["image/png", "image/jpeg", "application/pdf"]
-    data: bytes
-
-
-@dataclass(frozen=True, slots=True)
-class ModelResult[T: BaseModel]:
-    output: T
-    input_tokens: int
-    output_tokens: int
-    cost_usd: Decimal
-    latency_ms: int
-    fixture_key: str
-    mode: Mode
-
-
-@dataclass(frozen=True, slots=True)
-class Approval:
-    id: UUID
-    run_id: UUID
-    kind: str
-    subject: JsonObject
-    edited_subject: JsonObject | None
-    status: ApprovalStatus
-    requested_at: datetime
-    expires_at: datetime
-    decided_at: datetime | None
-    decided_by: str | None
-    decision_note: str | None
+def run_uuid(ctx: RunContext) -> UUID:
+    """The kit's run ids are UUIDs; agent-core carries them as opaque strings."""
+    return UUID(ctx.run_id)
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,62 +86,36 @@ class Page[T]:
     next_cursor: str | None
 
 
-class ModelClient(Protocol):
-    async def structured[T: BaseModel](
+class KitApprovalQueue(ApprovalQueue, Protocol):
+    """agent-core's ApprovalQueue plus what the kit keeps in its own adapter.
+
+    submit() also takes `resume_url`, the signed n8n URL to call once decided; it is
+    stored but never returned. The kit also keeps an expiry sweep and a string-cursor
+    page for the approver page, and shows the approver the payload it is approving.
+    """
+
+    async def submit(
         self,
         *,
-        ctx: RunContext,
-        prompt: PromptRef,
-        tier: Tier,
-        schema: type[T],
-        inputs: Mapping[str, JsonValue],
-        attachments: Sequence[Attachment] = (),
-    ) -> ModelResult[T]: ...
+        action: str,
+        summary: str,
+        payload: Mapping[str, JsonValue],
+        requested_by: Principal,
+        required_role: str,
+        ttl_seconds: int,
+        context: RunContext | None = None,
+        resume_url: str | None = None,
+    ) -> ApprovalRequest: ...
 
+    async def payload_of(self, request_id: UUID) -> JsonObject: ...
 
-class ApprovalQueue(Protocol):
-    async def request(
-        self,
-        *,
-        ctx: RunContext,
-        kind: str,
-        subject: JsonObject,
-        resume_url: str,
-        expires_in: timedelta,
-    ) -> Approval: ...
+    async def list_pending_page(
+        self, principal: Principal, *, limit: int = 50, cursor: str | None = None
+    ) -> Page[ApprovalRequest]: ...
 
-    async def decide(
-        self,
-        approval_id: UUID,
-        *,
-        decision: Decision,
-        actor: str,
-        note: str | None = None,
-        edited_subject: JsonObject | None = None,
-    ) -> Approval: ...
-
-    async def get(self, approval_id: UUID) -> Approval: ...
-
-    async def list_pending(
-        self, *, limit: int = 50, cursor: str | None = None
-    ) -> Page[Approval]: ...
-
-    async def expire(self, approval_id: UUID) -> Approval: ...
+    async def expire(self, request_id: UUID) -> ApprovalRequest: ...
 
     async def expire_due(self, *, now: datetime) -> int: ...
-
-
-class AuditLog(Protocol):
-    async def append(
-        self,
-        *,
-        ctx: RunContext | None,
-        actor: str,
-        action: str,
-        subject_type: str | None,
-        subject_id: str | None,
-        details: JsonObject,
-    ) -> None: ...
 
 
 class RunStore(Protocol):
@@ -168,6 +131,7 @@ class RunStore(Protocol):
 @dataclass(frozen=True, slots=True)
 class Core:
     models: ModelClient
-    approvals: ApprovalQueue
+    approvals: KitApprovalQueue
     audit: AuditLog
     runs: RunStore
+    mode: Mode

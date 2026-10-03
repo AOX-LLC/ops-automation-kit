@@ -2,33 +2,31 @@
 
 from __future__ import annotations
 
-from types import MappingProxyType
+from typing import Any
 from uuid import UUID
 
+from aox_agent_core.context import RunContext
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from opskit.core.errors import NotFound
-from opskit.core.ports import Mode, RunContext
+from opskit.core.ports import Mode
 from opskit.db.engine import SessionFactory
 from opskit.db.tables import runs
 
 
-def _context(row: object) -> RunContext:
+def _context(row: Any) -> RunContext:
+    """agent-core's RunContext: the run id as a string, n8n's ids as external ids."""
     external = {
-        key: value
-        for key, value in (
-            ("n8n_workflow_id", getattr(row, "n8n_workflow_id", None)),
-            ("n8n_execution_id", getattr(row, "n8n_execution_id", None)),
+        name: value
+        for name, value in (
+            ("workflow", row.workflow),
+            ("n8n_workflow_id", row.n8n_workflow_id),
+            ("n8n_execution_id", row.n8n_execution_id),
         )
         if value
     }
-    return RunContext(
-        run_id=row.id,  # type: ignore[attr-defined]
-        workflow=row.workflow,  # type: ignore[attr-defined]
-        mode=Mode(row.mode),  # type: ignore[attr-defined]
-        external_ids=MappingProxyType(external),
-    )
+    return RunContext(run_id=str(row.id), external_ids=external)
 
 
 class PgRunStore:
