@@ -530,13 +530,14 @@ A company with no `website` is reported as "no website given" and never reaches 
 
 ### Extraction and citations
 
-`leads.extract` v1 (small tier) sees only the company's name and city and its fenced, untrusted documents. For each field it returns one citation (value, source URL, quoted span) per document that states it. The repo keeps a field only if:
+`leads.extract` v2 (small tier) sees only the company's name and city and its fenced, untrusted documents. For each field it returns one citation (value, source URL, quoted span) per document that states it. The repo keeps a field only if:
 
 - the URL is a document the model was shown;
 - the quote is in that document's text (case, whitespace, dash and quote style aside);
 - for a third-party listing, the quote names the company;
-- the quote supports the value (a band, year, city or sentence appears in it);
-- the domain equals the website we were given.
+- the quote supports the value (a band, year, city or sentence appears in it).
+
+The model is not asked for the domain (v1 was, and its answer was refused as a mismatch in the manual live run). Code derives it from the website we were given, once the company is researched. It is a *derived* field: `source_url` is the website as given, there is no quote, and the CRM source row's excerpt says `Derived from the website given: <website>`. Derived fields are left out of citation scoring and counts.
 
 Otherwise the field is null. Documents that verifiably disagree leave it null with a `conflict` finding. The CRM row is keyed on the domain: re-running updates the account and its source rows (one per field) and never blanks a value it already has.
 

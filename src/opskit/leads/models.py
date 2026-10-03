@@ -11,16 +11,23 @@ FIELDS = ("domain", "industry", "employee_band", "hq_city", "founded_year", "des
 type FieldName = Literal[
     "domain", "industry", "employee_band", "hq_city", "founded_year", "description"
 ]
+# "domain_mismatch" is no longer produced (the domain is derived, not asked for); the kind stays
+# so research rows stored by earlier versions still load.
 FindingKind = Literal["citation_rejected", "conflict", "unsupported_value", "domain_mismatch"]
 ResearchStatus = Literal["researched", "unresolved"]
 
 
 class FieldValue(BaseModel):
-    """A field that survived verification: the quote is in the cited document's text."""
+    """A field that survived verification: the quote is in the cited document's text.
+
+    A derived field (the domain) was computed in code from an input, not read from a page:
+    `source_url` is the website we were given and there is no quote.
+    """
 
     value: str | int
     source_url: str
-    quote: str
+    quote: str = ""
+    derived: bool = False
 
 
 class Finding(BaseModel):

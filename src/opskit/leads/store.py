@@ -187,7 +187,11 @@ async def upsert_account(
                     "account_id": row.id,
                     "field": name,
                     "source_ref": value.source_url,
-                    "excerpt": value.quote,
+                    "excerpt": (
+                        f"Derived from the website given: {value.source_url}"
+                        if value.derived
+                        else value.quote
+                    ),
                 }
                 for name, value in found.items()
             ]
