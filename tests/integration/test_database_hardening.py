@@ -126,6 +126,22 @@ def test_a_session_needs_a_well_formed_token_and_a_sane_expiry(values: str, mess
     assert message in result.stderr
 
 
+@pytest.mark.parametrize(
+    "assignment",
+    [
+        "expires_at = expires_at + interval '1 day'",
+        "csrf_token = repeat('b', 32)",
+        "created_at = now() - interval '1 year'",
+    ],
+)
+def test_the_guard_binds_the_owner_too(assignment: str) -> None:
+    """The approver role cannot even try these (no grant); the trigger is what stops the owner."""
+    session_id = new_session()
+    result = psql(f"update core.approver_sessions set {assignment} where id = '{session_id}'")
+    assert result.returncode != 0
+    assert "changes only by being revoked" in result.stderr
+
+
 def test_a_new_session_is_created_by_the_database_clock() -> None:
     result = psql(
         "insert into core.approver_sessions (csrf_token, expires_at, created_at) "
