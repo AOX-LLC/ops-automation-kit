@@ -30,7 +30,7 @@ pytestmark = pytest.mark.skipif(shutil.which("openssl") is None, reason="needs o
         ("192.168.1.1", False),
         ("127.0.0.1", False),
         ("169.254.169.254", False),
-        ("100.98.1.2", False),
+        ("100.64.0.1", False),
         ("0.0.0.0", False),  # noqa: S104 - an address under test, not a bind
         ("224.0.0.1", False),
         ("::1", False),
