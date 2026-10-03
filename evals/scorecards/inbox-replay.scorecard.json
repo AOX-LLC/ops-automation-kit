@@ -2,7 +2,7 @@
   "accuracy": 0.8214285714285714,
   "cost_per_case_usd": "0.004951642857142857142857142857",
   "cost_total_usd": "0.138646",
-  "finished_at": "2026-10-03T03:39:10.283381Z",
+  "finished_at": "2026-10-03T04:41:53.982913Z",
   "format_version": 1,
   "latency_p50_ms": null,
   "latency_p95_ms": null,
@@ -1799,6 +1799,6 @@
       ]
     }
   ],
-  "started_at": "2026-10-03T03:39:10.034725Z",
+  "started_at": "2026-10-03T04:41:53.757637Z",
   "suite": "inbox"
 }
