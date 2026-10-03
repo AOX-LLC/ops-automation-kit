@@ -19,7 +19,7 @@ from opskit.inbox import store
 
 log = logging.getLogger(__name__)
 # What a stored row of the wrong shape raises: a model refusing it, or a column of the wrong type.
-_UNPARSABLE = (ValueError, TypeError, KeyError, AttributeError)
+_UNPARSABLE = (ValueError, TypeError, KeyError)
 
 
 @dataclass(frozen=True, slots=True)
