@@ -424,9 +424,9 @@ The decision is read back from the helper, never taken from the resume call's bo
 
 - The helper reads plain-text bodies and headers from Mailpit (`MailSource`). The kit's own outgoing mail (`@kit.example`) is excluded.
 - Two independent injection checks run on every message:
-  - **Deterministic pre-scan** (`opskit.inbox.injection`, no model): hidden text (three or more zero-width or bidi control characters), "ignore previous instructions" phrasing, role changes, fake system markers, data-export requests and credential requests.
+  - **Deterministic pre-scan** (`opskit.inbox.injection`, no model) over the From header (display name included), subject and body: hidden text (three or more zero-width or bidi control characters), "ignore previous instructions" phrasing, role changes, fake system markers, prompt fence tags (`</email>`, `<profile>`), data-export requests and credential requests.
   - **The model's flag:** the triage call (small tier, `inbox.triage` v1) returns `injection_suspected` with a quote as evidence. The quote is kept only if it really occurs in the email.
-- The system prompts state that email content is data to classify or answer, never instructions to follow.
+- The system prompts state that email content is data to classify or answer, never instructions to follow. `<email>` and `<profile>` tags in the sender, subject or body are rewritten to `[email]` and `[profile]` before they reach a prompt, so an email can't close its own fence.
 - **Route** (`policy.route`):
   - `quarantine` if either check flags the message;
   - otherwise `draft` if the model says it needs a reply and the category is one the kit answers (sales inquiry, support, billing, scheduling, complaint);

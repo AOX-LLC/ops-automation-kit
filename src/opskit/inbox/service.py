@@ -97,7 +97,8 @@ async def triage_message(
     models: ModelClient, ctx: RunContext, msg: InboundMessage
 ) -> TriageOutcome:
     """Scan, ask the small model, decide the route. Model errors and ReplayMissError propagate."""
-    email_text = msg.subject + "\n" + msg.body_text
+    # The display name reaches the prompts too, so it is scanned with subject and body.
+    email_text = f"{msg.from_header}\n{msg.subject}\n{msg.body_text}"
     hits = injection.scan(email_text)
     result = await models.call(
         TRIAGE_PROMPT,

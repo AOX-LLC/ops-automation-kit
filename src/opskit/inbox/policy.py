@@ -125,8 +125,16 @@ def _clip(text: str) -> str:
     return text[:MAX_EMAIL_CHARS]
 
 
+_FENCE = re.compile(r"<(\s*/?\s*(?:email|profile)\b[^>]{0,40})>", re.I)
+
+
+def _defang(text: str) -> str:
+    """Untrusted text can't close the prompt's <email> fence or open a fake <profile>."""
+    return _FENCE.sub(r"[\1]", text)
+
+
 def build_triage_inputs(*, sender: str, subject: str, body: str) -> dict[str, JsonValue]:
-    return {"sender": sender, "subject": subject, "body": _clip(body)}
+    return {"sender": _defang(sender), "subject": _defang(subject), "body": _defang(_clip(body))}
 
 
 def build_draft_inputs(
@@ -140,9 +148,9 @@ def build_draft_inputs(
     return {
         "profile": profile,
         "category": category,
-        "sender": sender,
-        "subject": subject,
-        "body": _clip(body),
+        "sender": _defang(sender),
+        "subject": _defang(subject),
+        "body": _defang(_clip(body)),
     }
 
 

@@ -37,6 +37,7 @@ PATTERNS: dict[str, re.Pattern[str]] = {
         r"emails|mail)|every customer'?s?|contact list|address book|(customer|client) database)\b",
         re.I,
     ),
+    "fence_tag": re.compile(r"<\s*/?\s*(email|profile|system|instructions?)\b[^>]{0,40}>", re.I),
     "credential_request": re.compile(
         r"\b(reply with|send|give|share)\b[^.\n]{0,40}\b(password|api key|token|credentials?)\b",
         re.I,
