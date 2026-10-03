@@ -392,7 +392,7 @@ New mail in Mailpit is triaged; replies are drafted only for categories the kit 
 ```
 Every 5 minutes / Webhook
   -> Start run (POST /v1/runs)
-  -> List new mail (GET /v1/inbox/pending)
+  -> List new mail (POST /v1/inbox/pending)
   -> Anything new?  -- no -> Finish run (nothing new)
   -> One item per message (Split Out)
   -> Triage (POST /v1/inbox/triage, one per message)

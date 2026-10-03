@@ -274,7 +274,7 @@
       "parameters": {
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "method": "GET",
+        "method": "POST",
         "options": {
           "timeout": 10000
         },

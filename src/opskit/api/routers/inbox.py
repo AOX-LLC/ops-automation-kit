@@ -108,7 +108,7 @@ def _replay_miss(exc: ReplayMissError) -> HTTPException:
     )
 
 
-@router.get("/pending", response_model_by_alias=True)
+@router.post("/pending", response_model_by_alias=True)
 async def pending(request: Request, limit: Limit = 50) -> PendingPage:
     """New messages that are not triaged yet; each is stored so triage can read it."""
     settings: Settings = request.app.state.settings
