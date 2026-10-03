@@ -459,3 +459,51 @@ async def test_the_recorded_aeroflow_band_with_its_unit_is_kept_as_the_bare_band
     assert got.fields["employee_band"].source_url == "corpus://aeroflow.example/about.html"
     assert got.valid_cites == got.raw_cites  # every recorded cite is valid
     assert got.findings == []
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "Contact Jane Doe at jane@acme.example",
+        "Call us on 555-0142",
+        "Call (555) 010-0142 for a quote",
+        "Phone: +1 555 010 0142",
+    ],
+)
+def test_a_quote_with_contact_details_is_refused(quote: str) -> None:
+    doc = Document(URL, f"Springfield office. {quote}", own=True)
+    got = verify(ACME, LeadExtraction(hq_city=[cite("Springfield", quote)]), [doc])
+    assert got.fields["hq_city"] is None
+    assert got.findings[0].detail == "quote contains contact details"
+
+
+@pytest.mark.parametrize("quote", ["Team: 11-50 employees", "Founded 2002-2010", "since 1999"])
+def test_ordinary_numbers_are_not_mistaken_for_phone_numbers(quote: str) -> None:
+    doc = Document(URL, f"About us. {quote}", own=True)
+    got = verify(ACME, LeadExtraction(employee_band=[cite("11-50", quote)]), [doc])
+    assert not any(f.detail == "quote contains contact details" for f in got.findings)
+
+
+async def test_research_stores_the_cited_spans_and_never_the_page_text() -> None:
+    contact = Document(
+        "https://acme.example/contact",
+        "Visit our Springfield office.\nAsk for Jane Doe, jane@acme.example, 555-0142.",
+        own=True,
+    )
+    models = FakeModels(
+        LeadExtraction(hq_city=[cite("Springfield", "Visit our Springfield office.", contact.url)])
+    )
+    out = await extraction.research_company(
+        models,
+        None,
+        FixedRetriever(Retrieval(documents=[contact])),
+        ACME,  # type: ignore[arg-type]
+    )
+    stored = out.model_dump_json()
+    assert "Springfield" in stored and out.pages == [contact.url]
+    for private in ("Jane Doe", "jane@acme.example", "555-0142"):
+        assert private not in stored
+    assert set(out.model_dump()) == {
+        *("company_name", "city_hint", "website", "domain", "status", "reason", "fields"),
+        *("findings", "pages", "raw_cites", "valid_cites", "replay_key", "cost_usd", "latency_ms"),
+    }

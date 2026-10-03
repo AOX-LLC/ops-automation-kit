@@ -9,7 +9,8 @@ returns is stored until the repo has checked it:
   aside);
 - for a third-party listing, the quote names the company, so a neighbour's line can't be used;
 - the value is supported by the quote (a band, year, city or sentence appears in it);
-- the domain equals the website we were given.
+- the domain equals the website we were given;
+- the quote carries no email address or phone number.
 
 A field with no verified citation is null. Two documents that verifiably disagree leave the
 field null with a `conflict` finding. The city hint is an input for telling similar names
@@ -40,6 +41,13 @@ from opskit.leads.retrieval import Company, Document, Retriever, normalize, norm
 MAX_QUOTE_CHARS = 400
 MAX_PROMPT_CHARS = 60_000
 BAND = re.compile(r"^\d{1,6}(?:-\d{1,6}|\+)$")
+# Contact details are not research: a quote that carries an email address or a phone number is
+# refused, so nothing from a contact page's people ends up in the stored excerpt.
+_CONTACT_DETAILS = re.compile(
+    r"[\w.+-]+@[\w-]+\.[\w.-]+"
+    r"|(?<!\d)(?:\+?\d{1,2}[ .-])?(?:\(\d{3}\)\s?|\d{3}[ .-])\d{3}[ .-]\d{4}(?!\d)"
+    r"|(?<!\d)\d{3}-\d{4}(?!\d)"
+)
 _BAND_UNIT = re.compile(r"\s+(?:employees?|staff|people|team members)$")
 
 
@@ -179,6 +187,8 @@ def _check_cite(
         return reject("unknown source")
     if not quote_n or len(cite.quote) > MAX_QUOTE_CHARS or quote_n not in normalize(doc.text):
         return reject(f"quote not in {cite.source_url}")
+    if _CONTACT_DETAILS.search(cite.quote):
+        return reject("quote contains contact details")
     if not doc.own:
         # A listing holds many companies, one per line: the quote must be one line of it, and
         # that line must be about this company.
