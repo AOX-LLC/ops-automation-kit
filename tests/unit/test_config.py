@@ -75,4 +75,5 @@ def test_the_default_logo_is_the_aox_mark_and_the_file_ships() -> None:
     )
     assert shipped.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
     template = (shipped.parents[2] / "templates" / "base.html").read_text()
-    assert 'alt="AOX"' in template and "brand-divider" in template
+    assert "brand_logo_alt" in template and "brand-divider" in template
+    assert Settings().brand_logo_alt == "AOX"
