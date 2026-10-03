@@ -23,6 +23,8 @@
   --pui-danger-soft: #FBE7EA;
   --pui-pending: #6B4FC2;
   --pui-pending-soft: #EFEBFA;
+  --pui-warning: #8A5A00;
+  --pui-warning-soft: #FDF3DC;
   --pui-font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --pui-font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
   --pui-font-display: "Space Grotesk", "IBM Plex Sans", system-ui, sans-serif;
@@ -115,9 +117,10 @@ button.link {
 /* A caution that is not an error: dark amber on pale amber, AA contrast (about 5.4:1). */
 .warning {
   margin: var(--pui-space-3) 0 0; padding: var(--pui-space-2) var(--pui-space-3);
-  color: #8A5A00; background: #FDF3DC; border: 1px solid #8A5A00; border-radius: var(--pui-radius-sm);
+  color: var(--pui-warning); background: var(--pui-warning-soft); border: 1px solid var(--pui-warning);
+  border-radius: var(--pui-radius-sm);
 }
 .warning ul { margin: var(--pui-space-1) 0 0; padding-left: var(--pui-space-5); }
-.badge-warning { color: #8A5A00; background: #FDF3DC; border: 1px solid #8A5A00; }
+.badge-warning { color: var(--pui-warning); background: var(--pui-warning-soft); border: 1px solid var(--pui-warning); }
 .brand-logo { display: block; }
 .brand-lockup { display: flex; align-items: center; gap: var(--pui-space-3); }
