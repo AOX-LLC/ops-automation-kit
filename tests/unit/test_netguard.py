@@ -151,6 +151,26 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", "https://other.right.test/")
             self.end_headers()
+        elif self.path.startswith("/status/"):
+            code = int(self.path.rsplit("/", 1)[1])
+            body = b'{"error": "nope"}'
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        elif self.path.startswith("/hop/"):  # /hop/N redirects to /hop/N-1, then to /ok
+            remaining = int(self.path.rsplit("/", 1)[1])
+            self.send_response(302)
+            self.send_header("Location", f"/hop/{remaining - 1}" if remaining else "/ok")
+            self.end_headers()
+        elif self.path == "/echo-agent":
+            body = self.headers.get("User-Agent", "").encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
         elif self.path == "/binary":
             self.send_response(200)
             self.send_header("Content-Type", "application/octet-stream")
@@ -361,3 +381,39 @@ async def test_a_redirect_to_a_sibling_subdomain_is_refused(certs: Path, right_s
 )
 def test_site_is_the_host_less_www(a: str, b: str, same: bool) -> None:
     assert (netguard._site(a) == netguard._site(b)) is same
+
+
+@pytest.mark.parametrize("code", [403, 404, 429, 500, 503])
+async def test_an_error_status_is_returned_not_raised(
+    certs: Path, right_server: int, code: int
+) -> None:
+    # The body (here JSON, an unsupported type) is never read for a non-2xx answer.
+    fetcher = _fetcher(certs, right_server)
+    try:
+        result = await fetcher.fetch(f"https://right.test:{right_server}/status/{code}")
+    finally:
+        await fetcher.aclose()
+    assert (result.status, result.text) == (code, "")
+
+
+async def test_three_redirects_are_followed_and_a_fourth_is_refused(
+    certs: Path, right_server: int
+) -> None:
+    fetcher = _fetcher(certs, right_server)
+    try:
+        ok = await fetcher.fetch(f"https://right.test:{right_server}/hop/2")  # 3 redirects
+        assert "founded 1999" in ok.text
+        with pytest.raises(FetchRefused, match="too many redirects"):
+            await fetcher.fetch(f"https://right.test:{right_server}/hop/3")  # 4 redirects
+    finally:
+        await fetcher.aclose()
+
+
+async def test_the_user_agent_identifies_the_kit(certs: Path, right_server: int) -> None:
+    fetcher = _fetcher(certs, right_server)
+    try:
+        result = await fetcher.fetch(f"https://right.test:{right_server}/echo-agent")
+    finally:
+        await fetcher.aclose()
+    assert result.text == netguard.USER_AGENT
+    assert result.text.startswith("ops-automation-kit/")

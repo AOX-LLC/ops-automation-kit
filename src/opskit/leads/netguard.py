@@ -135,7 +135,9 @@ class GuardedFetcher:
         return str(parsed[0])
 
     async def fetch(self, url: str, *, site: str | None = None) -> FetchResult:
-        """GET one page under every guard; follows at most MAX_REDIRECTS on the same site."""
+        """GET one page under every guard; follows at most MAX_REDIRECTS on the same site.
+
+        A non-2xx answer comes back with its status and empty text; only a 2xx body is read."""
         deadline = time.monotonic() + self._policy.total_timeout_s
         current = url
         home = site or _site(urlsplit(url).hostname or "")
@@ -144,6 +146,9 @@ class GuardedFetcher:
             if status in (301, 302, 303, 307, 308) and "location" in headers:
                 current = urljoin(response_url, headers["location"])
                 continue
+            if not 200 <= status < 300:
+                # The caller decides what a status means (robots.txt reads a 404 as "allowed").
+                return FetchResult(url=response_url, status=status, content_type="", text="")
             content_type = headers.get("content-type", "").split(";")[0].strip().lower()
             if content_type not in ALLOWED_TYPES:
                 raise FetchRefused(f"unsupported content type {content_type or 'missing'}")
@@ -186,12 +191,18 @@ class GuardedFetcher:
             async with asyncio.timeout(remaining):
                 response = await self._client.send(request, stream=True)
                 try:
-                    body = await self._read_capped(response)
+                    # Only a success carries a body worth reading; an error or redirect page is
+                    # never downloaded, so its size, encoding and type can't matter.
+                    body = (
+                        await self._read_capped(response)
+                        if 200 <= response.status_code < 300
+                        else b""
+                    )
                 finally:
                     await response.aclose()
         except TimeoutError as exc:
             raise FetchRefused("total time limit reached mid-download") from exc
-        except (httpx.ConnectError, httpx.ReadError, httpx.ProtocolError) as exc:
+        except httpx.TransportError as exc:  # connect/read failures, timeouts, TLS, protocol
             raise FetchRefused(f"connection to {host} failed: {type(exc).__name__}") from exc
         public_url = urlunsplit(
             ("https", host if port == 443 else f"{host}:{port}", parts.path or "/", parts.query, "")
