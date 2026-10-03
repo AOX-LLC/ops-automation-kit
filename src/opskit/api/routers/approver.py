@@ -27,6 +27,8 @@ from opskit.core.ports import APPROVER, AuditEvent, Core, Decision
 router = APIRouter(prefix="/approver", include_in_schema=False)
 templates = Jinja2Templates(directory=Path(__file__).parents[1] / "templates")
 BCRYPT_MAX_BYTES = 72
+# agent-core stores the decision note as ApprovalRequest.reason, at most 500 characters.
+NOTE_MAX_CHARS = 500
 
 
 def _refuse_bearer(request: Request) -> None:
@@ -188,7 +190,7 @@ async def decide(
     approval_id: UUID,
     decision: Annotated[Decision, Form()],
     csrf_token: Annotated[str, Form(max_length=128)] = "",
-    note: Annotated[str, Form(max_length=2000)] = "",
+    note: Annotated[str, Form(max_length=NOTE_MAX_CHARS)] = "",
 ) -> Response:
     session = _require_csrf(await _require_login(request), csrf_token)
     approvals = _core(request).approvals
