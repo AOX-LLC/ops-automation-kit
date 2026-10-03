@@ -6,11 +6,17 @@ application code is wrong or bypassed.
 
 from __future__ import annotations
 
+import json
 import secrets
+from collections.abc import Callable
+from typing import Any
+from uuid import uuid4
 
 import pytest
 
-from tests.integration.conftest import psql
+from tests.integration.conftest import ApproverClient, psql
+
+MakeApproval = Callable[..., dict[str, Any]]
 
 pytestmark = pytest.mark.integration
 
@@ -140,3 +146,187 @@ def test_sessions_are_never_deleted_or_truncated() -> None:
     owner_delete = psql(f"delete from core.approver_sessions where id = '{session_id}'")
     assert "never deleted" in owner_delete.stderr
     assert "never truncated" in psql("truncate core.approver_sessions").stderr
+
+
+# --- F6: the outbox ------------------------------------------------------------------------
+
+DECIDE = (
+    "update core.approvals set status = '{status}', decision = '{decision}', "
+    "resolved_by = 'a.person', resolved_at = now() where id = '{id}'; "
+)
+QUEUE = (
+    "insert into core.outbox (approval_id, payload{extra_columns}) "
+    "values ('{id}', '{payload}'{extra_values})"
+)
+
+
+def payload_for(approval_id: str, decision: str = "approve", **more: Any) -> str:
+    return json.dumps({"approval_id": approval_id, "decision": decision, **more})
+
+
+def queue_sql(approval_id: str, payload: str, **columns: str) -> str:
+    return QUEUE.format(
+        id=approval_id,
+        payload=payload,
+        extra_columns="".join(f", {name}" for name in columns),
+        extra_values="".join(f", {value}" for value in columns.values()),
+    )
+
+
+def as_approver(sql: str) -> Any:
+    return psql(sql, role="opskit_approver")
+
+
+def test_a_resume_is_refused_for_an_approval_that_is_still_pending(
+    make_approval: MakeApproval,
+) -> None:
+    approval_id = make_approval()["approval_id"]
+    result = as_approver(queue_sql(approval_id, payload_for(approval_id)))
+    assert result.returncode != 0
+    assert "only an approved or rejected approval has a resume to queue" in result.stderr
+
+
+def test_a_resume_is_refused_for_an_approval_that_does_not_exist() -> None:
+    missing = str(uuid4())
+    result = as_approver(queue_sql(missing, payload_for(missing)))
+    assert result.returncode != 0
+    assert "no such approval to resume" in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("status", "decision", "claimed", "extra"),
+    [
+        ("approved", "approve", "reject", {}),
+        ("rejected", "reject", "approve", {}),
+        ("approved", "approve", "approve", {"note": "x"}),
+        ("approved", "approve", "Approve", {}),
+    ],
+    ids=["approved-claims-reject", "rejected-claims-approve", "extra-key", "wrong-case"],
+)
+def test_a_resume_must_carry_exactly_the_stored_decision(
+    make_approval: MakeApproval, status: str, decision: str, claimed: str, extra: dict[str, str]
+) -> None:
+    approval_id = make_approval()["approval_id"]
+    sql = DECIDE.format(status=status, decision=decision, id=approval_id) + queue_sql(
+        approval_id, payload_for(approval_id, claimed, **extra)
+    )
+    result = as_approver(sql)
+    assert result.returncode != 0
+    assert "must name this approval and its stored decision" in result.stderr
+    # One statement block is one transaction: the refusal rolled the decision back too.
+    assert psql(f"select status from core.approvals where id = '{approval_id}'").stdout.strip() == (
+        "pending"
+    )
+
+
+def test_a_resume_cannot_name_a_different_approval_in_its_payload(
+    make_approval: MakeApproval,
+) -> None:
+    approval_id = make_approval()["approval_id"]
+    sql = DECIDE.format(status="approved", decision="approve", id=approval_id) + queue_sql(
+        approval_id, payload_for(str(uuid4()))
+    )
+    assert "must name this approval" in as_approver(sql).stderr
+
+
+@pytest.mark.parametrize(
+    "columns",
+    [
+        {"delivered_at": "now()"},
+        {"attempts": "1"},
+        {"last_error": "'boom'"},
+    ],
+    ids=["delivered", "tried", "errored"],
+)
+def test_a_new_resume_is_undelivered_and_untried(
+    make_approval: MakeApproval, columns: dict[str, str]
+) -> None:
+    approval_id = make_approval()["approval_id"]
+    sql = DECIDE.format(status="approved", decision="approve", id=approval_id) + queue_sql(
+        approval_id, payload_for(approval_id), **columns
+    )
+    result = as_approver(sql)
+    assert result.returncode != 0
+    assert "undelivered, untried" in result.stderr
+
+
+def test_a_matching_decision_and_resume_in_one_transaction_is_accepted(
+    make_approval: MakeApproval,
+) -> None:
+    approval_id = make_approval()["approval_id"]
+    sql = DECIDE.format(status="rejected", decision="reject", id=approval_id) + queue_sql(
+        approval_id, payload_for(approval_id, "reject")
+    )
+    result = as_approver(sql)
+    assert result.returncode == 0, result.stderr
+    count = psql(f"select count(*) from core.outbox where approval_id = '{approval_id}'")
+    assert count.stdout.strip() == "1"
+
+
+def test_the_requester_role_cannot_queue_a_resume(make_approval: MakeApproval) -> None:
+    approval_id = make_approval()["approval_id"]
+    result = psql(queue_sql(approval_id, payload_for(approval_id)), role="opskit_app")
+    assert result.returncode != 0
+    assert "permission denied" in result.stderr
+
+
+def test_the_decision_path_still_queues_exactly_one_resume(
+    approver: ApproverClient, make_approval: MakeApproval
+) -> None:
+    approval_id = make_approval()["approval_id"]
+    assert approver.decide(approval_id, "approve", csrf=approver.page_csrf()).status_code == 303
+    row = psql(f"select payload::text from core.outbox where approval_id = '{approval_id}'")
+    assert json.loads(row.stdout.strip()) == {"approval_id": approval_id, "decision": "approve"}
+
+
+@pytest.fixture
+def queued_resume(approver: ApproverClient, make_approval: MakeApproval) -> str:
+    approval_id = make_approval()["approval_id"]
+    assert approver.decide(approval_id, "approve", csrf=approver.page_csrf()).status_code == 303
+    return str(approval_id)
+
+
+def as_requester(sql: str) -> Any:
+    return psql(sql, role="opskit_app")
+
+
+def bump(approval_id: str, assignment: str) -> str:
+    return f"update core.outbox set {assignment} where approval_id = '{approval_id}'; "
+
+
+@pytest.mark.parametrize(
+    ("assignment", "message"),
+    [
+        ("attempts = 11", "attempts only go up, to at most 10"),
+        ("last_error = repeat('e', 201)", "at most 200 characters"),
+        ("next_attempt_at = now() + interval '2 hours'", "at most an hour away"),
+    ],
+)
+def test_the_resume_worker_cannot_write_outside_the_delivery_bounds(
+    queued_resume: str, assignment: str, message: str
+) -> None:
+    result = as_requester(bump(queued_resume, assignment))
+    assert result.returncode != 0
+    assert message in result.stderr
+
+
+def test_attempts_never_go_back_down(queued_resume: str) -> None:
+    # One block is one transaction, so the api's own worker cannot interleave.
+    result = as_requester(bump(queued_resume, "attempts = 5") + bump(queued_resume, "attempts = 4"))
+    assert result.returncode != 0
+    assert "attempts only go up" in result.stderr
+
+
+def test_delivery_is_stamped_by_the_database_and_cannot_be_cleared(queued_resume: str) -> None:
+    stamped = as_requester(
+        bump(queued_resume, "delivered_at = '2000-01-01'")
+        + f"select delivered_at > now() - interval '1 minute' from core.outbox "
+        f"where approval_id = '{queued_resume}'"
+    )
+    assert stamped.returncode == 0, stamped.stderr
+    assert stamped.stdout.strip().splitlines()[-1] == "t"
+    cleared = as_requester(
+        bump(queued_resume, "delivered_at = now()") + bump(queued_resume, "delivered_at = null")
+    )
+    assert cleared.returncode != 0
+    assert "stays delivered" in cleared.stderr
