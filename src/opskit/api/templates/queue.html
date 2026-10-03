@@ -1,21 +1,25 @@
 {% extends "base.html" %}
+{% from "_status.html" import status_badge %}
 {% set logged_in = true %}
 {% block content %}
-<h1>Waiting for a decision</h1>
+<p class="eyebrow">03 / Approvals</p>
+<h1>Waiting for your decision</h1>
 {% if approvals %}
 <ul class="list">
   {% for approval in approvals %}
   <li class="card row">
     <div>
-      <a href="/approver/approvals/{{ approval.id }}">{{ approval.action }}</a>
-      <p class="meta">Requested {{ approval.created_at.strftime("%Y-%m-%d %H:%M UTC") }} ·
-        expires {{ approval.expires_at.strftime("%Y-%m-%d %H:%M UTC") }}</p>
+      <a href="/approver/approvals/{{ approval.id }}">{{ approval.summary }}</a>
+      <p class="meta"><span class="mono">{{ approval.action }}</span> ·
+        requested <span class="mono">{{ approval.created_at.strftime("%Y-%m-%d %H:%M UTC") }}</span> ·
+        expires <span class="mono">{{ approval.expires_at.strftime("%Y-%m-%d %H:%M UTC") }}</span></p>
     </div>
+    {{ status_badge(approval.status.value) }}
   </li>
   {% endfor %}
 </ul>
-{% if next_cursor %}<a class="more" href="/approver/?cursor={{ next_cursor | urlencode }}">Older requests</a>{% endif %}
+{% if next_cursor %}<a class="more" href="/approver/?cursor={{ next_cursor | urlencode }}">Next page</a>{% endif %}
 {% else %}
-<p class="empty">Nothing is waiting. New requests appear here when a workflow pauses for approval.</p>
+<p class="empty">Queue clear. Every decision is in the audit log. New requests appear here when a workflow pauses for approval; nothing is sent until you approve.</p>
 {% endif %}
 {% endblock %}

@@ -1,22 +1,27 @@
 {% extends "base.html" %}
+{% from "_status.html" import status_badge %}
 {% set logged_in = true %}
-{% block title %}{{ approval.action }}{% endblock %}
+{% block title %}{{ approval.summary }}{% endblock %}
 {% block content %}
 <p><a href="/approver/">Back to the queue</a></p>
-<h1>{{ approval.action }}</h1>
-<p class="meta">Status: <strong>{{ approval.status.value }}</strong> ·
-  requested {{ approval.created_at.strftime("%Y-%m-%d %H:%M UTC") }} ·
-  expires {{ approval.expires_at.strftime("%Y-%m-%d %H:%M UTC") }}</p>
+<p class="eyebrow">03 / Approvals</p>
+<h1>{{ approval.summary }}</h1>
+<p class="meta">{{ status_badge(approval.status.value) }} ·
+  <span class="mono">{{ approval.action }}</span> ·
+  <span class="mono">{{ approval.id }}</span> ·
+  requested <span class="mono">{{ approval.created_at.strftime("%Y-%m-%d %H:%M UTC") }}</span> ·
+  expires <span class="mono">{{ approval.expires_at.strftime("%Y-%m-%d %H:%M UTC") }}</span></p>
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 <h2>What you are approving</h2>
 <pre class="card">{{ subject_json }}</pre>
 {% if approval.status.value == "pending" %}
-<form method="post" action="/approver/approvals/{{ approval.id }}/decision" class="card stack">
+<p class="hint">Waiting for your approval. Nothing is sent until you approve.</p>
+<form method="post" action="/approver/approvals/{{ approval.id }}/decision" class="card stack approve-bar">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <label for="note">Note (optional)</label>
   <textarea id="note" name="note" rows="3" maxlength="2000"></textarea>
   <div class="actions">
-    <button type="submit" name="decision" value="approve">Approve</button>
+    <button type="submit" name="decision" value="approve">Approve and continue</button>
     <button type="submit" name="decision" value="reject" class="secondary">Reject</button>
   </div>
 </form>
