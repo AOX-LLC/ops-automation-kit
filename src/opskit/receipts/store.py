@@ -15,7 +15,7 @@ from opskit.db.tables import receipt_extractions as extractions
 from opskit.receipts.extraction import ExtractionOutcome, ReceiptExtraction
 
 _REPLACEABLE = (
-    "path",
+    "sha256",
     "run_id",
     "status",
     "reason",
@@ -56,15 +56,22 @@ def _values(run_id: UUID, outcome: ExtractionOutcome) -> dict[str, Any]:
 async def save_outcome(
     session_factory: SessionFactory, run_id: UUID, outcome: ExtractionOutcome
 ) -> None:
-    """Insert the outcome, or replace the earlier one for the same file contents."""
+    """Insert the outcome, or replace the earlier one for the same file path."""
     statement = insert(extractions).values(_values(run_id, outcome))
     statement = statement.on_conflict_do_update(
-        index_elements=[extractions.c.sha256],
+        index_elements=[extractions.c.path],
         set_={name: statement.excluded[name] for name in _REPLACEABLE}
         | {"extracted_at": statement.excluded.extracted_at},
     )
     async with session_factory() as session, session.begin():
         await session.execute(statement)
+
+
+async def processed_paths(session_factory: SessionFactory) -> set[str]:
+    """Public paths already extracted (or flagged), so the pending list can skip them."""
+    async with session_factory() as session:
+        rows = await session.execute(select(extractions.c.path))
+    return {row[0] for row in rows}
 
 
 async def processed_hashes(session_factory: SessionFactory) -> set[str]:
@@ -79,7 +86,7 @@ async def all_outcomes(session_factory: SessionFactory) -> list[ExtractionOutcom
         return [
             ExtractionOutcome(
                 path=row.path,
-                sha256=row.sha256.strip(),
+                sha256=row.sha256,
                 status=row.status,
                 reason=row.reason,
                 fields=ReceiptExtraction.model_validate(row.fields) if row.fields else None,

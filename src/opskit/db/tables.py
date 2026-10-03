@@ -166,8 +166,8 @@ crm_account_sources = Table(
 receipt_extractions = Table(
     "extractions",
     metadata,
-    Column("sha256", String(64), primary_key=True),
-    Column("path", Text, nullable=False),
+    Column("path", Text, primary_key=True),
+    Column("sha256", Text, nullable=False),
     Column("run_id", UUID(as_uuid=True), ForeignKey("core.runs.id"), nullable=False),
     Column("status", Text, nullable=False),
     Column("reason", Text),

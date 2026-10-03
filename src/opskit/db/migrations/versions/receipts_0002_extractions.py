@@ -16,8 +16,10 @@ APP_ROLE = "opskit_app"
 def upgrade() -> None:
     op.execute("""
         CREATE TABLE receipts.extractions (
-            sha256       char(64) PRIMARY KEY,
-            path         text NOT NULL,
+            -- Keyed by the public path, not the content hash: a byte-identical copy under
+            -- another name is its own row, so reconciliation can flag it as a duplicate.
+            path         text PRIMARY KEY,
+            sha256       text NOT NULL,
             run_id       uuid NOT NULL REFERENCES core.runs (id),
             status       text NOT NULL CHECK (status IN ('extracted', 'needs_review', 'failed')),
             reason       text,
@@ -28,7 +30,8 @@ def upgrade() -> None:
             cost_usd     numeric(10, 6) NOT NULL DEFAULT 0,
             latency_ms   integer,
             extracted_at timestamptz NOT NULL DEFAULT now()
-        )
+        );
+        CREATE INDEX extractions_sha256_idx ON receipts.extractions (sha256)
     """)
     op.execute("""
         CREATE TABLE receipts.reconciliations (
