@@ -1,4 +1,4 @@
-"""Generate the inbox sample set: 25 .eml files, a business profile and the triage answer key."""
+"""Generate the inbox sample set: 28 .eml files, a business profile and the triage answer key."""
 
 from __future__ import annotations
 
@@ -30,6 +30,7 @@ class Message:
     language: str
     body: str
     in_reply_to: str | None
+    reply_to: str | None
     labels: dict[str, Any]
 
     @property
@@ -59,6 +60,7 @@ def parse_messages(raw_messages: list[dict[str, Any]]) -> list[Message]:
             language=raw["language"],
             body=raw["body"],
             in_reply_to=raw.get("in_reply_to"),
+            reply_to=raw.get("reply_to"),
             labels=raw["labels"],
         )
         for number, raw in enumerate(raw_messages, start=1)
@@ -70,6 +72,8 @@ def build_email(message: Message, recipient: str) -> EmailMessage:
     email["Date"] = format_datetime(message.date)
     email["Message-ID"] = message.message_id
     email["From"] = f"{message.from_name} <{message.from_addr}>"
+    if message.reply_to:
+        email["Reply-To"] = message.reply_to
     email["To"] = recipient
     email["Subject"] = message.subject
     if message.in_reply_to:
@@ -117,6 +121,8 @@ def triage_entry(message: Message) -> dict[str, Any]:
         "file": message.file_name,
         "message_id": message.message_id,
         "language": message.language,
+        "injection": False,
+        "reply_to_differs": False,
         **message.labels,
     }
 
