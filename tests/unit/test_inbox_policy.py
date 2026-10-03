@@ -214,6 +214,8 @@ def test_the_bare_word_free_is_not_a_commitment(body: str) -> None:
         "We offer a free inspection.",
         "Free shipping on parts.",
         "The second visit is free.",
+        "The visit is free-of-charge.",
+        "It is a for-free visit.",
     ],
 )
 def test_phrases_that_offer_something_free_are_commitments(body: str) -> None:

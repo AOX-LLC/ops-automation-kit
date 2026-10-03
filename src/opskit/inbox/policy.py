@@ -232,8 +232,8 @@ def _norm(text: str) -> str:
 # "for free", "free inspection", "cancellation is free". The bare word is not ("feel free to
 # call", "toll-free number"), so it gets its own pattern instead of the generic one.
 _FREE_OFFER = re.compile(
-    r"(?<![\w-])free\s+(?!to\b)[a-z]+"  # free of charge, free inspection, free cancellation
-    r"|\bfor\s+free\b"
+    r"(?<![\w-])free[\s-]+(?!to\b)[a-z]+"  # free of charge, free inspection, free cancellation
+    r"|\bfor[\s-]+free\b"
     r"|\b(?:is|are|be|was|were|it's|that's|totally|completely)\s+free\b(?!\s+to\b)",
     re.I,
 )
