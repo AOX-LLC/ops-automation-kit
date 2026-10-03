@@ -430,3 +430,32 @@ def test_a_long_fence_tag_in_a_page_is_still_defanged() -> None:
     )
     prompt = str(build_extract_inputs(ACME, [page])["documents"])
     assert prompt.count("</document") == 1
+
+
+# --- recorded output, and what is persisted -----------------------------------------------------
+
+
+def _recorded(company: str) -> LeadExtraction:
+    """The model's recorded answer for one company, exactly as the cassette holds it."""
+    import json
+
+    for path in (REPO / "fixtures" / "cassettes" / "prompts" / "leads.extract" / "v1").glob(
+        "*.json"
+    ):
+        cassette = json.loads(path.read_text())
+        if f"Company: {company}\\n" in json.dumps(cassette["request"]):
+            return LeadExtraction.model_validate_json(cassette["response"]["text"])
+    raise AssertionError(f"no recording for {company}")
+
+
+async def test_the_recorded_aeroflow_band_with_its_unit_is_kept_as_the_bare_band() -> None:
+    company = Company("Aeroflow Heating and Cooling", "Wexmoor", "aeroflow.example")
+    recorded = _recorded(company.name)
+    band = recorded.employee_band[0]
+    assert (band.value, band.quote) == ("51-200 employees", "Team: 51-200 employees")
+    documents = (await _corpus().fetch(company)).documents
+    got = verify(company, recorded, documents)
+    assert got.fields["employee_band"].value == "51-200"
+    assert got.fields["employee_band"].source_url == "corpus://aeroflow.example/about.html"
+    assert got.valid_cites == got.raw_cites  # every recorded cite is valid
+    assert got.findings == []
