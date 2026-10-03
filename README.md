@@ -98,6 +98,8 @@ Flags: amount off, date drift, missing in bank, duplicate receipt, duplicate cha
 
 ## Eval scorecard (receipts)
 
+Measured on 30 generator-made synthetic receipts with no held-out set; the reconciliation rules were refined against the same answer key. Treat it as a wiring and regression check, not a field benchmark.
+
 Live recording run on 30 receipts, tier `small`, model `claude-haiku-4-5-20251001`.
 
 | Measure | Result |
