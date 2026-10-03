@@ -80,4 +80,4 @@ pythonpath = ["."]
 markers = ["integration: needs Postgres (and Mailpit) from the compose stack or CI services"]
 
 [tool.uv.sources]
-aox-agent-core = { git = "https://github.com/AOX-LLC/agent-core", rev = "v0.1.0a3" }
+aox-agent-core = { git = "https://github.com/AOX-LLC/agent-core", rev = "v0.1.0a6" }

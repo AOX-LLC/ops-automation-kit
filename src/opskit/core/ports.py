@@ -1,4 +1,4 @@
-"""The kit's view of models, approvals, audit and runs, backed by agent-core v0.1.0a3.
+"""The kit's view of models, approvals, audit and runs, backed by agent-core v0.1.0a6.
 
 Everything outside `opskit.core` imports these names from here, never from agent-core
 directly (import-linter enforces it), so the pinned library can change behind this module.
