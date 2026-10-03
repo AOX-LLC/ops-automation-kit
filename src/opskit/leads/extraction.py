@@ -62,7 +62,7 @@ def derived_domain(company: Company) -> FieldValue | None:
     domain = normalize_website(company.website)
     if domain is None:
         return None
-    return FieldValue(value=domain, source_url=company.website, derived=True)
+    return FieldValue(value=domain, source_url=f"https://{domain}", derived=True)
 
 
 class Cite(BaseModel):

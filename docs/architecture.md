@@ -57,7 +57,7 @@ Hardening for every service except Postgres: `cap_drop: [ALL]`, `security_opt: [
 
 | Secret | Consumers |
 | --- | --- |
-| `postgres_superuser_password` | postgres |
+| `postgres_superuser_password` | postgres, db-roles |
 | `n8n_db_password` | postgres, n8n, n8n-import |
 | `opskit_owner_password` (migrations) | postgres, migrate |
 | `opskit_app_password` (runtime, requester role) | postgres, api, seed (its own copy; seed gets no other secret) |
@@ -99,17 +99,17 @@ A trigger on `core.approvals` (`approvals_guard`, enabled always) checks every i
 
 | From | To | Role | Also |
 | --- | --- | --- | --- |
-| (insert) | pending | requester | undecided; lifetime at most 7 days |
+| (insert) | pending | requester | undecided, no reason; lifetime at most 7 days; `created_at` within 5 minutes of the database clock; every field in the shape the application reads back |
 | pending | approved, rejected | approver | `decision`, `resolved_by` (not the requester), `resolved_at`; not expired |
 | pending | cancelled | requester | `closed_at` |
 | pending | expired | requester or approver | `closed_at`; `expires_at` already past |
 | approved | consumed | requester | `consumed_at`; not expired |
 
-Everything else is refused, including delete and truncate, and no update changes the request itself (action, payload, hash, requester, role, lifetime, resume URL, delegates). So direct SQL with the requester's credentials cannot approve, and neither can the owner or a superuser who has not logged in as the approver. A superuser can still drop the trigger.
+Everything else is refused, including delete and truncate, and no update changes the request itself (action, payload, hash, requester, role, lifetime, resume URL, delegates). Every time check compares instants (`statement_timestamp()`) or epoch seconds, so none depends on the session's TimeZone. Direct SQL with the requester's credentials cannot approve, and a plain `UPDATE` by the owner or a superuser is refused too. They are still trusted: either can disable the trigger, replace its function, or take on the approver's identity (`SET SESSION AUTHORIZATION`).
 
-**What this does not cover.** The api container holds both passwords, because one process serves `/v1` and the approver page. The split protects against a bug or injection on the n8n-facing paths and a leaked requester credential. It does not protect against compromise of the whole api process; separate containers would be needed for that. The database also cannot know *who* the approver is (every human shares the role), so the policy, in `PgApprovalQueue.resolve`, still checks that the decider is a human holding the role the **approver side** lists for that action (`ROLES_BY_ACTION`), who is not the requester. An action not in that list cannot be requested through the API or decided.
+**What this does not cover.** The api container holds both passwords, because one process serves `/v1` and the approver page. The split protects against SQL-level bugs and injection on the n8n-facing paths and a leaked requester credential. It does not stop a route that calls `resolve` (only the approver page's decision route does), and it does not protect against compromise of the whole api process; separate containers would be needed for that. The database also cannot know *who* the approver is (every human shares the role), so the policy, in `PgApprovalQueue.resolve`, still checks that the decider is a human holding the role the **approver side** lists for that action (`ROLES_BY_ACTION`), who is not the requester. An action not in that list cannot be requested through the API or decided.
 
-**Upgrading.** `core_0004` adds `closed_at` and `delegates`. `core_0006` checks the two roles are unprivileged and not members of each other, cancels approved, unused requests that have no `approval.decided` audit record (the old app role could set `status` with plain SQL), reports consumed ones that have none, then installs the trigger and the grants. The audit check rules out a plain flip, not a forged event, since the old app role could also append audit rows. `core_0005` adds audit schema 3: records already in the chain keep schema 2 and still verify, new ones must be schema 3, and `db_role` is set by an insert trigger to the inserting role.
+**Upgrading.** `core_0004` adds `closed_at` and `delegates`. `core_0006` checks the two roles are unprivileged and not members of each other, cancels **every** approved, unused request (the old app role could rewrite the status, payload hash or lifetime of any row, and the audit log cannot show which), logs their ids as warnings, lists consumed requests that have no `approval.decided` record for review, then installs the trigger and the grants. `core_0005` adds audit schema 3: records already in the chain keep schema 2 and still verify, new ones must be schema 3, and `db_role` is set by an insert trigger to the inserting role.
 
 Alembic is split into one branch per domain (`core`, `crm`, `receipts`, `leads`, `inbox`) and run with `alembic upgrade heads`. Phases 2 and 3 run in parallel, and each only adds revisions to its own branch, so their migration heads never conflict.
 
@@ -365,7 +365,7 @@ Model calls go through agent-core v0.1.0a3. Its settings are in `config/agent-co
 | Run context | agent-core's `RunContext(run_id=str(uuid), external_ids={"workflow", "n8n_workflow_id", "n8n_execution_id"})`. |
 | Models | agent-core's `ModelClient.call(...) -> CallResult`, wrapped by `MeteredModelClient`, which writes `core.model_calls` and a `model.call` audit record after each call. |
 | Approvals | `PgApprovalQueue` implements agent-core's `ApprovalQueue`: `submit` (with `delegates` and an extra `resume_url` keyword), `get`, `list_pending(principal, after=UUID)`, `resolve(principal)`, `consume` (the requester or a named delegate only), `cancel` and `expire_due(principal, now, limit)`. `RoleApproverPolicy(roles_by_action=ROLES_BY_ACTION)` runs inside `resolve`. The kit keeps its own extras: `close_pending`, `list_pending_page` (string cursor, `Page`) and the outbox. |
-| Audit | `PgAuditLog` implements agent-core's `AuditLog`: `append(AuditEvent) -> AuditRecord`, `iter_records`, `head`, `verify`. Records are hash-chained with agent-core's `compute_record_hash` (schema 2), and appends are serialised with a transaction-scoped advisory lock. `append_in(session, event)` writes inside a caller's transaction. |
+| Audit | `PgAuditLog` implements agent-core's `AuditLog`: `append(AuditEvent) -> AuditRecord`, `iter_records`, `head`, `verify`. Records are hash-chained with agent-core's `compute_record_hash` (schema 3; 2 for records already in the chain, with `db_role` set by the database), and appends are serialised with a transaction-scoped advisory lock. `append_in(session, event)` writes inside a caller's transaction. |
 | Principals | The approver is `Principal("approver", HUMAN, {"approver"})` and `required_role = "approver"`. n8n is `Principal("service.n8n", SERVICE)`, which can request approvals but never resolve them. |
 
 The Phase 1 audit table is kept read-only as `core.audit_log_v1`; migration `core_0003` creates the hash-chained `core.audit_log` with the same append-only triggers and grants.

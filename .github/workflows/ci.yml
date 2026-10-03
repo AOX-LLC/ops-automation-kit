@@ -61,7 +61,7 @@ jobs:
         run: >-
           uv run python -m opskit.evals.leads --label ci --out "$RUNNER_TEMP/scorecards"
           --min-field-accuracy 0.95 --require-valid-citations
-      - name: Recordings are valid a2 cassettes with no secrets
+      - name: Recordings are valid format-2 cassettes with no secrets
         run: uv run aox-agent-core cassettes check fixtures/cassettes
 
   samples:

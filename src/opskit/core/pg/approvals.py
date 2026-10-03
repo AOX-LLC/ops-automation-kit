@@ -6,12 +6,13 @@ audit record of it commit together; a decision also queues the n8n resume (the o
 the same transaction. Kept in the kit, beyond the protocol: the stored payload (shown to the
 approver), the resume URL, closing a timed-out request and a string-cursor page.
 
-A pending request past its lifetime is reported as EXPIRED by every read, with `closed_at`
-equal to `expires_at`, whether or not the sweep has stored it yet.
+A pending request past its lifetime is reported as EXPIRED by every read, whether or not the
+sweep has stored it yet; either way `closed_at` is its `expires_at`.
 """
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Collection, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -71,12 +72,22 @@ REQUEST_COLUMNS = [
     approvals.c.delegates,
 ]
 EXPIRE_BATCH_MAX = 500
+log = logging.getLogger(__name__)
 
 
 def _request(row: Any) -> ApprovalRequest:
     data = {column.name: getattr(row, column.name) for column in REQUEST_COLUMNS}
     data["delegates"] = frozenset(data["delegates"] or ())
     return ApprovalRequest.model_validate(data)
+
+
+def _readable(row: Any) -> ApprovalRequest | None:
+    """A listing skips a row the model refuses (and says so) rather than failing the page."""
+    try:
+        return _request(row)
+    except ValueError:
+        log.error("approval %s is malformed and is left out of the listing", row.id)
+        return None
 
 
 def _judged(request: ApprovalRequest, now: datetime) -> ApprovalRequest:
@@ -178,19 +189,22 @@ def _cancel_refusal(
 
 class PgApprovalQueue:
     """Two database roles meet here. Everything but `resolve` runs on the requester role's
-    sessions (the n8n-facing API); `resolve` alone runs on the approver role's, so the only
-    code holding a connection that can approve is the approver page's decision path."""
+    sessions (the n8n-facing API); `resolve` alone uses the approver role's. The database
+    refuses an approval from any other connection; nothing in this process stops a route
+    from calling `resolve`, so only the approver page's decision route does."""
 
     def __init__(
         self,
         session_factory: SessionFactory,
         *,
         policy: RoleApproverPolicy,
+        listed_actions: Collection[str],
         approver_session_factory: SessionFactory | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._approver_session_factory = approver_session_factory
         self._policy = policy
+        self._listed_actions = sorted(listed_actions)
 
     async def submit(
         self,
@@ -241,6 +255,7 @@ class PgApprovalQueue:
                 {
                     "action": action,
                     "expires_at": request.expires_at.isoformat(),
+                    "payload_sha256": request.payload_sha256,
                     "delegates": list[JsonValue](delegate_ids),
                 },
                 context,
@@ -275,6 +290,7 @@ class PgApprovalQueue:
                 approvals.c.status == ApprovalStatus.PENDING.value,
                 approvals.c.expires_at > datetime.now(UTC),
                 approvals.c.required_role.in_(sorted(principal.roles)),
+                approvals.c.action.in_(self._listed_actions),
                 approvals.c.requested_by != principal.id,
             )
             .order_by(approvals.c.created_at, approvals.c.id)
@@ -293,7 +309,7 @@ class PgApprovalQueue:
             )
         async with self._session_factory() as session:
             rows = (await session.execute(query)).all()
-        return [_request(row) for row in rows]
+        return [request for row in rows if (request := _readable(row)) is not None]
 
     async def list_pending_page(
         self, principal: Principal, *, limit: int = 50, cursor: str | None = None
@@ -350,8 +366,8 @@ class PgApprovalQueue:
     ) -> Exception:
         """Write the refusal (and an expiry, if that is why) and return the error to raise."""
         if reason is DenialReason.EXPIRED:
+            # Store the expiry if it is still pending and due; either way the refusal is audited.
             await self._store_expired(session, approvals.c.id == request.id, principal.id)
-            return ApprovalExpiredError(f"approval {request.id} has expired")
         await _audit(
             session,
             "approval.denied",
@@ -360,6 +376,8 @@ class PgApprovalQueue:
             {"reason": reason.value if reason else "unknown"},
             None,
         )
+        if reason is DenialReason.EXPIRED:
+            return ApprovalExpiredError(f"approval {request.id} has expired")
         if reason is DenialReason.NOT_PENDING:
             return ApprovalAlreadyResolvedError(
                 f"approval {request.id} is already {request.status.value}"
@@ -400,7 +418,7 @@ class PgApprovalQueue:
             "approval.decided",
             principal.id,
             request.id,
-            {"decision": decision.value},
+            {"decision": decision.value, "payload_sha256": request.payload_sha256},
             context or request.run_context,
         )
         if resume_url:
@@ -484,7 +502,10 @@ class PgApprovalQueue:
                     await session.execute(
                         update(approvals)
                         .where(approvals.c.id == request_id)
-                        .values(status=ApprovalStatus.CANCELLED.value, closed_at=func.now())
+                        .values(
+                            status=ApprovalStatus.CANCELLED.value,
+                            closed_at=func.statement_timestamp(),
+                        )
                         .returning(*REQUEST_COLUMNS)
                     )
                 ).one()
@@ -543,7 +564,7 @@ class PgApprovalQueue:
                 .where(
                     approvals.c.status == ApprovalStatus.PENDING.value,
                     approvals.c.expires_at <= (now or datetime.now(UTC)),
-                    approvals.c.expires_at <= func.now(),
+                    approvals.c.expires_at <= func.statement_timestamp(),
                 )
                 .order_by(approvals.c.expires_at, approvals.c.id)
                 .limit(limit)
@@ -562,9 +583,9 @@ class PgApprovalQueue:
             .where(
                 condition,
                 approvals.c.status == ApprovalStatus.PENDING.value,
-                approvals.c.expires_at <= func.now(),
+                approvals.c.expires_at <= func.statement_timestamp(),
             )
-            .values(status=ApprovalStatus.EXPIRED.value, closed_at=func.now())
+            .values(status=ApprovalStatus.EXPIRED.value, closed_at=approvals.c.expires_at)
             .returning(approvals.c.id, approvals.c.run_context)
         )
         expired = (await session.execute(statement)).all()

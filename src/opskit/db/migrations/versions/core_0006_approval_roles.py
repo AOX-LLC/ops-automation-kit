@@ -11,11 +11,10 @@ A trigger checks every insert, update and delete against that transition table, 
 database's own role names and clock, so direct SQL with the requester's credentials cannot
 approve either. `opskit_approver` is created by the db-roles step before this runs.
 
-Approvals already stored as approved and unused, with no `approval.decided` audit event, were
-approved by something other than the decision path (the old app role could set status with
-plain SQL). They are cancelled here, before the trigger exists, and counted in a notice. Ones
-already consumed are only counted. The audit check rules out a plain status flip, not a
-forged event: the old app role could also append audit rows.
+Every approval stored as approved and unused is cancelled here, before the trigger exists: the
+old app role could rewrite the status, payload hash or lifetime of any row, and the audit log
+cannot show which (it could also append audit rows). Their ids are logged as a warning. Ones
+already consumed cannot be undone; those with no `approval.decided` event are listed for review.
 
 Revision ID: core_0006
 Revises: core_0005
@@ -53,30 +52,26 @@ def upgrade() -> None:
             END IF;
         END $$;
 
-        -- Approved, unused, and no decision event: not from the decision path. Cancel them.
+        -- Every approved, unused request is cancelled: the old app role could rewrite the
+        -- status, the payload hash or the lifetime of any row, and the audit log cannot show
+        -- which. Approvals live minutes to days, so the cost is a request asked again.
         DO $$
         DECLARE
-            cancelled integer;
-            already_used integer;
+            cancelled uuid[];
+            unaudited uuid[];
         BEGIN
-            UPDATE core.approvals a
-            SET status = 'cancelled', closed_at = now(), decision = NULL,
-                resolved_by = NULL, resolved_at = NULL,
-                reason = left('closed by the role split: no approval.decided event; was marked '
-                              || 'approved by ' || coalesce(a.resolved_by, 'unknown'), 500)
-            WHERE a.status = 'approved'
-              AND NOT EXISTS (
-                  SELECT 1 FROM core.audit_log e
-                  WHERE e.action = 'approval.decided' AND e.subject_id = a.id::text
-                    AND e.payload::jsonb ->> 'decision' = 'approve')
-              AND NOT EXISTS (
-                  SELECT 1 FROM core.audit_log_v1 v
-                  WHERE v.subject_id = a.id::text AND v.action LIKE 'approval.%'
-                    AND v.action <> 'approval.requested');
-            GET DIAGNOSTICS cancelled = ROW_COUNT;
-            RAISE NOTICE 'role split: % unaudited approved request(s) cancelled', cancelled;
+            WITH closed AS (
+                UPDATE core.approvals a
+                SET status = 'cancelled', closed_at = now(), decision = NULL,
+                    resolved_by = NULL, resolved_at = NULL,
+                    reason = 'closed by the role split: approved before the database enforced it'
+                WHERE a.status = 'approved'
+                RETURNING a.id)
+            SELECT coalesce(array_agg(id), '{{}}') INTO cancelled FROM closed;
+            RAISE WARNING 'role split: % approved, unused request(s) cancelled: %',
+                cardinality(cancelled), cancelled;
             -- A consumed request was already used; it cannot be undone, only reported.
-            SELECT count(*) INTO already_used FROM core.approvals a
+            SELECT coalesce(array_agg(a.id), '{{}}') INTO unaudited FROM core.approvals a
             WHERE a.status = 'consumed'
               AND NOT EXISTS (
                   SELECT 1 FROM core.audit_log e
@@ -86,8 +81,8 @@ def upgrade() -> None:
                   SELECT 1 FROM core.audit_log_v1 v
                   WHERE v.subject_id = a.id::text AND v.action LIKE 'approval.%'
                     AND v.action <> 'approval.requested');
-            RAISE NOTICE 'role split: % consumed request(s) have no decision event; review them',
-                already_used;
+            RAISE WARNING 'role split: % consumed request(s) have no decision event; review: %',
+                cardinality(unaudited), unaudited;
         END $$;
         """  # noqa: S608 - only the two fixed role names are interpolated
     )
@@ -98,10 +93,15 @@ def upgrade() -> None:
             SET search_path = pg_catalog, pg_temp
         AS $$
         DECLARE
-            -- session_user too, so SET ROLE cannot cross sides (a superuser would have to log
-            -- in as the approver, which needs its password).
+            -- session_user too, so SET ROLE cannot cross sides. The owner and a superuser are
+            -- trusted all the same: either can disable this trigger or take on the approver's
+            -- identity (SET SESSION AUTHORIZATION).
             as_approver boolean := current_user = '{APPROVER}' AND session_user = '{APPROVER}';
             as_requester boolean := current_user = '{REQUESTER}' AND session_user = '{REQUESTER}';
+            -- statement_timestamp(), not now(): a transaction opened before expiry must not
+            -- carry an old clock past it. Every time check compares instants or epoch seconds:
+            -- none uses date or interval arithmetic, which depends on the session TimeZone.
+            db_now timestamptz := statement_timestamp();
         BEGIN
             IF TG_OP = 'DELETE' THEN
                 RAISE EXCEPTION 'approvals are never deleted';
@@ -116,10 +116,32 @@ def upgrade() -> None:
                    OR NEW.consumed_at IS NOT NULL OR NEW.closed_at IS NOT NULL THEN
                     RAISE EXCEPTION 'a new approval must be pending and undecided';
                 END IF;
+                IF NEW.reason IS NOT NULL THEN
+                    RAISE EXCEPTION 'a new approval has no reason yet';
+                END IF;
                 IF NEW.expires_at <= NEW.created_at
-                   OR NEW.expires_at - NEW.created_at > interval '7 days'
-                   OR NEW.created_at > now() + interval '5 minutes' THEN
+                   OR extract(epoch FROM NEW.expires_at) - extract(epoch FROM NEW.created_at)
+                      > 604800
+                   OR abs(extract(epoch FROM NEW.created_at) - extract(epoch FROM db_now)) > 300
+                THEN
                     RAISE EXCEPTION 'an approval lives at most 7 days from a current created_at';
+                END IF;
+                -- Field shapes the application reads back strictly: a row that fails them
+                -- would break every listing, so the requester role cannot store one.
+                IF NEW.action !~ '^[a-z][a-z0-9_]*([.][a-z][a-z0-9_]*)*$'
+                   OR length(NEW.action) > 100
+                   OR length(NEW.summary) NOT BETWEEN 1 AND 500
+                   OR NEW.requested_by !~ '^[A-Za-z0-9][A-Za-z0-9._:/-]{{0,199}}$'
+                   OR NEW.required_role !~ '^[a-z][a-z0-9_.-]{{0,63}}$'
+                   OR NEW.payload_sha256 !~ '^[0-9a-f]{{64}}$'
+                   OR jsonb_typeof(NEW.delegates) <> 'array'
+                   OR jsonb_array_length(NEW.delegates) > 16
+                   OR EXISTS (SELECT 1 FROM jsonb_array_elements(NEW.delegates) AS d(v)
+                              WHERE jsonb_typeof(d.v) <> 'string'
+                                 OR (d.v #>> '{{}}') !~ '^[A-Za-z0-9][A-Za-z0-9._:/-]{{0,199}}$')
+                   OR (NEW.run_context IS NOT NULL AND jsonb_typeof(NEW.run_context) <> 'object')
+                THEN
+                    RAISE EXCEPTION 'the approval has a field in a shape the application refuses';
                 END IF;
                 RETURN NEW;
             END IF;
@@ -152,7 +174,7 @@ def upgrade() -> None:
                    OR NEW.consumed_at IS NOT NULL OR NEW.closed_at IS NOT NULL THEN
                     RAISE EXCEPTION 'a decision needs a matching decision and a new approver';
                 END IF;
-                IF OLD.expires_at <= now() THEN
+                IF OLD.expires_at <= db_now THEN
                     RAISE EXCEPTION 'the approval has expired';
                 END IF;
             ELSIF OLD.status = 'pending' AND NEW.status = 'cancelled' THEN
@@ -170,7 +192,7 @@ def upgrade() -> None:
                 IF NOT (as_requester OR as_approver) THEN
                     RAISE EXCEPTION 'only the requester or approver role may expire';
                 END IF;
-                IF OLD.expires_at > now() THEN
+                IF OLD.expires_at > db_now THEN
                     RAISE EXCEPTION 'the approval has not reached its expiry';
                 END IF;
                 IF NEW.closed_at IS NULL OR (NEW.decision, NEW.resolved_by, NEW.resolved_at,
@@ -184,7 +206,7 @@ def upgrade() -> None:
                 IF NOT as_requester THEN
                     RAISE EXCEPTION 'only the requester role may consume';
                 END IF;
-                IF OLD.expires_at <= now() THEN
+                IF OLD.expires_at <= db_now THEN
                     RAISE EXCEPTION 'the approval has expired';
                 END IF;
                 IF NEW.consumed_at IS NULL OR (NEW.decision, NEW.resolved_by, NEW.resolved_at,
@@ -230,9 +252,14 @@ def upgrade() -> None:
         GRANT SELECT ON core.approvals TO {APPROVER};
         GRANT UPDATE (status, decision, resolved_by, resolved_at, reason, closed_at)
             ON core.approvals TO {APPROVER};
-        GRANT SELECT, INSERT ON core.outbox TO {APPROVER};
+        -- INSERT ... RETURNING id needs SELECT on id only.
+        GRANT SELECT (id), INSERT ON core.outbox TO {APPROVER};
+        -- Only the decision path creates outbox rows; the requester's worker updates them.
+        REVOKE INSERT, UPDATE ON core.outbox FROM {REQUESTER};
+        GRANT UPDATE (attempts, next_attempt_at, delivered_at, last_error)
+            ON core.outbox TO {REQUESTER};
         GRANT SELECT, INSERT ON core.audit_log TO {APPROVER};
-        """
+        """  # noqa: S608 - only the two fixed role names are interpolated
     )
 
 
@@ -244,6 +271,7 @@ def downgrade() -> None:
         DROP FUNCTION core.approvals_no_truncate();
         DROP FUNCTION core.approvals_guard();
         REVOKE ALL ON core.approvals, core.outbox, core.audit_log FROM {APPROVER};
+        GRANT INSERT, UPDATE ON core.outbox TO {REQUESTER};
         REVOKE USAGE ON SCHEMA core FROM {APPROVER};
         GRANT SELECT, INSERT, UPDATE ON core.approvals TO {REQUESTER};
         """

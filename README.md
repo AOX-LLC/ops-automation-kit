@@ -8,7 +8,7 @@ Three n8n + Claude workflows for small businesses, runnable from one `docker com
 
 n8n orchestrates. A small Python helper API does the work.
 
-**Status:** Phase 3b: the receipts, inbox and leads workflows run end to end (in replay by default) on agent-core v0.1.0a3.
+**Status:** Phase 3c: the receipts, inbox and leads workflows run end to end (in replay by default) on agent-core v0.1.0a3.
 
 <!-- GIF arrives with Phase 4 -->
 

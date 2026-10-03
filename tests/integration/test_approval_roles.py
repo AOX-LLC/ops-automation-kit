@@ -444,3 +444,36 @@ def test_a_closed_at_is_set_only_on_expired_and_cancelled_rows() -> None:
         "where (status in ('expired', 'cancelled')) <> (closed_at is not null)"
     )
     assert wrong.stdout.strip() == "0"
+
+
+# --- the lifetime cap does not depend on the session time zone -----------------------------
+
+
+def _insert_with_lifetime(zone: str, lifetime_s: int, created_offset_s: int = 0) -> str:
+    """Insert as the requester under `zone`; the block raises at the end so nothing is kept.
+    Returns the error text, which says whether the insert got past the guard."""
+    sql = (
+        f"set time zone '{zone}'; "
+        "do $$ begin insert into core.approvals (action, summary, payload, payload_sha256, "
+        "requested_by, required_role, created_at, expires_at) values ('kit_smoke.echo', 's', "
+        f"'{{}}', repeat('0', 64), 'service.n8n', 'approver', "
+        f"now() + {created_offset_s} * interval '1 second', "
+        f"now() + {created_offset_s + lifetime_s} * interval '1 second'); "
+        "raise exception 'inserted ok'; end $$"
+    )
+    return psql(sql, role="opskit_app").stderr
+
+
+@pytest.mark.parametrize("zone", ["+14", "-12", "UTC"])
+def test_the_seven_day_cap_holds_to_the_minute_in_any_session_time_zone(zone: str) -> None:
+    week = 7 * 24 * 3600
+    assert "inserted ok" in _insert_with_lifetime(zone, week)
+    assert "at most 7 days" in _insert_with_lifetime(zone, week + 60)
+    assert "at most 7 days" in _insert_with_lifetime(zone, 0)
+
+
+@pytest.mark.parametrize("zone", ["+14", "-12"])
+def test_a_backdated_or_future_created_at_is_refused_in_any_time_zone(zone: str) -> None:
+    assert "inserted ok" in _insert_with_lifetime(zone, 3600, created_offset_s=-240)
+    assert "at most 7 days" in _insert_with_lifetime(zone, 3600, created_offset_s=-420)
+    assert "at most 7 days" in _insert_with_lifetime(zone, 3600, created_offset_s=420)

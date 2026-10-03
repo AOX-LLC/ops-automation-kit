@@ -111,7 +111,7 @@ def test_the_domain_is_derived_from_the_website_we_were_given() -> None:
     )
     assert got is not None
     assert (got.value, got.derived, got.quote) == ("acme.example", True, "")
-    assert got.source_url == "https://ACME.example/"
+    assert got.source_url == "https://acme.example"
     assert extraction.derived_domain(Company("Nowhere", "Springfield", "")) is None
 
 

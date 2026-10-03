@@ -31,6 +31,22 @@ def ensure_approver_role(connection: psycopg.Connection[object], password: str) 
                     "NOBYPASSRLS"
                 ).format(role)
             )
+        # Every boot: the attributes, whatever they were, and a refusal if the role has grown
+        # any membership (it must not inherit another role's rights).
+        cursor.execute(
+            sql.SQL(
+                "ALTER ROLE {} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"
+            ).format(role)
+        )
+        cursor.execute(
+            "SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member "
+            "WHERE r.rolname = %s",
+            (APPROVER_ROLE,),
+        )
+        if cursor.fetchone() is not None:
+            raise SystemExit(f"{APPROVER_ROLE} must not be a member of any role")
+        # A failing statement is logged by the server with its text; keep the password out.
+        cursor.execute("SET LOCAL log_min_error_statement = panic")
         cursor.execute(sql.SQL("ALTER ROLE {} PASSWORD {}").format(role, sql.Literal(password)))
         cursor.execute(
             sql.SQL("GRANT CONNECT ON DATABASE {} TO {}").format(sql.Identifier(DATABASE), role)

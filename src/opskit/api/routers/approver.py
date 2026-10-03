@@ -21,6 +21,7 @@ from opskit.core.errors import (
     ApprovalAlreadyResolvedError,
     ApprovalExpiredError,
     ApprovalNotFoundError,
+    NotAuthorizedToResolveError,
 )
 from opskit.core.ports import APPROVER, ApprovalRequest, AuditEvent, Core, Decision
 from opskit.inbox.store import SEND_REPLY_ACTION
@@ -214,6 +215,8 @@ async def decide(
         )
     except ApprovalNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such approval") from exc
+    except NotAuthorizedToResolveError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "you may not decide this approval") from exc
     except (ApprovalExpiredError, ApprovalAlreadyResolvedError) as exc:
         approval = await approvals.get(approval_id)
         payload = await approvals.payload_of(approval_id)

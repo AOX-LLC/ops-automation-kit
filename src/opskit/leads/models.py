@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 FIELDS = ("domain", "industry", "employee_band", "hq_city", "founded_year", "description")
 
@@ -28,6 +28,12 @@ class FieldValue(BaseModel):
     source_url: str
     quote: str = ""
     derived: bool = False
+
+    @model_validator(mode="after")
+    def _a_page_field_has_its_quote(self) -> FieldValue:
+        if not self.derived and not self.quote:
+            raise ValueError("a field read from a page needs its quote")
+        return self
 
 
 class Finding(BaseModel):

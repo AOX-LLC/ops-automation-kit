@@ -40,6 +40,7 @@ def build_core(
         approvals=PgApprovalQueue(
             session_factory,
             policy=RoleApproverPolicy(roles_by_action=ROLES_BY_ACTION),
+            listed_actions=ROLES_BY_ACTION,
             approver_session_factory=approver_session_factory,
         ),
         audit=PgAuditLog(session_factory),
