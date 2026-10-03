@@ -2,7 +2,7 @@
   "accuracy": 1.0,
   "cost_per_case_usd": "0.0025007",
   "cost_total_usd": "0.050014",
-  "finished_at": "2026-10-03T05:16:17.643890Z",
+  "finished_at": "2026-10-03T05:41:01.130744Z",
   "format_version": 1,
   "latency_p50_ms": null,
   "latency_p95_ms": null,
@@ -130,7 +130,7 @@
           }
         },
         "findings": [],
-        "latency_ms": 0,
+        "latency_ms": 1,
         "pages": [
           "corpus://bluebirdbakehouse.example/about.html",
           "corpus://bluebirdbakehouse.example/press-wholesale-launch.html",
@@ -207,7 +207,7 @@
           }
         },
         "findings": [],
-        "latency_ms": 0,
+        "latency_ms": 1,
         "pages": [
           "corpus://bluebird.example/about.html",
           "corpus://quillby-chamber.example/members.html",
@@ -360,7 +360,7 @@
           }
         },
         "findings": [],
-        "latency_ms": 0,
+        "latency_ms": 1,
         "pages": [
           "corpus://cedarst.example/about.html",
           "corpus://tritown-directory.example/listing-dental.html",
@@ -1023,7 +1023,7 @@
           }
         },
         "findings": [],
-        "latency_ms": 1,
+        "latency_ms": 0,
         "pages": [
           "corpus://mistral.example/about.html",
           "corpus://alderton-chamber.example/members.html",
@@ -1334,7 +1334,7 @@
           }
         },
         "findings": [],
-        "latency_ms": 0,
+        "latency_ms": 1,
         "pages": [
           "corpus://redlineworks.example/about.html",
           "corpus://pellam-chamber.example/members.html",
@@ -1466,6 +1466,6 @@
       ]
     }
   ],
-  "started_at": "2026-10-03T05:16:17.535783Z",
+  "started_at": "2026-10-03T05:41:01.018431Z",
   "suite": "leads"
 }
