@@ -228,12 +228,23 @@ def _norm(text: str) -> str:
     return " ".join(text.lower().replace("\u2019", "'").split())
 
 
-# Idioms that contain a commitment word but promise nothing ("feel free to send it").
-_NOT_COMMITMENTS = re.compile(r"\bfeel free\b|\btoll-free\b", re.I)
+# "free" is a commitment only in a phrase that offers something at no cost: "free of charge",
+# "for free", "free inspection", "cancellation is free". The bare word is not ("feel free to
+# call", "toll-free number"), so it gets its own pattern instead of the generic one.
+_FREE_OFFER = re.compile(
+    r"(?<![\w-])free\s+(?!to\b)[a-z]+"  # free of charge, free inspection, free cancellation
+    r"|\bfor\s+free\b"
+    r"|\b(?:is|are|be|was|were|it's|that's|totally|completely)\s+free\b(?!\s+to\b)",
+    re.I,
+)
+_PHRASE_PATTERNS: dict[str, re.Pattern[str]] = {"free": _FREE_OFFER}
 
 
 def _phrase_pattern(phrase: str) -> re.Pattern[str]:
     """The phrase and its inflections: refund, refunds, refunded, refunding."""
+    custom = _PHRASE_PATTERNS.get(phrase)
+    if custom is not None:
+        return custom
     return re.compile(rf"\b{re.escape(phrase)}(?:s|es|d|ed|ing)?\b", re.I)
 
 
@@ -241,7 +252,7 @@ def _contexts_for(phrase: str, text: str) -> list[str]:
     """The sentence around each use of a commitment phrase, normalised."""
     pattern = _phrase_pattern(phrase)
     sentences = re.split(r"(?<=[.!?])\s+|\n+", text)
-    return [_norm(s) for s in sentences if pattern.search(_NOT_COMMITMENTS.sub(" ", s))]
+    return [_norm(s) for s in sentences if pattern.search(s)]
 
 
 @dataclass(frozen=True, slots=True)

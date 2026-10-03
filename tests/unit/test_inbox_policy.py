@@ -192,6 +192,34 @@ def test_idioms_that_promise_nothing_are_not_commitments() -> None:
     assert _grounding("Please feel free to send the unit list over.").commitment_flags == ()
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Please feel free to call us.",
+        "Feel free to reply with the unit list.",
+        "You can also use our toll-free number.",
+        "Feel free.",
+        "You are free to reschedule from the portal.",
+    ],
+)
+def test_the_bare_word_free_is_not_a_commitment(body: str) -> None:
+    assert _grounding(body).commitment_flags == ()
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "The visit is free of charge.",
+        "We will look at it for free.",
+        "We offer a free inspection.",
+        "Free shipping on parts.",
+        "The second visit is free.",
+    ],
+)
+def test_phrases_that_offer_something_free_are_commitments(body: str) -> None:
+    assert _grounding(body).commitment_flags
+
+
 def test_free_of_charge_is_still_a_commitment() -> None:
     assert _grounding("Feel free to book; the visit is free of charge.").commitment_flags
 
