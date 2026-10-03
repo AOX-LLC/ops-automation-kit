@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import json
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
@@ -436,16 +437,17 @@ def test_a_long_fence_tag_in_a_page_is_still_defanged() -> None:
 
 
 def _recorded(company: str) -> LeadExtraction:
-    """The model's recorded answer for one company, exactly as the cassette holds it."""
-    import json
-
-    for path in (REPO / "fixtures" / "cassettes" / "prompts" / "leads.extract" / "v1").glob(
-        "*.json"
-    ):
-        cassette = json.loads(path.read_text())
-        if f"Company: {company}\\n" in json.dumps(cassette["request"]):
-            return LeadExtraction.model_validate_json(cassette["response"]["text"])
-    raise AssertionError(f"no recording for {company}")
+    """The model's recorded answer for one company, exactly as the cassette holds it. A pin
+    on the recorded output: a re-recording that changes it should fail this test loudly."""
+    folder = REPO / "fixtures" / "cassettes" / "prompts" / extraction.EXTRACT_PROMPT.id
+    folder = folder / f"v{extraction.EXTRACT_PROMPT.version}"
+    found = [
+        json.loads(path.read_text())
+        for path in sorted(folder.glob("*.json"))
+        if f"Company: {company}\\n" in path.read_text()
+    ]
+    assert len(found) == 1, f"expected one recording for {company}, found {len(found)}"
+    return LeadExtraction.model_validate_json(found[0]["response"]["text"])
 
 
 async def test_the_recorded_aeroflow_band_with_its_unit_is_kept_as_the_bare_band() -> None:
@@ -461,53 +463,112 @@ async def test_the_recorded_aeroflow_band_with_its_unit_is_kept_as_the_bare_band
     assert got.findings == []
 
 
-@pytest.mark.parametrize(
-    "quote",
-    [
-        "Contact Jane Doe at jane@acme.example",
-        "Call us on 555-0142",
-        "Call (555) 010-0142 for a quote",
-        "Phone: +1 555 010 0142",
-        "Reach jane at acme dot com",
-        "jane [at] acme.example",
-        "jane\u200b@acme.example",
-        "jane\uff20acme.example",
-        "Call 5550100142 today",
-        "Tel 555.010.0142",
-    ],
-)
-def test_a_quote_with_contact_details_is_refused(quote: str) -> None:
-    doc = Document(URL, f"Springfield office. {quote}", own=True)
+CONTACT_QUOTES = [
+    "Springfield office, contact Jane Doe at jane@acme.example",
+    "Springfield office, call 555-0142",
+    "Springfield office, call (555) 010-0142",
+    "Springfield office, phone +1 555 010 0142",
+    "Springfield office, reach jane at acme dot com",
+    "Springfield office, jane [at] acme.example",
+    "Springfield office, jane @ acme.example",
+    "Springfield office, 5550100142",
+    "Springfield office, +44 20 7946 0958",
+    "Springfield office, 020 7946 0958",
+    "Springfield office, tel 555.0142",
+    "Springfield office, call 555\u20130142",  # en dash
+    "Springfield office, call 555\u2011010\u20110142",  # non-breaking hyphens
+    "Springfield office, call 555\u00a0010\u00a00142",  # no-break spaces
+    "Springfield office, call 555\u2212010\u22120142",  # minus signs
+    "Springfield office, jane\u200b@acme.example",  # zero-width space
+    "Springfield office, jane\uff20acme.example",  # full-width @
+]
+
+
+@pytest.mark.parametrize("quote", CONTACT_QUOTES)
+def test_a_quote_with_contact_details_is_refused_even_if_it_would_otherwise_be_kept(
+    quote: str,
+) -> None:
+    doc = Document(URL, quote, own=True)  # the page really says it, in whatever form
     got = verify(ACME, LeadExtraction(hq_city=[cite("Springfield", quote)]), [doc])
     assert got.fields["hq_city"] is None
     assert got.findings[0].detail == "quote contains contact details"
 
 
+def test_the_same_quote_without_the_contact_details_is_kept() -> None:
+    doc = Document(URL, "Springfield office", own=True)
+    got = verify(ACME, LeadExtraction(hq_city=[cite("Springfield", "Springfield office")]), [doc])
+    assert got.fields["hq_city"].value == "Springfield"
+
+
+def test_a_contact_detail_page_form_does_not_matter_when_the_model_normalises_it() -> None:
+    page = Document(URL, "Springfield office, call 555\u20130142", own=True)
+    ascii_quote = "Springfield office, call 555-0142"
+    got = verify(ACME, LeadExtraction(hq_city=[cite("Springfield", ascii_quote)]), [page])
+    assert got.fields["hq_city"] is None  # matches the page after normalising, then refused
+
+
 @pytest.mark.parametrize(
-    "quote",
+    ("value", "quote"),
     [
-        "Team: 11-50 employees",
-        "Founded 2002-2010",
-        "since 1999",
-        "Visit us at acme.example",
-        "Open 9-5, since 1999 and 2004-2010",
-        "51-200 employees across 3 sites",
+        ("11-50", "Team: 11-50 employees"),
+        ("501-1000", "Team: 501-1000 employees"),
+        ("201-500", "Serving 250-1000 homes a year, team of 201-500"),
+        ("11-50", "Founded 2002-2010, 11-50 employees"),
+        ("11-50", "Best of Springfield 2019 2020 2021, 11-50 employees"),
+        ("11-50", "Open 7 days @ 8am, 11-50 employees"),
+        ("11-50", "License HVAC-0012345678, 11-50 employees"),
+        ("51-200", "51-200 employees across 3 sites"),
     ],
 )
-def test_ordinary_numbers_are_not_mistaken_for_phone_numbers(quote: str) -> None:
-    doc = Document(URL, f"About us. {quote}", own=True)
-    got = verify(ACME, LeadExtraction(employee_band=[cite("11-50", quote)]), [doc])
-    assert not any(f.detail == "quote contains contact details" for f in got.findings)
+def test_ordinary_numbers_are_not_mistaken_for_contact_details(value: str, quote: str) -> None:
+    doc = Document(URL, quote, own=True)
+    got = verify(ACME, LeadExtraction(employee_band=[cite(value, quote)]), [doc])
+    assert got.fields["employee_band"].value == value
 
 
-async def test_research_stores_the_cited_spans_and_never_the_page_text() -> None:
+def test_a_domain_quote_with_the_site_name_is_not_contact_details() -> None:
+    doc = Document(URL, "Visit us at acme.example", own=True)
+    got = verify(
+        ACME, LeadExtraction(domain=[cite("acme.example", "Visit us at acme.example")]), [doc]
+    )
+    assert got.fields["domain"].value == "acme.example"
+
+
+def test_a_description_quoting_a_contact_line_is_refused() -> None:
+    line = "Write to jane [at] acme.example for a quote."
+    doc = Document(URL, line, own=True)
+    assert (
+        verify(ACME, LeadExtraction(description=[cite(line, line)]), [doc]).fields["description"]
+        is None
+    )
+
+
+async def test_the_web_retriever_redacts_contact_details_before_the_model_sees_them() -> None:
+    page = "<p>Springfield office.</p><p>Call 555-0142 or jane@acme.example.</p>"
+    fake = FakeWeb({"/": page})
+    got = await _web(fake).fetch(Company("Acme", "X", "acme.example"))
+    text = got.documents[0].text
+    assert "Springfield office." in text
+    assert "555-0142" not in text and "jane@acme.example" not in text
+
+
+async def test_research_outcome_carries_the_cited_spans_and_never_the_page_text() -> None:
     contact = Document(
         "https://acme.example/contact",
         "Visit our Springfield office.\nAsk for Jane Doe, jane@acme.example, 555-0142.",
         own=True,
     )
     models = FakeModels(
-        LeadExtraction(hq_city=[cite("Springfield", "Visit our Springfield office.", contact.url)])
+        LeadExtraction(
+            hq_city=[cite("Springfield", "Visit our Springfield office.", contact.url)],
+            description=[
+                cite(
+                    "Ask for Jane Doe",
+                    "Ask for Jane Doe, jane@acme.example, 555-0142.",
+                    contact.url,
+                )
+            ],
+        )
     )
     out = await extraction.research_company(
         models,
@@ -519,6 +580,7 @@ async def test_research_stores_the_cited_spans_and_never_the_page_text() -> None
     assert "Springfield" in stored and out.pages == [contact.url]
     for private in ("Jane Doe", "jane@acme.example", "555-0142"):
         assert private not in stored
+    assert out.fields["description"] is None  # the one cite that quoted them was refused
     assert set(out.model_dump()) == {
         *("company_name", "city_hint", "website", "domain", "status", "reason", "fields"),
         *("findings", "pages", "raw_cites", "valid_cites", "replay_key", "cost_usd", "latency_ms"),

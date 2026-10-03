@@ -9,6 +9,7 @@ asks robots.txt first, and reads at most five pages from a fixed path list.
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path
@@ -121,6 +122,44 @@ _UNIFY = {
 }
 
 
+# Contact details: email addresses (plain and spelled out), and phone numbers in the usual
+# shapes. Live pages have them redacted before the model sees the text, and a quote that
+# still carries one is refused (see extraction.py). Deliberately not a bare 7-digit match:
+# "501-1000 employees" is a headcount band, so those need a cue word ("call 555-0142").
+CONTACT_DETAILS = re.compile(
+    r"[\w.+-]+\s*@\s*[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}"  # jane@host.com, jane @ host.com
+    r"|[\w.+-]+\s*(?:\[at\]|\(at\)|\{at\})\s*[\w-]+"  # jane [at] host
+    r"|[\w.+-]+\s+at\s+[\w-]+\s+(?:dot|\[dot\]|\(dot\))\s+[a-z]{2,}"  # jane at host dot com
+    r"|\+\d[\d\s().-]{6,}\d"  # +44 20 7946 0958
+    r"|(?<![\w-])\d{10,}(?!\d)"  # 5550100142
+    r"|(?<!\d)\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}(?!\d)"  # (555) 010-0142, 555.010.0142
+    r"|(?<!\d)0\d{2,4}[\s-]\d{3,4}[\s-]\d{3,4}(?!\d)"  # 020 7946 0958
+    r"|(?:call|phone|tel|telephone|fax|mobile|cell|text|ph)\b\W{0,12}\d{3}[\s.-]?\d{4}(?!\d)",
+    re.I,
+)
+_UNIFY_DASH = {
+    **dict.fromkeys((0x2010, 0x2011, 0x2012, 0x2013, 0x2014, 0x2212), "-"),
+    0xA0: " ",
+    0x2009: " ",
+    0x202F: " ",
+}
+
+
+def visible(text: str) -> str:
+    """The text as a reader sees it: invisible format characters removed, NFKC folded, and
+    typographic dashes and spaces made plain."""
+    shown = "".join(c for c in text if unicodedata.category(c) != "Cf")
+    return unicodedata.normalize("NFKC", shown).translate(_UNIFY_DASH)
+
+
+def has_contact_details(text: str) -> bool:
+    return CONTACT_DETAILS.search(visible(text)) is not None
+
+
+def redact_contact_details(text: str) -> str:
+    return CONTACT_DETAILS.sub("[contact details removed]", visible(text))
+
+
 def normalize(text: str) -> str:
     """Case-folded, dashes and quotes unified, whitespace collapsed (for matching only)."""
     return " ".join(text.translate(_UNIFY).casefold().split())
@@ -207,7 +246,9 @@ class WebRetriever:
                 continue
             seen.add(page.url)
             text = html_to_text(page.text) if page.content_type == "text/html" else page.text
-            result.documents.append(Document(url=page.url, text=text[:MAX_DOC_CHARS], own=True))
+            # People's email addresses and phone numbers never reach the model or the quotes.
+            text = redact_contact_details(text[:MAX_DOC_CHARS])
+            result.documents.append(Document(url=page.url, text=text, own=True))
             result.notes.append(f"{path}: fetched {page.url}")
         if not result.documents:
             result.unresolved_reason = "no pages could be read"

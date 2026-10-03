@@ -20,7 +20,6 @@ apart, never evidence.
 from __future__ import annotations
 
 import re
-import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -37,31 +36,19 @@ from opskit.leads.models import (
     ResearchOutcome,
     empty_fields,
 )
-from opskit.leads.retrieval import Company, Document, Retriever, normalize, normalize_website
+from opskit.leads.retrieval import (
+    Company,
+    Document,
+    Retriever,
+    has_contact_details,
+    normalize,
+    normalize_website,
+    visible,
+)
 
 MAX_QUOTE_CHARS = 400
 MAX_PROMPT_CHARS = 60_000
 BAND = re.compile(r"^\d{1,6}(?:-\d{1,6}|\+)$")
-# Contact details are not research: a quote that carries an email address or a phone number is
-# refused, so nothing from a contact page's people ends up in the stored excerpt. The check
-# runs on the quote as a reader sees it (hidden characters removed, full-width forms folded)
-# and covers spelled-out "name at host dot com" addresses and long digit runs.
-_CONTACT_DETAILS = re.compile(
-    r"[\w.+-]+\s*(?:@|\[at\]|\(at\)|\{at\})\s*[\w-]+"  # jane@host, jane [at] host
-    r"|[\w.+-]+\s+at\s+[\w-]+\s+(?:dot|\[dot\]|\(dot\))\s+[a-z]{2,}"  # jane at host dot com
-    r"|\+\d[\d\s().-]{6,}\d"  # +1 555 010 0142
-    r"|(?<!\d)(?:\d[\s().-]?){10,}(?!\d)"  # ten or more digits, however separated
-    r"|(?<!\d)\d{3}[\s.-]\d{4}(?!\d)",  # 555-0142
-    re.I,
-)
-
-
-def _visible(text: str) -> str:
-    """The text as a reader sees it: invisible format characters removed, NFKC folded."""
-    shown = "".join(c for c in text if unicodedata.category(c) != "Cf")
-    return unicodedata.normalize("NFKC", shown)
-
-
 _BAND_UNIT = re.compile(r"\s+(?:employees?|staff|people|team members)$")
 
 
@@ -201,7 +188,7 @@ def _check_cite(
         return reject("unknown source")
     if not quote_n or len(cite.quote) > MAX_QUOTE_CHARS or quote_n not in normalize(doc.text):
         return reject(f"quote not in {cite.source_url}")
-    if _CONTACT_DETAILS.search(_visible(cite.quote)):
+    if has_contact_details(cite.quote) or has_contact_details(cite.value):
         return reject("quote contains contact details")
     if not doc.own:
         # A listing holds many companies, one per line: the quote must be one line of it, and
@@ -222,10 +209,10 @@ def _check_cite(
     elif name == "domain":
         stored = domain
     elif name in ("industry", "hq_city", "description"):
-        stored = _visible(cite.value).strip()
+        stored = visible(cite.value).strip()
     # Store exactly what was checked: the quote as a reader sees it, without hidden characters.
     return FieldValue(
-        value=stored, source_url=cite.source_url, quote=_visible(cite.quote).strip()
+        value=stored, source_url=cite.source_url, quote=visible(cite.quote).strip()
     ), None
 
 
