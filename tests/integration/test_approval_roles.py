@@ -559,7 +559,8 @@ def test_a_row_the_application_could_not_read_back_cannot_be_stored(
     )
     result = psql(sql, role="opskit_app")
     assert result.returncode != 0, result.stdout
-    assert SHAPE_REFUSED in result.stderr, result.stderr
+    # The 3d bounds trigger runs before the guard and names a wrong JSON type itself.
+    assert SHAPE_REFUSED in result.stderr or "must be a JSON" in result.stderr, result.stderr
 
 
 def test_a_new_row_cannot_arrive_with_a_reason() -> None:
