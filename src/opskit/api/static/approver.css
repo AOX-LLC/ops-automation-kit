@@ -112,3 +112,12 @@ button.link {
 .approve-bar { border-top: 1px dashed var(--pui-pending); }
 :focus-visible { outline: 2px solid var(--pui-focus-ring); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+/* A caution that is not an error: dark amber on pale amber, AA contrast (about 5.4:1). */
+.warning {
+  margin: var(--pui-space-3) 0 0; padding: var(--pui-space-2) var(--pui-space-3);
+  color: #8A5A00; background: #FDF3DC; border: 1px solid #8A5A00; border-radius: var(--pui-radius-sm);
+}
+.warning ul { margin: var(--pui-space-1) 0 0; padding-left: var(--pui-space-5); }
+.badge-warning { color: #8A5A00; background: #FDF3DC; border: 1px solid #8A5A00; }
+.brand-logo { display: block; }
+.brand-lockup { display: flex; align-items: center; gap: var(--pui-space-3); }

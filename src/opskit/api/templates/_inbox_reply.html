@@ -1,0 +1,41 @@
+{# An inbox.send_reply approval: the original message (untrusted) and the exact reply.
+   Email content is escaped by autoescape; it is never marked safe. #}
+<h2>Original message (untrusted)</h2>
+<section class="card stack" aria-label="Original message">
+  <p class="meta">From <span class="mono">{{ inbox_view.original_from }}</span></p>
+  <p class="meta">Subject <span class="mono">{{ inbox_view.original_subject }}</span></p>
+  <p class="meta">Received
+    <span class="mono">{% if inbox_view.original_received_at %}{{ inbox_view.original_received_at.strftime("%Y-%m-%d %H:%M UTC") }}{% else %}unknown{% endif %}</span>
+    · Triage <span class="badge badge-sample">{{ inbox_view.category }}</span>
+    <span class="badge badge-sample">{{ inbox_view.priority }} priority</span></p>
+  <pre>{{ inbox_view.original_body }}</pre>
+</section>
+
+<h2>Reply, exactly as it will be sent</h2>
+<section class="card stack" aria-label="Reply">
+  <p class="meta">To <span class="mono">{{ inbox_view.to }}</span></p>
+  <p class="meta">Subject <span class="mono">{{ inbox_view.subject }}</span></p>
+  <pre>{{ inbox_view.body }}</pre>
+</section>
+{% if inbox_view.commitment_flags %}
+<div class="warning" role="note">
+  <span class="badge badge-warning">Warning</span>
+  <strong>Check before approving: commitment phrases</strong>
+  <ul>
+    {% for flag in inbox_view.commitment_flags %}<li class="mono">{{ flag }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% if inbox_view.reply_to_differs %}
+<p class="warning" role="note"><span class="badge badge-warning">Warning</span>
+  Reply-To differs from From. Replies go to the From address only.</p>
+{% endif %}
+
+<h2>Facts used from the business profile</h2>
+{% if inbox_view.facts_used %}
+<ul class="card">
+  {% for fact in inbox_view.facts_used %}<li>{{ fact }}</li>{% endfor %}
+</ul>
+{% else %}
+<p class="hint">The draft quotes no profile facts.</p>
+{% endif %}

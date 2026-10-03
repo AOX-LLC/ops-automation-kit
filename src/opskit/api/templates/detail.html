@@ -12,8 +12,12 @@
   requested <span class="mono">{{ approval.created_at.strftime("%Y-%m-%d %H:%M UTC") }}</span> ·
   expires <span class="mono">{{ approval.expires_at.strftime("%Y-%m-%d %H:%M UTC") }}</span></p>
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if inbox_view %}
+{% include "_inbox_reply.html" %}
+{% else %}
 <h2>What you are approving</h2>
 <pre class="card">{{ subject_json }}</pre>
+{% endif %}
 {% if approval.status.value == "pending" %}
 <p class="hint">Waiting for your approval. Nothing is sent until you approve.</p>
 <form method="post" action="/approver/approvals/{{ approval.id }}/decision" class="card stack approve-bar">
@@ -21,8 +25,8 @@
   <label for="note">Note (optional)</label>
   <textarea id="note" name="note" rows="3" maxlength="500"></textarea>
   <div class="actions">
-    <button type="submit" name="decision" value="approve">Approve and continue</button>
-    <button type="submit" name="decision" value="reject" class="secondary">Reject</button>
+    <button type="submit" name="decision" value="approve">{% if inbox_view %}Approve and send{% else %}Approve and continue{% endif %}</button>
+    <button type="submit" name="decision" value="reject" class="secondary">{% if inbox_view %}Reject (stays unsent){% else %}Reject{% endif %}</button>
   </div>
 </form>
 {% endif %}
