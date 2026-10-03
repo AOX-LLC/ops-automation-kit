@@ -17,8 +17,8 @@ def test_committed_workflows_pass(path: Path) -> None:
     assert check_workflow(json.loads(path.read_text())) == []
 
 
-def test_there_are_four_workflows() -> None:
-    assert len(WORKFLOWS) == 4
+def test_there_are_five_workflows() -> None:
+    assert len(WORKFLOWS) == 5
 
 
 def test_code_node_is_rejected() -> None:

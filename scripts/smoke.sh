@@ -3,7 +3,8 @@
 #   1. clean boot, 2. seeded data visible in n8n, Mailpit and Postgres,
 #   3. approval round-trip through n8n's Wait node and the approver page,
 #   4. the receipts workflow end to end in replay: extract, reconcile, spreadsheet, email,
-#   5. a second boot that changes nothing.
+#   5. the inbox workflow end to end in replay: triage, quarantine, drafts, approve one, reject one,
+#   6. a second boot that changes nothing.
 # Secrets stay in shell variables and are never echoed.
 set -euo pipefail
 
@@ -25,6 +26,7 @@ wait_for() {  # wait_for <seconds> <description> <command...>
     done
 }
 mail_count() { curl -sf "$MAILPIT/api/v1/messages?limit=1" | json 'd["total"]'; }
+mail_count_is() { [ "$(mail_count)" = "$1" ]; }
 expected_sample_files() {
     find samples -type f \( -path 'samples/receipts/*' -o -path 'samples/leads/*' -o -path 'samples/crm/*' -o -path 'samples/inbox/*' \) | wc -l
 }
@@ -52,7 +54,7 @@ curl -sf "$N8N/healthz/readiness" >/dev/null || fail "n8n is not ready"
 eval "$(docker compose run --rm -T kit-login python -m opskit.bootstrap.show_login --env)"
 
 step "seeded data"
-check_seeded_data 25
+check_seeded_data 28
 
 step "n8n owner login and workflows"
 curl -sf -c "$WORK/n8n.jar" -H 'content-type: application/json' \
@@ -62,7 +64,7 @@ curl -sf -b "$WORK/n8n.jar" "$N8N/rest/workflows" > "$WORK/workflows.json"
 ids=$(json '",".join(sorted(w["id"] for w in d["data"]))' < "$WORK/workflows.json")
 [ "$ids" = "inbox00000000001,kitSmoke00000001,leads00000000001,receipts00000001" ] || fail "unexpected workflows: $ids"
 active=$(json '",".join(sorted(w["id"] for w in d["data"] if w.get("active")))' < "$WORK/workflows.json")
-[ "$active" = "kitSmoke00000001,receipts00000001" ] || fail "unexpected published workflows: $active"
+[ "$active" = "inbox00000000001,kitSmoke00000001,receipts00000001" ] || fail "unexpected published workflows: $active"
 echo "workflows: $ids (published: $active)"
 
 step "approval round-trip"
@@ -89,7 +91,7 @@ wait_for 90 "the smoke run to resume and finish" run_done
 for action in approval.requested approval.decided approval.resumed model.call; do
     [ "$(sql "select count(*) from core.audit_log where action = '$action'")" -ge 1 ] || fail "no $action audit row"
 done
-wait_for 30 "the Send Email node's message in Mailpit" test "$(mail_count)" = 26
+wait_for 30 "the Send Email node's message in Mailpit" mail_count_is 29
 echo "approved on the page, n8n resumed, audit rows written, confirmation email captured"
 
 step "receipts workflow end to end (replay)"
@@ -102,12 +104,80 @@ wait_for 240 "the receipts run to finish" receipts_done
 flagged=$(sql "select summary->>'flagged' from receipts.reconciliations order by created_at desc limit 1")
 [ -n "$flagged" ] || fail "no reconciliation was stored"
 ls exports/reconciliation-*.xlsx >/dev/null 2>&1 || fail "no spreadsheet in exports/"
-wait_for 30 "the receipts summary email" test "$(mail_count)" = 27
+wait_for 30 "the receipts summary email" mail_count_is 30
 echo "30 receipts extracted from recordings, reconciled ($flagged flagged), spreadsheet written, summary emailed"
+
+step "inbox workflow end to end (replay)"
+inbox() { [ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "X-Kit-Token: $KIT_WEBHOOK_TOKEN" "$N8N/webhook/inbox-run")" = "200" ]; }
+wait_for 90 "the inbox webhook to register" inbox
+inbox_triaged() { [ "$(sql 'select count(*) from inbox.triage')" = "28" ]; }
+wait_for 240 "all 28 messages to be triaged" inbox_triaged
+inbox_done() {
+    [ "$(sql "select count(*) from core.runs where workflow = 'inbox' and status = 'running'")" = "0" ] \
+        && [ "$(sql "select count(*) from core.runs where workflow = 'inbox' and status = 'succeeded'")" -ge 1 ]
+}
+wait_for 120 "the inbox run to finish" inbox_done
+message_id_of() { grep -h -m1 -i '^Message-ID:' "$1" | sed 's/^[^:]*: *//' | tr -d '<>\r '; }
+expected_held=$(for m in m15 m26 m27; do message_id_of "samples/inbox/messages/$m.eml"; done | sort | paste -sd, -)
+[ "$(sql 'select count(*) from inbox.triage where quarantined')" = "3" ] || fail "expected 3 quarantined messages"
+held=$(sql "select trim(both '<>' from message_id) from inbox.triage where quarantined" | sort | paste -sd, -)
+[ "$held" = "$expected_held" ] || fail "quarantined messages are not the injection samples: $held"
+[ "$(sql 'select count(*) from inbox.drafts d join inbox.triage t using (message_id) where t.quarantined')" = "0" ] \
+    || fail "a quarantined message got a draft"
+
+drafts_settled() { [ "$(sql "select count(*) from inbox.drafts where status = 'draft'")" = "0" ] \
+    && [ "$(sql "select count(*) from inbox.drafts where status = 'pending'")" -ge 2 ]; }
+wait_for 180 "at least two drafts to wait for approval" drafts_settled
+
+m28_id=$(message_id_of samples/inbox/messages/m28.eml)
+m28_from=$(sed -n 's/^From:.*<\(.*\)>.*/\1/p' samples/inbox/messages/m28.eml | head -1)
+m28=$(sql "select status || '|' || to_addr || '|' || reply_to_differs || '|' || coalesce(approval_id::text, '') from inbox.drafts where trim(both '<>' from message_id) = '$m28_id'")
+if [ -n "$m28" ]; then
+    IFS='|' read -r m28_status m28_to m28_differs m28_approval <<< "$m28"
+    if [ "$m28_status" != "failed" ]; then
+        [ "$m28_to" = "$m28_from" ] || fail "the m28 draft goes to $m28_to, not the From address $m28_from"
+        [ "$m28_differs" = "t" ] || fail "the m28 draft should record that Reply-To differs"
+    fi
+fi
+
+# Pending inbox approvals whose page offers "Approve and send", read from the approver list.
+curl -sf -b "$WORK/approver.jar" "$API/approver/" | grep -o '/approver/approvals/[0-9a-f-]*' | sort -u > "$WORK/approval-paths"
+: > "$WORK/sendable"
+while read -r path; do
+    curl -sf -b "$WORK/approver.jar" "$API$path" > "$WORK/candidate.html" || continue
+    grep -q "Approve and send" "$WORK/candidate.html" && echo "$path" >> "$WORK/sendable"
+done < "$WORK/approval-paths"
+[ "$(wc -l < "$WORK/sendable")" -ge 2 ] || fail "fewer than two reply approvals offer 'Approve and send'"
+approve_path=$(sed -n 1p "$WORK/sendable")
+reject_path=$(sed -n 2p "$WORK/sendable")
+approve_id=${approve_path##*/}
+reject_id=${reject_path##*/}
+
+decide() {  # decide <approval path> <approve|reject>
+    curl -sf -b "$WORK/approver.jar" "$API$1" > "$WORK/detail.html"
+    [ "$(curl -s -o /dev/null -w '%{http_code}' -b "$WORK/approver.jar" \
+        --data-urlencode "decision=$2" --data-urlencode "csrf_token=$(csrf_from "$WORK/detail.html")" \
+        "$API$1/decision")" = "303" ] || fail "$2 decision POST failed"
+}
+decide "$approve_path" approve
+decide "$reject_path" reject
+
+draft_status() { sql "select status from inbox.drafts where approval_id = '$1'"; }
+sent() { [ "$(draft_status "$approve_id")" = "sent" ]; }
+rejected() { [ "$(draft_status "$reject_id")" = "rejected" ]; }
+wait_for 120 "the approved draft to be sent" sent
+wait_for 120 "the rejected draft to be closed" rejected
+[ "$(sql "select count(*) from inbox.drafts where approval_id = '$reject_id' and sent_at is not null")" = "0" ] \
+    || fail "a rejected draft was sent"
+reply_to=$(sql "select to_addr from inbox.drafts where approval_id = '$approve_id'")
+replied() { [ "$(curl -sf -G "$MAILPIT/api/v1/search" --data-urlencode "query=from:inbox@kit.example to:$reply_to" | json 'd["messages_count"]')" -ge 1 ]; }
+wait_for 30 "the approved reply in Mailpit" replied
+wait_for 30 "the inbox summary and the reply in Mailpit" mail_count_is 32
+echo "28 messages triaged, 3 held and never drafted, 1 reply approved and sent, 1 rejected and left unsent"
 
 step "second boot without -v"
 docker compose up -d --wait || fail "second boot did not become healthy"
-check_seeded_data 27
+check_seeded_data 32
 if docker compose logs --no-color n8n-import | grep -q WARNING; then
     fail "second boot re-imported a workflow that did not change"
 fi

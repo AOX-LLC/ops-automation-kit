@@ -1,0 +1,345 @@
+{
+  "active": false,
+  "connections": {
+    "Approved?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Release",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Close draft",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Check recorded decision": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Approved?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Draft to approve": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Request approval",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Release": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send reply",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Request approval": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Wait for decision",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Send reply": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Mark sent",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Wait for decision": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Check recorded decision",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "id": "inboxReply000001",
+  "name": "Inbox reply approval",
+  "nodes": [
+    {
+      "id": "reply-note-01",
+      "name": "Note 01",
+      "parameters": {
+        "content": "## Inbox reply approval\nOne execution per draft, so each draft waits on its own signed resume URL. The branch reads the decision the helper recorded, never the resume request's body.\n\nThe release call is single use and bound to the exact payload the approver saw: n8n sends the to, subject and body it returns, nothing else.",
+        "height": 200,
+        "width": 620
+      },
+      "position": [
+        -60,
+        -300
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "id": "reply-trigger-01",
+      "name": "Draft to approve",
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "draft_id",
+              "type": "string"
+            },
+            {
+              "name": "run_id",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        0
+      ],
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "reply-approval-01",
+      "name": "Request approval",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ JSON.stringify({ run_id: $json.run_id, resume_url: $execution.resumeUrl }) }}",
+        "method": "POST",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "=http://api:8000/v1/inbox/drafts/{{ $json.draft_id }}/approval"
+      },
+      "position": [
+        220,
+        0
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "reply-wait-01",
+      "name": "Wait for decision",
+      "parameters": {
+        "httpMethod": "POST",
+        "limitType": "afterTimeInterval",
+        "limitWaitTime": true,
+        "options": {},
+        "resume": "webhook",
+        "resumeAmount": 72,
+        "resumeUnit": "hours"
+      },
+      "position": [
+        440,
+        0
+      ],
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "webhookId": "d9a3f5b7-2c4e-4b86-a1d0-7e6c8f2b4a04"
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "reply-check-01",
+      "name": "Check recorded decision",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "method": "GET",
+        "options": {
+          "timeout": 10000
+        },
+        "url": "=http://api:8000/v1/approvals/{{ $('Request approval').item.json.approval_id }}"
+      },
+      "position": [
+        660,
+        0
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "reply-if-01",
+      "name": "Approved?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "reply-cond-approved-01",
+              "leftValue": "={{ $json.status }}",
+              "operator": {
+                "operation": "equals",
+                "type": "string"
+              },
+              "rightValue": "approved"
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          }
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "position": [
+        880,
+        0
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "reply-release-01",
+      "name": "Release",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "method": "POST",
+        "options": {
+          "timeout": 10000
+        },
+        "url": "=http://api:8000/v1/inbox/drafts/{{ $('Draft to approve').item.json.draft_id }}/release"
+      },
+      "position": [
+        1100,
+        -100
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "credentials": {
+        "smtp": {
+          "id": "kitMailpitSmtp01",
+          "name": "Mailpit SMTP (local, captures all mail)"
+        }
+      },
+      "id": "reply-email-01",
+      "name": "Send reply",
+      "parameters": {
+        "emailFormat": "text",
+        "fromEmail": "inbox@kit.example",
+        "options": {},
+        "subject": "={{ $json.subject }}",
+        "text": "={{ $json.body }}",
+        "toEmail": "={{ $json.to }}"
+      },
+      "position": [
+        1320,
+        -100
+      ],
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "reply-sent-01",
+      "name": "Mark sent",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "method": "POST",
+        "options": {
+          "timeout": 10000
+        },
+        "url": "=http://api:8000/v1/inbox/drafts/{{ $('Draft to approve').item.json.draft_id }}/sent"
+      },
+      "position": [
+        1540,
+        -100
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "reply-close-01",
+      "name": "Close draft",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "method": "POST",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": false,
+        "url": "=http://api:8000/v1/inbox/drafts/{{ $('Draft to approve').item.json.draft_id }}/close"
+      },
+      "position": [
+        1100,
+        120
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all"
+  },
+  "tags": []
+}
