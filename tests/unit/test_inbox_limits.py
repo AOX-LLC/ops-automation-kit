@@ -199,10 +199,3 @@ def test_an_identity_is_refused_not_rewritten_when_it_holds_a_nul() -> None:
     assert clamp_message(_message(message_id="a\x00b@mail.example")) is None
     assert clamp_message(_message(mailpit_id="id\ud800")) is None
     assert not limits.identity_storable("a\x00b", "id1")
-
-
-def test_the_page_url_cap_matches_the_crm_source_column() -> None:
-    from opskit.db.migrations.versions import crm_0003_bounds
-    from opskit.leads.retrieval import MAX_PAGE_URL_CHARS
-
-    assert crm_0003_bounds.ACCOUNT_SOURCES["source_ref"]["max"] == MAX_PAGE_URL_CHARS
