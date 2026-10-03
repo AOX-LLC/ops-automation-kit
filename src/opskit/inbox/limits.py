@@ -27,19 +27,26 @@ RECEIVED_MAX = datetime(2100, 1, 1, tzinfo=UTC)
 
 
 def identity_storable(message_id: str, mailpit_id: str) -> bool:
-    """Whether a message with these ids can be stored at all (neither id can be cut)."""
-    cleaned_message_id, cleaned_mailpit_id = _clean(message_id), _clean(mailpit_id)
+    """Whether a message with these ids can be stored as they are. An id is never cut or cleaned:
+    a rewritten one could equal another message's and overwrite it, so it is refused instead."""
     return (
-        1 <= len(cleaned_message_id) <= MESSAGE_ID_MAX
-        and 1 <= len(cleaned_mailpit_id) <= MAILPIT_ID_MAX
+        1 <= len(message_id) <= MESSAGE_ID_MAX
+        and 1 <= len(mailpit_id) <= MAILPIT_ID_MAX
+        and _clean(message_id) == message_id
+        and _clean(mailpit_id) == mailpit_id
     )
 
 
 def _identity_fits(field: str, value: str, limit: int) -> bool:
     """False, with a content-free warning, when an identifier cannot be stored as it is."""
-    if 1 <= len(value) <= limit:
+    if 1 <= len(value) <= limit and _clean(value) == value:
         return True
-    log.warning("inbox message skipped: %s has length %d (allowed 1..%d)", field, len(value), limit)
+    log.warning(
+        "inbox message skipped: %s has length %d (allowed 1..%d, no NUL or lone surrogate)",
+        field,
+        len(value),
+        limit,
+    )
     return False
 
 
@@ -66,16 +73,13 @@ def clamp_message(msg: InboundMessage) -> InboundMessage | None:
     Text is cut by characters; an out-of-range `received_at` becomes None. An identifier is
     never cut (a cut one would name a different message), so such a message is skipped.
     """
-    message_id, mailpit_id = _clean(msg.message_id), _clean(msg.mailpit_id)
     if not (
-        _identity_fits("message_id", message_id, MESSAGE_ID_MAX)
-        and _identity_fits("mailpit_id", mailpit_id, MAILPIT_ID_MAX)
+        _identity_fits("message_id", msg.message_id, MESSAGE_ID_MAX)
+        and _identity_fits("mailpit_id", msg.mailpit_id, MAILPIT_ID_MAX)
     ):
         return None
     return msg.model_copy(
         update={
-            "message_id": message_id,
-            "mailpit_id": mailpit_id,
             "from_header": _clean(msg.from_header)[:HEADER_MAX],
             "reply_to_header": _text(msg.reply_to_header, ADDRESS_LIST_MAX),
             "to_addr": _text(msg.to_addr, ADDRESS_LIST_MAX),

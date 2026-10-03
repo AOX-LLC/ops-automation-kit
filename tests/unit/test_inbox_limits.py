@@ -194,6 +194,8 @@ def test_nul_and_lone_surrogates_are_cleaned_from_every_text_field() -> None:
         value.encode("utf-8")  # no lone surrogate is left
 
 
-def test_a_nul_in_an_identity_is_removed_before_it_is_measured() -> None:
-    assert clamp_message(_message(message_id="a\x00b@mail.example")) is not None
-    assert clamp_message(_message(message_id="\x00")) is None
+def test_an_identity_is_refused_not_rewritten_when_it_holds_a_nul() -> None:
+    """Cleaning "a\\x00b" to "ab" could land on another message's id and overwrite it."""
+    assert clamp_message(_message(message_id="a\x00b@mail.example")) is None
+    assert clamp_message(_message(mailpit_id="id\ud800")) is None
+    assert not limits.identity_storable("a\x00b", "id1")
