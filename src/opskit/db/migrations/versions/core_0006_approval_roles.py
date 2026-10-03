@@ -32,6 +32,9 @@ APPROVER = "opskit_approver"
 
 
 def upgrade() -> None:
+    # Nothing may change an approval while the upgrade decides which ones to trust: an old
+    # api still running could otherwise flip a row between the cancel step and the trigger.
+    op.execute("LOCK TABLE core.approvals IN EXCLUSIVE MODE")
     op.execute(
         f"""
         DO $$
@@ -46,9 +49,14 @@ def upgrade() -> None:
             ) THEN
                 RAISE EXCEPTION 'the requester and approver roles must have no special rights';
             END IF;
-            IF pg_has_role('{REQUESTER}', '{APPROVER}', 'MEMBER')
-               OR pg_has_role('{APPROVER}', '{REQUESTER}', 'MEMBER') THEN
-                RAISE EXCEPTION 'the requester and approver roles must not share membership';
+            IF EXISTS (
+                SELECT 1 FROM pg_auth_members m
+                JOIN pg_roles granted ON granted.oid = m.roleid
+                JOIN pg_roles member ON member.oid = m.member
+                WHERE member.rolname IN ('{REQUESTER}', '{APPROVER}')
+                   OR granted.rolname IN ('{REQUESTER}', '{APPROVER}')
+            ) THEN
+                RAISE EXCEPTION 'the requester and approver roles must be in no role and have none';
             END IF;
         END $$;
 
@@ -126,21 +134,26 @@ def upgrade() -> None:
                 THEN
                     RAISE EXCEPTION 'an approval lives at most 7 days from a current created_at';
                 END IF;
-                -- Field shapes the application reads back strictly: a row that fails them
-                -- would break every listing, so the requester role cannot store one.
+                -- Field shapes, matched to the application's models as far as SQL can: a row
+                -- that fails them is skipped by the approver's listing (and its paging counts
+                -- fetched rows, not valid ones), but refusing it here keeps it out entirely.
                 IF NEW.action !~ '^[a-z][a-z0-9_]*([.][a-z][a-z0-9_]*)*$'
                    OR length(NEW.action) > 100
                    OR length(NEW.summary) NOT BETWEEN 1 AND 500
-                   OR NEW.requested_by !~ '^[A-Za-z0-9][A-Za-z0-9._:/-]{{0,199}}$'
+                   OR NEW.requested_by !~ '^[A-Za-z0-9][A-Za-z0-9._:-]{{0,127}}$'
                    OR NEW.required_role !~ '^[a-z][a-z0-9_.-]{{0,63}}$'
                    OR NEW.payload_sha256 !~ '^[0-9a-f]{{64}}$'
                    OR jsonb_typeof(NEW.delegates) <> 'array'
                    OR jsonb_array_length(NEW.delegates) > 16
                    OR EXISTS (SELECT 1 FROM jsonb_array_elements(NEW.delegates) AS d(v)
                               WHERE jsonb_typeof(d.v) <> 'string'
-                                 OR (d.v #>> '{{}}') !~ '^[A-Za-z0-9][A-Za-z0-9._:/-]{{0,199}}$')
-                   OR (NEW.run_context IS NOT NULL
-                       AND jsonb_typeof(NEW.run_context) NOT IN ('object', 'null'))
+                                 OR (d.v #>> '{{}}') !~ '^[A-Za-z0-9][A-Za-z0-9._:-]{{0,127}}$')
+                   OR (NEW.run_context IS NOT NULL AND (
+                          jsonb_typeof(NEW.run_context) <> 'object'
+                          OR jsonb_typeof(NEW.run_context -> 'run_id') <> 'string'
+                          OR (NEW.run_context ->> 'run_id')
+                             !~ '^[A-Za-z0-9][A-Za-z0-9._:/-]{{0,199}}$'
+                          OR (NEW.run_context - 'run_id' - 'external_ids') <> '{{}}'::jsonb))
                 THEN
                     RAISE EXCEPTION 'the approval has a field in a shape the application refuses';
                 END IF;
@@ -273,6 +286,7 @@ def downgrade() -> None:
         DROP FUNCTION core.approvals_guard();
         REVOKE ALL ON core.approvals, core.outbox, core.audit_log FROM {APPROVER};
         GRANT INSERT, UPDATE ON core.outbox TO {REQUESTER};
+        -- NOTE: this removes the guard and re-opens the hole it closed. Down is for development.
         REVOKE USAGE ON SCHEMA core FROM {APPROVER};
         GRANT SELECT, INSERT, UPDATE ON core.approvals TO {REQUESTER};
         """

@@ -64,7 +64,7 @@ approvals = Table(
     Column("consumed_at", DateTime(timezone=True)),
     Column("closed_at", DateTime(timezone=True)),
     Column("reason", Text),
-    Column("run_context", JSONB),
+    Column("run_context", JSONB(none_as_null=True)),
     Column("delegates", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
     schema="core",
 )

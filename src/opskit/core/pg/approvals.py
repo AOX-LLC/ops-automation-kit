@@ -278,10 +278,11 @@ class PgApprovalQueue:
             raise ApprovalNotFoundError(f"approval {request_id} not found")
         return dict(payload)
 
-    async def list_pending(
-        self, principal: Principal, *, limit: int = 100, after: UUID | None = None
-    ) -> Sequence[ApprovalRequest]:
-        """Pending, unexpired requests this principal may resolve, oldest first."""
+    async def _pending_rows(
+        self, principal: Principal, *, limit: int, after: UUID | None
+    ) -> list[Any]:
+        """Raw rows for the pending listing: unexpired, listed actions, a role this principal
+        holds, not its own, oldest first."""
         if principal.kind is not PrincipalKind.HUMAN or not principal.roles:
             return []
         query = (
@@ -308,7 +309,13 @@ class PgApprovalQueue:
                 )
             )
         async with self._session_factory() as session:
-            rows = (await session.execute(query)).all()
+            return list((await session.execute(query)).all())
+
+    async def list_pending(
+        self, principal: Principal, *, limit: int = 100, after: UUID | None = None
+    ) -> Sequence[ApprovalRequest]:
+        """Pending, unexpired requests this principal may resolve, oldest first."""
+        rows = await self._pending_rows(principal, limit=limit, after=after)
         return [request for row in rows if (request := _readable(row)) is not None]
 
     async def list_pending_page(
@@ -318,9 +325,13 @@ class PgApprovalQueue:
             after = UUID(cursor) if cursor else None
         except ValueError:
             after = None
-        items = list(await self.list_pending(principal, limit=limit + 1, after=after))
-        next_cursor = str(items[limit - 1].id) if len(items) > limit else None
-        return Page(items=items[:limit], next_cursor=next_cursor)
+        rows = await self._pending_rows(principal, limit=limit + 1, after=after)
+        # Paging counts the rows fetched, not the ones that parsed: an unreadable row must not
+        # end the listing and hide every request after it.
+        page = rows[:limit]
+        next_cursor = str(page[-1].id) if len(rows) > limit else None
+        items = [request for row in page if (request := _readable(row)) is not None]
+        return Page(items=items, next_cursor=next_cursor)
 
     async def resolve(
         self,
@@ -337,7 +348,7 @@ class PgApprovalQueue:
         async with self._approver_session_factory.begin() as session:
             row = (
                 await session.execute(
-                    select(*REQUEST_COLUMNS, approvals.c.resume_url)
+                    select(*REQUEST_COLUMNS, approvals.c.resume_url, approvals.c.payload)
                     .where(approvals.c.id == request_id)
                     .with_for_update()
                 )
@@ -346,7 +357,24 @@ class PgApprovalQueue:
                 raise ApprovalNotFoundError(f"approval {request_id} not found")
             request = _request(row)
             verdict = self._policy.evaluate(principal, request, now=now)
-            if not verdict.allowed:
+            denial: Exception | None
+            if verdict.allowed and approval_payload_hash(request.action, row.payload) != (
+                request.payload_sha256
+            ):
+                # What the approver is shown is not what the approval would cover: the
+                # requester role writes both columns, and the database cannot compare them.
+                await _audit(
+                    session,
+                    "approval.denied",
+                    principal.id,
+                    request.id,
+                    {"reason": "payload_mismatch"},
+                    None,
+                )
+                denial = NotAuthorizedToResolveError(
+                    f"approval {request.id}: the payload shown does not match what it covers"
+                )
+            elif not verdict.allowed:
                 denial = await self._record_denial(session, request, principal, verdict.reason)
             else:
                 denial = None

@@ -124,12 +124,16 @@ def test_the_guard_still_fires_when_replication_role_is_set(make_approval: MakeA
 def test_the_approver_role_can_decide(
     decision: str, status: str, make_approval: MakeApproval
 ) -> None:
+    """Decide inside a block that raises at the end, so nothing is kept but the row count is
+    seen (psql prints only the last of several statements)."""
     approval_id = make_approval()["approval_id"]
     sql = (
-        f"begin; update core.approvals set status = '{status}', decision = '{decision}', "
-        f"resolved_by = 'a.person', resolved_at = now() where id = '{approval_id}'; rollback;"
+        "do $$ declare n int; begin "
+        f"update core.approvals set status = '{status}', decision = '{decision}', "
+        f"resolved_by = 'a.person', resolved_at = now() where id = '{approval_id}'; "
+        "get diagnostics n = row_count; raise exception 'updated=%', n; end $$"
     )
-    assert psql(sql, role="opskit_approver").returncode == 0
+    assert "updated=1" in psql(sql, role="opskit_approver").stderr
 
 
 def test_the_approver_role_cannot_approve_an_expired_request(make_approval: MakeApproval) -> None:
@@ -490,20 +494,87 @@ PLANT = (
 )
 
 
-def test_a_row_that_would_break_the_approver_listing_cannot_be_stored() -> None:
-    for summary in ("", "x" * 501):
-        sql = PLANT.format(action="kit_smoke.echo", summary=summary, extra_cols="", extra_vals="")
-        result = psql(sql, role="opskit_app")
-        assert result.returncode != 0 and "shape the application refuses" in result.stderr
-    bad_action = PLANT.format(action="Not An Action", summary="s", extra_cols="", extra_vals="")
-    assert psql(bad_action, role="opskit_app").returncode != 0
-    with_reason = PLANT.format(
+SHAPE_REFUSED = "shape the application refuses"
+
+
+@pytest.mark.parametrize(
+    ("columns", "values"),
+    [
+        ("summary", "''"),
+        ("summary", "repeat('x', 501)"),
+        ("action", "'Not An Action'"),
+        ("action", "'a.' || repeat('b', 100)"),
+        ("requested_by", "'svc/x'"),
+        ("requested_by", "'s' || repeat('x', 150)"),
+        ("required_role", "'Not A Role'"),
+        ("payload_sha256", "'nothex'"),
+        ("delegates", "'[\"has/slash\"]'::jsonb"),
+        ("delegates", "'[1]'::jsonb"),
+        ("delegates", "'{}'::jsonb"),
+        ("run_context", "'{}'::jsonb"),
+        ("run_context", "'[]'::jsonb"),
+        ("run_context", "'\"x\"'::jsonb"),
+        ("run_context", "'null'::jsonb"),
+        ("run_context", '\'{"run_id": "r1", "extra": 1}\'::jsonb'),
+        ("run_context", "'{\"run_id\": 5}'::jsonb"),
+    ],
+)
+def test_a_row_the_application_could_not_read_back_cannot_be_stored(
+    columns: str, values: str
+) -> None:
+    defaults = {
+        "action": "'kit_smoke.echo'",
+        "summary": "'s'",
+        "payload": "'{}'::jsonb",
+        "payload_sha256": "repeat('0', 64)",
+        "requested_by": "'service.n8n'",
+        "required_role": "'approver'",
+        "expires_at": "now() + interval '1 hour'",
+    }
+    row = {**defaults, columns: values}
+    sql = (
+        f"insert into core.approvals ({', '.join(row)}) values ({', '.join(row.values())}) "
+        "returning id"
+    )
+    result = psql(sql, role="opskit_app")
+    assert result.returncode != 0, result.stdout
+    assert SHAPE_REFUSED in result.stderr, result.stderr
+
+
+def test_a_new_row_cannot_arrive_with_a_reason() -> None:
+    sql = PLANT.format(
         action="kit_smoke.echo", summary="s", extra_cols=", reason", extra_vals=", 'preset'"
     )
-    assert "no reason yet" in psql(with_reason, role="opskit_app").stderr
+    assert "no reason yet" in psql(sql, role="opskit_app").stderr
 
 
-def test_an_unlisted_action_never_reaches_the_queue_and_is_refused_with_a_403_and_an_audit(
+def test_a_request_without_a_run_stores_sql_null_for_its_context() -> None:
+    out = in_api(
+        """
+        async def main(queue):
+            request = await submit(queue)
+            return {"id": str(request.id)}
+        """
+    )
+    stored = psql(f"select run_context is null from core.approvals where id = '{out['id']}'")
+    assert stored.stdout.strip() == "t"
+
+
+def test_an_unreadable_row_does_not_end_the_listing_for_the_rows_after_it() -> None:
+    """The listing counts fetched rows, so a page with a skipped row still has a next cursor."""
+    out = in_api(
+        """
+        from opskit.core.ports import APPROVER
+        async def main(queue):
+            rows = [await submit(queue) for _ in range(3)]
+            page = await queue.list_pending_page(APPROVER, limit=2, cursor=None)
+            return {"items": len(page.items), "more": page.next_cursor is not None}
+        """
+    )
+    assert out["items"] <= 2 and out["more"] is True
+
+
+def test_an_unlisted_action_is_left_off_the_listing_and_refused_with_a_403_and_an_audit(
     approver: ApproverClient,
 ) -> None:
     planted = psql(
@@ -512,7 +583,16 @@ def test_an_unlisted_action_never_reaches_the_queue_and_is_refused_with_a_403_an
     )
     assert planted.returncode == 0, planted.stderr
     approval_id = planted.stdout.split()[0]
-    assert approval_id not in approver.client.get("/approver/").text
+    control = in_api(
+        """
+        from opskit.core.ports import APPROVER
+        async def main(queue):
+            listed = await queue.list_pending(APPROVER, limit=100000)
+            return {"ids": [str(r.id) for r in listed]}
+        """
+    )["ids"]
+    assert control, "the listing returned nothing, so absence proves nothing"
+    assert approval_id not in control
     response = approver.decide(approval_id, "approve", csrf=approver.page_csrf())
     assert response.status_code == 403
     assert audit_count("approval.denied", approval_id) == 1

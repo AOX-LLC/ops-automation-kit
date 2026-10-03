@@ -6,7 +6,9 @@ process holds that connection, so nothing in the process stops a route from call
 (not text) and fails if anything else calls it, aliases it, or reaches it by name.
 
 `resolve` is also pathlib's method, so a call counts as the queue's unless it is the
-no-argument form `Path.resolve()` (optionally `strict=`).
+no-argument form `Path.resolve()` (optionally `strict=`). This catches the direct ways round
+the rule, not every way: a name built at run time (`getattr(q, "re" + "solve")`) or reached
+through `__dict__` is not detected, so a reviewer still reads new callers.
 """
 
 from __future__ import annotations
@@ -31,6 +33,7 @@ class _Scan(ast.NodeVisitor):
         self.calls: list[tuple[str, int]] = []  # (enclosing function, line)
         self.other: list[tuple[str, int, str]] = []  # (what, line, why)
         self._functions: list[str] = []
+        self._classes: list[str] = []
         self._called: set[int] = set()
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
@@ -39,8 +42,17 @@ class _Scan(ast.NodeVisitor):
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         self._enter(node)
 
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        self._classes.append(node.name)
+        self.generic_visit(node)
+        self._classes.pop()
+
+    def visit_Constant(self, node: ast.Constant) -> None:
+        if node.value == "resolve":
+            self.other.append(("resolve", node.lineno, "names resolve in a string"))
+
     def _enter(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        if node.name == "resolve":
+        if node.name == "resolve" and self._classes[-1:] != ["PgApprovalQueue"]:
             self.other.append((node.name, node.lineno, "defines a method named resolve"))
         self._functions.append(node.name)
         self.generic_visit(node)
@@ -51,7 +63,13 @@ class _Scan(ast.NodeVisitor):
         if isinstance(func, ast.Attribute) and func.attr == "resolve":
             self._called.add(id(func))
             if not _is_path_resolve(node):
-                where = self._functions[-1] if self._functions else "<module>"
+                # Only a top-level function counts as the route; a nested one is named after it.
+                if not self._functions:
+                    where = "<module>"
+                elif len(self._functions) == 1:
+                    where = self._functions[0]
+                else:
+                    where = f"{self._functions[0]}.<nested>"
                 self.calls.append((where, node.lineno))
         name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", "")
         if name in BY_NAME_CALLS and any(
@@ -79,8 +97,7 @@ def violations(modules: dict[str, str]) -> list[str]:
             else:
                 found.append(f"{path}:{line} calls resolve() in {where}()")
         for what, line, why in scan.other:
-            if not (path == DEFINED_IN and why == "defines a method named resolve"):
-                found.append(f"{path}:{line} {why} ({what})")
+            found.append(f"{path}:{line} {why} ({what})")
     if allowed_calls != 1 and ALLOWED[0] in modules:
         found.append(f"{ALLOWED[0]}: {ALLOWED[1]}() must call resolve() exactly once")
     return found
@@ -121,6 +138,8 @@ def test_the_decision_route_is_the_approver_pages_post_decision() -> None:
         ("def f(q):\n    return operator.methodcaller('resolve')", "reaches resolve by name"),
         ("class Q:\n    async def resolve(self): ...", "defines a method named resolve"),
         ("x = q.resolve(decision=d)", "calls resolve() in <module>"),
+        ("def f(q):\n    return q.__dict__['resolve']", "names resolve in a string"),
+        ("class Other:\n    async def resolve(self): ...", "defines a method named resolve"),
     ],
 )
 def test_the_scan_catches_the_ways_round_it(snippet: str, expected: str) -> None:
@@ -143,3 +162,20 @@ def test_a_second_call_even_inside_the_decision_module_is_caught() -> None:
     )
     result = violations({ALLOWED[0]: source})
     assert any("sneaky" in line for line in result), result
+
+
+def test_a_nested_function_named_decide_is_not_the_route() -> None:
+    source = (
+        "async def decide(a):\n    await a.resolve(i, decision=d, principal=p)\n"
+        "async def other(a):\n    async def decide(b):\n"
+        "        await b.resolve(i, decision=d, principal=p)\n"
+    )
+    result = violations({ALLOWED[0]: source})
+    assert any("other.<nested>" in line for line in result), result
+
+
+def test_the_queue_may_define_resolve_only_in_the_queue_class() -> None:
+    ok = "class PgApprovalQueue:\n    async def resolve(self): ...\n"
+    assert violations({DEFINED_IN: ok}) == []
+    other = "class Helper:\n    async def resolve(self): ...\n"
+    assert any("defines a method" in line for line in violations({DEFINED_IN: other}))
