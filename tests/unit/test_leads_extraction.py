@@ -464,6 +464,9 @@ async def test_the_recorded_aeroflow_band_with_its_unit_is_kept_as_the_bare_band
 
 
 CONTACT_QUOTES = [
+    "Springfield office, 212-1000",
+    "Springfield office, 800-5000",
+    "Springfield office, Team: 501-1000",  # a range with nothing counted is not a headcount
     "Springfield office, 212-3456",
     "Springfield office, 555-1234",
     "Springfield office, 555-0100",

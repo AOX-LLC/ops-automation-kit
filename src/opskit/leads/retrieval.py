@@ -140,10 +140,24 @@ CONTACT_DETAILS = re.compile(
     rf"|(?<![a-z])(?:{_CUES})\b[^\d\n]{{0,25}}\d{{3}}[ .\-]?\d{{4}}(?!\d)",
     re.I,
 )
-# A bare seven-digit number, 555-0142, 212-3456 or 555 0142. It is a phone number unless it
-# reads as a headcount or price range: the second half climbs above the first and is a round
-# number ("501-1000", "250-1000", "150-2500"). A line number is rarely round.
-_LOCAL_NUMBER = re.compile(r"(?<![\d$-])(\d{3})[ \t\n.-](\d{4})(?![\d-])")
+# A bare seven-digit number: 555-0142, 212-3456, 800-5000. It is a phone number unless it
+# reads as a count or a price: a round number that climbs, and is followed by what is being
+# counted ("501-1000 employees", "250-1000 homes"). Digits alone cannot tell the two apart
+# (212-1000 is a real number), so a range with no unit is treated as a phone number.
+_COUNTED = (
+    r"employees?|staff|people|workers|team members|members|homes|customers|clients|jobs|units"
+    r"|users|projects|vehicles|locations|offices|sq|square|per"
+)
+_LOCAL_NUMBER = re.compile(
+    rf"(?<![\d$-])(\d{{3}})[ \t\n.-](\d{{4}})(?![\d-])(\s*(?:{_COUNTED})\b)?", re.I
+)
+
+
+def _is_local_number(match: re.Match[str]) -> bool:
+    first, second, counted = match.groups()
+    round_and_climbing = second.endswith("00") and int(second) > int(first)
+    return not (round_and_climbing and counted)
+
 
 # Dashes and spaces that are not the plain ASCII ones, mapped to the plain ones.
 _DASHES_AND_SPACES = {
@@ -168,12 +182,6 @@ def visible(text: str) -> str:
     dashes and spaces made plain."""
     shown = "".join(c for c in text if unicodedata.category(c) != "Cf" and ord(c) not in _INVISIBLE)
     return unicodedata.normalize("NFKC", shown).translate(_DASHES_AND_SPACES)
-
-
-def _is_local_number(match: re.Match[str]) -> bool:
-    first, second = match.groups()
-    round_and_climbing = second.endswith("00") and int(second) > int(first)
-    return not round_and_climbing
 
 
 def has_contact_details(text: str) -> bool:

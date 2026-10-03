@@ -190,7 +190,10 @@ def _check_cite(
         return reject(f"quote not in {cite.source_url}")
     if len(cite.value) > MAX_QUOTE_CHARS:
         return reject("value too long")
-    if has_contact_details(cite.quote) or has_contact_details(cite.value):
+    # A band is checked as validated below; its bare value (501-1000) has no unit to read it by.
+    if has_contact_details(cite.quote) or (
+        name != "employee_band" and has_contact_details(cite.value)
+    ):
         return reject("quote contains contact details")
     if not doc.own:
         # A listing holds many companies, one per line: the quote must be one line of it, and
