@@ -1,7 +1,7 @@
 """One manual live research run against a single public site. Nothing is stored or committed.
 
     AGENT_CORE_MODE=live uv run python -m opskit.evals.live_leads \\
-        --website automatedoperationsexperts.com --name "Automated Operations Experts"
+        --website acme.example --name "Acme Plumbing"
 
 Only for a site you own or whose robots.txt and terms allow automated access. It fetches
 robots.txt, then at most five fixed paths through the guarded fetcher, asks the small model
@@ -21,7 +21,7 @@ from aox_agent_core import AgentClient, Mode, RunContext, load_config
 
 from opskit.leads.extraction import research_company
 from opskit.leads.netguard import GuardedFetcher
-from opskit.leads.retrieval import Company, Retrieval, WebRetriever
+from opskit.leads.retrieval import Company, Retrieval, WebRetriever, normalize_website
 from opskit.leads.robots import RobotsCache
 
 REPO = Path(__file__).resolve().parents[3]
@@ -43,7 +43,7 @@ async def run(company: Company) -> dict[str, object]:
     try:
         robots = RobotsCache(fetcher)
         retrieval = await WebRetriever(fetcher, robots).fetch(company)
-        decision = await robots.decision(company.website or "")
+        decision = await robots.decision(normalize_website(company.website) or "")
     finally:
         await fetcher.aclose()
     report: dict[str, object] = {

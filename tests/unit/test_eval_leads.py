@@ -60,3 +60,25 @@ def test_one_case_per_company_and_the_suite_matches_the_csv() -> None:
     suite = leads.leads_suite()
     assert len(suite.cases) == 20
     assert len({c.id for c in suite.cases}) == 20
+
+
+def test_the_citation_scorer_rereads_the_corpus_and_catches_a_quote_that_is_not_there() -> None:
+    from aox_agent_core.evals import EvalCase
+
+    case = EvalCase(id="x", input={}, expected={})
+    url = "corpus://aeroflow.example/about.html"
+    good = {
+        "fields": {"industry": {"value": "v", "source_url": url, "quote": "Team: 51-200 employees"}}
+    }
+    good["pages"] = [url]
+    assert leads.CitationScorer().score(case, good).passed
+    bad = {
+        "fields": {"industry": {"value": "v", "source_url": url, "quote": "Team: 5000 employees"}}
+    }
+    bad["pages"] = [url]
+    assert not leads.CitationScorer().score(case, bad).passed
+    unseen = {"fields": good["fields"], "pages": []}
+    assert not leads.CitationScorer().score(case, unseen).passed
+    escape = {"fields": {"industry": {"value": "v", "source_url": "corpus://../x/y", "quote": "q"}}}
+    escape["pages"] = ["corpus://../x/y"]
+    assert not leads.CitationScorer().score(case, escape).passed

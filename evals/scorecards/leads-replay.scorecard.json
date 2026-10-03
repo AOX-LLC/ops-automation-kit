@@ -2,7 +2,7 @@
   "accuracy": 1.0,
   "cost_per_case_usd": "0.0025007",
   "cost_total_usd": "0.050014",
-  "finished_at": "2026-10-03T04:57:57.062846Z",
+  "finished_at": "2026-10-03T05:14:05.091741Z",
   "format_version": 1,
   "latency_p50_ms": null,
   "latency_p95_ms": null,
@@ -284,7 +284,7 @@
           }
         },
         "findings": [],
-        "latency_ms": 1,
+        "latency_ms": 0,
         "pages": [
           "corpus://brightwell.example/about.html",
           "corpus://tritown-directory.example/listing-dental.html"
@@ -437,7 +437,7 @@
           }
         },
         "findings": [],
-        "latency_ms": 1,
+        "latency_ms": 0,
         "pages": [
           "corpus://copperline.example/about.html",
           "corpus://pellam-chamber.example/members.html",
@@ -563,7 +563,7 @@
           }
         },
         "findings": [],
-        "latency_ms": 1,
+        "latency_ms": 0,
         "pages": [
           "corpus://fernhollow.example/about.html",
           "corpus://fernhollow.example/press-grand-opening.html",
@@ -636,7 +636,7 @@
           }
         },
         "findings": [],
-        "latency_ms": 1,
+        "latency_ms": 0,
         "pages": [
           "corpus://greenmeadow.example/about.html",
           "corpus://tritown-directory.example/listing-landscaping.html"
@@ -946,7 +946,7 @@
           }
         },
         "findings": [],
-        "latency_ms": 0,
+        "latency_ms": 1,
         "pages": [
           "corpus://lantern.example/about.html",
           "corpus://quillby-chamber.example/members.html",
@@ -1023,7 +1023,7 @@
           }
         },
         "findings": [],
-        "latency_ms": 0,
+        "latency_ms": 1,
         "pages": [
           "corpus://mistral.example/about.html",
           "corpus://alderton-chamber.example/members.html",
@@ -1100,7 +1100,7 @@
           }
         },
         "findings": [],
-        "latency_ms": 1,
+        "latency_ms": 0,
         "pages": [
           "corpus://northfield.example/about.html",
           "corpus://northfield.example/press-new-hires.html",
@@ -1334,7 +1334,7 @@
           }
         },
         "findings": [],
-        "latency_ms": 1,
+        "latency_ms": 0,
         "pages": [
           "corpus://redlineworks.example/about.html",
           "corpus://pellam-chamber.example/members.html",
@@ -1466,6 +1466,6 @@
       ]
     }
   ],
-  "started_at": "2026-10-03T04:57:56.975154Z",
+  "started_at": "2026-10-03T05:14:04.979667Z",
   "suite": "leads"
 }

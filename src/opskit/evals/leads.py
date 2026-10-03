@@ -14,7 +14,8 @@ One EvalCase per company in samples/leads/companies.csv, run through the same
 - fields: each verified value equals the key's, and a field the key leaves null is null
   (the honest-null check, including the two conflicts, which must also be reported);
 - description: scored on its citation only, since the model words it;
-- citations: every field kept carries a source and quote that appear in the cited text.
+- citations: every field kept quotes text that is really in the corpus file it cites (the
+  file is re-read here, apart from the repo's own check).
 
 Citation validity is also reported on the model's raw output, before the repo's checks.
 """
@@ -48,7 +49,7 @@ from pydantic import JsonValue
 from opskit.evals.spend import Spend
 from opskit.leads.extraction import research_company
 from opskit.leads.models import FIELDS
-from opskit.leads.retrieval import Company, CorpusRetriever, normalize
+from opskit.leads.retrieval import Company, CorpusRetriever, html_to_text, normalize
 
 REPO = Path(__file__).resolve().parents[3]
 KEY = REPO / "evals" / "answer_keys" / "leads" / "expected_records.json"
@@ -143,22 +144,37 @@ class FieldScorer:
         return _score(self.name, [f"{k}: {v}" for k, v in problems.items()])
 
 
+def corpus_text(url: str) -> str | None:
+    """The text of the corpus file a citation points at, read afresh from disk."""
+    host, _, name = url.removeprefix("corpus://").partition("/")
+    path = LEADS / "corpus" / host / name
+    if not url.startswith("corpus://") or not path.is_file() or "/" in name or ".." in host:
+        return None
+    raw = path.read_text(encoding="utf-8")
+    return html_to_text(raw) if path.suffix == ".html" else raw
+
+
 @dataclass(frozen=True)
 class CitationScorer:
-    """Every kept field's quote was already checked against its cited text by the repo; this
-    asserts nothing was kept without one, and that no field came from an unshown source."""
+    """Every field kept must quote text that is really in the file it cites. The corpus is
+    re-read here, independently of the repo's own check, so a regression in that check fails
+    this scorer instead of passing by construction."""
 
     name: str = "citations"
 
     def score(self, case: EvalCase, output: JsonValue) -> Score:
         out = _out(output)
-        pages = set(out.get("pages") or [])
+        shown = set(out.get("pages") or [])
         problems = []
         for name, value in (out.get("fields") or {}).items():
             if value is None:
                 continue
-            if not value.get("quote") or value.get("source_url") not in pages:
-                problems.append(f"{name}: no valid source")
+            text = corpus_text(value.get("source_url", ""))
+            quote = normalize(value.get("quote") or "")
+            if value.get("source_url") not in shown or text is None:
+                problems.append(f"{name}: cites a document the model was not shown")
+            elif not quote or quote not in normalize(text):
+                problems.append(f"{name}: quote is not in {value['source_url']}")
         return _score(self.name, problems)
 
 
