@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel
 from sqlalchemy import func, literal_column, select
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from opskit.db.engine import SessionFactory
 from opskit.db.fit import fit_list
@@ -78,6 +79,21 @@ async def save_research(
     account_id: UUID | None,
 ) -> None:
     """Store a company's result; researching it again in the same run overwrites it."""
+    async with session_factory() as session, session.begin():
+        await save_research_in(
+            session, run_id, outcome, crm_action=crm_action, account_id=account_id
+        )
+
+
+async def save_research_in(
+    session: AsyncSession,
+    run_id: UUID,
+    outcome: ResearchOutcome,
+    *,
+    crm_action: str | None,
+    account_id: UUID | None,
+) -> None:
+    """save_research inside the caller's transaction."""
     values: dict[str, Any] = {
         "company_name": outcome.company_name,
         "city_hint": outcome.city_hint,
@@ -113,8 +129,7 @@ async def save_research(
             if name != "company_name" and name != "city_hint"
         },
     )
-    async with session_factory() as session, session.begin():
-        await session.execute(statement)
+    await session.execute(statement)
 
 
 async def load_research(
@@ -173,6 +188,12 @@ async def upsert_account(
     Keyed on the domain. A field the research did not verify never blanks a value the
     account already has, and never touches that field's existing source row.
     """
+    async with session_factory() as session, session.begin():
+        return await upsert_account_in(session, outcome)
+
+
+async def upsert_account_in(session: AsyncSession, outcome: ResearchOutcome) -> UpsertResult | None:
+    """upsert_account inside the caller's transaction."""
     if outcome.domain is None or outcome.status != "researched":
         return None
     researched = {name: _account_value(name, outcome.fields.get(name)) for name in ACCOUNT_FIELDS}
@@ -190,33 +211,32 @@ async def upsert_account(
         },
     ).returning(accounts.c.id, literal_column("(xmax = 0)").label("inserted"))
     found = {name: value for name, value in outcome.fields.items() if value is not None}
-    async with session_factory() as session, session.begin():
-        row = (await session.execute(account)).one()
-        if found:
-            source_rows = [
-                {
-                    "account_id": row.id,
-                    "field": name,
-                    "source_ref": value.source_url,
-                    "excerpt": (
-                        f"Derived from the website given: {value.source_url}"
-                        if value.derived
-                        else value.quote
-                    ),
-                }
-                for name, value in found.items()
-            ]
-            sources = insert(sources_table).values(source_rows)
-            await session.execute(
-                sources.on_conflict_do_update(
-                    index_elements=[sources_table.c.account_id, sources_table.c.field],
-                    set_={
-                        "source_ref": sources.excluded.source_ref,
-                        "excerpt": sources.excluded.excerpt,
-                        "found_at": func.now(),
-                    },
-                )
+    row = (await session.execute(account)).one()
+    if found:
+        source_rows = [
+            {
+                "account_id": row.id,
+                "field": name,
+                "source_ref": value.source_url,
+                "excerpt": (
+                    f"Derived from the website given: {value.source_url}"
+                    if value.derived
+                    else value.quote
+                ),
+            }
+            for name, value in found.items()
+        ]
+        sources = insert(sources_table).values(source_rows)
+        await session.execute(
+            sources.on_conflict_do_update(
+                index_elements=[sources_table.c.account_id, sources_table.c.field],
+                set_={
+                    "source_ref": sources.excluded.source_ref,
+                    "excerpt": sources.excluded.excerpt,
+                    "found_at": func.now(),
+                },
             )
+        )
     return UpsertResult(
         account_id=row.id,
         action="created" if row.inserted else "updated",
