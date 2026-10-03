@@ -89,7 +89,7 @@ async def test_the_decision_is_cached_per_host_and_shared_by_concurrent_callers(
     cache = RobotsCache(fetcher)
     await asyncio.gather(*(cache.decision(HOST) for _ in range(5)))
     await cache.decision(HOST.upper())
-    await cache.allows(f"https://{HOST}/contact")
+    await cache.decision_for(f"https://{HOST}/contact")
     assert fetcher.urls == [f"https://{HOST}/robots.txt"]
     await cache.decision("other.example")
     assert len(fetcher.urls) == 2

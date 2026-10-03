@@ -74,7 +74,7 @@ class RobotsCache:
             self._decisions[host] = task
         return await asyncio.shield(task)
 
-    async def allows(self, url: str) -> RobotsDecision:
+    async def decision_for(self, url: str) -> RobotsDecision:
         host = (urlsplit(url).hostname or "").lower()
         return await self.decision(host)
 
