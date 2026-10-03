@@ -150,3 +150,21 @@ async def test_a_hostile_file_full_of_wildcards_is_matched_in_linear_time() -> N
     started = time.monotonic()
     assert decision.allows(f"https://{HOST}/{'a' * 60}")
     assert time.monotonic() - started < 0.5
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "User-agent: *\n" + "Disallow: /x\n" * 2_001,
+        "User-agent: *\nDisallow: /" + "a" * 600,
+        "".join(f"User-agent: bot{i}\n" for i in range(101)) + "Disallow: /\n",
+    ],
+)
+async def test_a_file_too_big_to_trust_blocks_the_site(text: str) -> None:
+    decision = await RobotsCache(FakeFetcher(text=text)).decision(HOST)
+    assert not decision.allows(f"https://{HOST}/about")
+
+
+async def test_a_very_long_path_is_not_matched() -> None:
+    decision = await RobotsCache(FakeFetcher(text="User-agent: *\nDisallow:\n")).decision(HOST)
+    assert not decision.allows(f"https://{HOST}/{'a' * 3000}")

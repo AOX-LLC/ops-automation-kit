@@ -234,7 +234,7 @@ def _plain(text: str) -> str:
 
 
 def _norm(text: str) -> str:
-    return " ".join(text.lower().replace("\u2019", "'").split())
+    return " ".join(_plain(text).lower().replace("\u2019", "'").split())
 
 
 # "free" is a commitment wherever it appears (free of charge, for free, free inspection,
@@ -305,12 +305,13 @@ def check_grounding(
 ) -> GroundingReport:
     """Every fact-shaped token in the reply must appear in the profile (or, for the
     customer's own details, in their email); commitment phrases must be the profile's own."""
+    body = _plain(draft.body)  # checked as a reader sees it, not as it is encoded
     profile_n = _norm(profile)
     email_n = _norm(email_text)
     allowed = {a.lower() for a in allowed_addresses}
     unsupported: list[str] = []
     for kind, pattern in FACT_PATTERNS.items():
-        for match in pattern.finditer(draft.body):
+        for match in pattern.finditer(body):
             token = _norm(match.group(0)).rstrip(".,;:)")
             if kind == "email" and token in allowed:
                 continue
@@ -322,7 +323,7 @@ def check_grounding(
     used = tuple(q for q in draft.facts_used if not _mentions(_norm(q), profile_n))
     flags: list[str] = []
     for phrase in COMMITMENT_PHRASES:
-        for context in _contexts_for(phrase, draft.body):
+        for context in _contexts_for(phrase, body):
             if not _profile_states(phrase, context, profile):
                 flags.append(f"{phrase}: {context[:120]}")
     return GroundingReport(

@@ -195,6 +195,18 @@ def test_idioms_that_promise_nothing_are_not_commitments() -> None:
 @pytest.mark.parametrize(
     "body",
     [
+        "The install costs $1\u200b,200.",
+        "Call 555\u200b-0987 now.",
+        "It is \uff04\uff11\uff12\uff10\uff10.",
+    ],
+)
+def test_hidden_or_full_width_characters_do_not_hide_a_fact(body: str) -> None:
+    assert _grounding(body).unsupported_facts
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
         "Please feel free to call us.",
         "Feel free to reply with the unit list.",
         "You can also use our toll-free number.",

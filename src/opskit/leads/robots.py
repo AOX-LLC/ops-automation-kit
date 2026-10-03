@@ -31,7 +31,10 @@ class Fetcher(Protocol):
     async def fetch(self, url: str, *, site: str | None = None) -> FetchResult: ...
 
 
-MAX_RULE_CHARS = 512  # a longer rule is ignored; no real site needs one
+MAX_RULE_CHARS = 512  # a longer rule or path is not matched; no real site needs one
+MAX_RULES = 2_000  # a file with more rules than this blocks the site (fail closed)
+MAX_PATH_CHARS = 2_048
+MAX_AGENTS_PER_GROUP = 100
 
 
 def _matches(pattern: str, text: str) -> bool:
@@ -66,7 +69,9 @@ class Rules:
     matching rule wins, and Allow wins a tie. No match means allowed."""
 
     def __init__(self, text: str) -> None:
+        self.too_large = False
         groups: dict[str, list[tuple[bool, str, int]]] = {}
+        count = 0
         agents: list[str] = []
         in_rules = False
         for raw in text.splitlines():
@@ -78,18 +83,25 @@ class Rules:
             if key == "user-agent":
                 if in_rules:
                     agents, in_rules = [], False
+                if len(agents) >= MAX_AGENTS_PER_GROUP:
+                    self.too_large = True
+                    continue
                 agents.append(value.lower())
-                for agent in agents:
-                    groups.setdefault(agent, [])
+                groups.setdefault(agents[-1], [])
             elif key in ("allow", "disallow") and agents:
                 in_rules = True
-                if value and len(value) <= MAX_RULE_CHARS:  # empty Disallow = no rule
+                count += 1
+                if count > MAX_RULES or len(value) > MAX_RULE_CHARS:
+                    self.too_large = True  # ignoring a rule would fail open, so block instead
+                elif value:  # an empty Disallow allows everything: it adds no rule
                     rule = (key == "allow", value, len(value))
                     for agent in agents:
                         groups[agent].append(rule)
         self._rules = groups.get(AGENT_TOKEN.lower(), groups.get("*", []))
 
     def allows(self, path_and_query: str) -> bool:
+        if self.too_large or len(path_and_query) > MAX_PATH_CHARS:
+            return False
         best: tuple[int, bool] | None = None
         for allow, pattern, length in self._rules:
             if _matches(pattern, path_and_query) and (
