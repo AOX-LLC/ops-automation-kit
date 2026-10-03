@@ -4,26 +4,26 @@
     "attachments": [],
     "attempt": 1,
     "inputs": {
-      "city_hint": "Quillby",
-      "company_name": "Lantern Ledger Bookkeeping",
-      "documents": "<document url=\"corpus://lantern.example/about.html\">\nAbout Lantern Ledger Bookkeeping\nAbout Lantern Ledger Bookkeeping\nLantern Ledger keeps monthly books and payroll records for freelancers and small shops in Quillby. We began in 2016.\nService line: Bookkeeping\nOffice: Quillby\nTeam: 1-10 employees\nWebsite: lantern.example\n</document>\n\n<document url=\"corpus://quillby-chamber.example/members.html\">\nQuillby Chamber of Commerce - Member List\nQuillby Chamber of Commerce - Member List\nWelcome our newest members for the year.\nBluebird Bakery, founded 2012, website bluebird.example\nLantern Ledger Bookkeeping, founded 2016, website lantern.example\n</document>\n\n<document url=\"corpus://tritown-directory.example/export-finance.txt\">\nDirectory export - Accounting and tax\n=====================================\n\n* Lantern Ledger Bookkeeping | Quillby | Bookkeeping\n* Northfield Accounting Group | Fenwick Landing | Accounting\n* Pennywhistle Tax Partners | Corbin Ridge | Tax preparation\n\n</document>"
+      "city_hint": "Pellam",
+      "company_name": "Copperline Plumbing and Heat",
+      "documents": "<document url=\"corpus://copperline.example/about.html\">\nAbout Copperline Plumbing and Heat\nAbout Copperline Plumbing and Heat\nCopperline repairs pipes and water heaters and installs radiant heating in Pellam. Copperline opened in 2010.\nTrade: HVAC and plumbing\nShop: Pellam\nTeam: 11-50 employees\nWebsite: copperline.example\n</document>\n\n<document url=\"corpus://pellam-chamber.example/members.html\">\nPellam Chamber of Commerce - Member List\nPellam Chamber of Commerce - Member List\nPellam members this year.\nCopperline Plumbing and Heat, Pellam, founded 2010\nRedline Auto Works, Pellam, founded 2017\n</document>\n\n<document url=\"corpus://tritown-directory.example/export-hvac.txt\">\nDirectory export - HVAC and plumbing\n====================================\n\n* Aeroflow Heating and Cooling | Wexmoor | HVAC and plumbing\n* Copperline Plumbing and Heat | Pellam | HVAC and plumbing\n* Mistral Climate Services | Alderton | HVAC and plumbing\n\n</document>"
     },
     "output_schema": "LeadExtraction",
     "prompt_id": "leads.extract",
-    "schema_sha256": "127089f0282e16a38f89db5cbe41bbfa8d322049146b9047bbd68e09abc20297",
+    "schema_sha256": "e9487dfa69373af116845b6df62dc49f29e9b196ea7f65e0024375ebd2ab9918",
     "system_sha256": "093255f7929dcb51c1b10433a5cc502eb01642a7f7c3a9df4f387a1abb816bc1",
     "template_sha256": "05911557acab5e7aee6da9295ea29e195b71d8512f0ed662cf74cac6bfef86c2",
     "tier": "small",
-    "version": 1
+    "version": 2
   },
-  "replay_hash": "6e384b2fceea6166337eec8f46241cce9f2f8f742464485cdfc4c433d54cd4ac",
+  "replay_hash": "64ba1e6a41861947ffb2a9ecbac3ee2952102b3a262f5589ae72241a5bd2d7b9",
   "request": {
     "effort": null,
     "max_tokens": 16000,
     "messages": [
       {
         "attachments": [],
-        "content": "Company: Lantern Ledger Bookkeeping\nCity (to tell similar names apart, not a source): Quillby\n\n<document url=\"corpus://lantern.example/about.html\">\nAbout Lantern Ledger Bookkeeping\nAbout Lantern Ledger Bookkeeping\nLantern Ledger keeps monthly books and payroll records for freelancers and small shops in Quillby. We began in 2016.\nService line: Bookkeeping\nOffice: Quillby\nTeam: 1-10 employees\nWebsite: lantern.example\n</document>\n\n<document url=\"corpus://quillby-chamber.example/members.html\">\nQuillby Chamber of Commerce - Member List\nQuillby Chamber of Commerce - Member List\nWelcome our newest members for the year.\nBluebird Bakery, founded 2012, website bluebird.example\nLantern Ledger Bookkeeping, founded 2016, website lantern.example\n</document>\n\n<document url=\"corpus://tritown-directory.example/export-finance.txt\">\nDirectory export - Accounting and tax\n=====================================\n\n* Lantern Ledger Bookkeeping | Quillby | Bookkeeping\n* Northfield Accounting Group | Fenwick Landing | Accounting\n* Pennywhistle Tax Partners | Corbin Ridge | Tax preparation\n\n</document>",
+        "content": "Company: Copperline Plumbing and Heat\nCity (to tell similar names apart, not a source): Pellam\n\n<document url=\"corpus://copperline.example/about.html\">\nAbout Copperline Plumbing and Heat\nAbout Copperline Plumbing and Heat\nCopperline repairs pipes and water heaters and installs radiant heating in Pellam. Copperline opened in 2010.\nTrade: HVAC and plumbing\nShop: Pellam\nTeam: 11-50 employees\nWebsite: copperline.example\n</document>\n\n<document url=\"corpus://pellam-chamber.example/members.html\">\nPellam Chamber of Commerce - Member List\nPellam Chamber of Commerce - Member List\nPellam members this year.\nCopperline Plumbing and Heat, Pellam, founded 2010\nRedline Auto Works, Pellam, founded 2017\n</document>\n\n<document url=\"corpus://tritown-directory.example/export-hvac.txt\">\nDirectory export - HVAC and plumbing\n====================================\n\n* Aeroflow Heating and Cooling | Wexmoor | HVAC and plumbing\n* Copperline Plumbing and Heat | Pellam | HVAC and plumbing\n* Mistral Climate Services | Alderton | HVAC and plumbing\n\n</document>",
         "role": "user"
       }
     ],
@@ -69,14 +69,6 @@
           "title": "Description",
           "type": "array"
         },
-        "domain": {
-          "description": "The company's website domain.",
-          "items": {
-            "$ref": "#/$defs/Cite"
-          },
-          "title": "Domain",
-          "type": "array"
-        },
         "employee_band": {
           "description": "Headcount range exactly as written, like 11-50.",
           "items": {
@@ -119,12 +111,12 @@
   "response": {
     "model": "claude-haiku-4-5-20251001",
     "stop_reason": "end_turn",
-    "text": "{\"domain\": [{\"value\": \"lantern.example\", \"source_url\": \"corpus://lantern.example/about.html\", \"quote\": \"Website: lantern.example\"}], \"industry\": [{\"value\": \"Bookkeeping\", \"source_url\": \"corpus://lantern.example/about.html\", \"quote\": \"Service line: Bookkeeping\"}], \"employee_band\": [{\"value\": \"1-10\", \"source_url\": \"corpus://lantern.example/about.html\", \"quote\": \"Team: 1-10 employees\"}], \"hq_city\": [{\"value\": \"Quillby\", \"source_url\": \"corpus://lantern.example/about.html\", \"quote\": \"Office: Quillby\"}], \"founded_year\": [{\"value\": \"2016\", \"source_url\": \"corpus://lantern.example/about.html\", \"quote\": \"We began in 2016\"}], \"description\": [{\"value\": \"Lantern Ledger keeps monthly books and payroll records for freelancers and small shops in Quillby.\", \"source_url\": \"corpus://lantern.example/about.html\", \"quote\": \"Lantern Ledger keeps monthly books and payroll records for freelancers and small shops in Quillby.\"}]}",
+    "text": "{\"industry\": [{\"value\": \"HVAC and plumbing\", \"source_url\": \"corpus://copperline.example/about.html\", \"quote\": \"Trade: HVAC and plumbing\"}, {\"value\": \"HVAC and plumbing\", \"source_url\": \"corpus://tritown-directory.example/export-hvac.txt\", \"quote\": \"Copperline Plumbing and Heat | Pellam | HVAC and plumbing\"}], \"employee_band\": [{\"value\": \"11-50 employees\", \"source_url\": \"corpus://copperline.example/about.html\", \"quote\": \"Team: 11-50 employees\"}], \"hq_city\": [{\"value\": \"Pellam\", \"source_url\": \"corpus://copperline.example/about.html\", \"quote\": \"Shop: Pellam\"}], \"founded_year\": [{\"value\": \"2010\", \"source_url\": \"corpus://copperline.example/about.html\", \"quote\": \"Copperline opened in 2010\"}, {\"value\": \"2010\", \"source_url\": \"corpus://pellam-chamber.example/members.html\", \"quote\": \"Copperline Plumbing and Heat, Pellam, founded 2010\"}], \"description\": [{\"value\": \"Copperline repairs pipes and water heaters and installs radiant heating in Pellam.\", \"source_url\": \"corpus://copperline.example/about.html\", \"quote\": \"Copperline repairs pipes and water heaters and installs radiant heating in Pellam.\"}]}",
     "usage": {
       "cache_creation_input_tokens": 0,
       "cache_read_input_tokens": 0,
-      "input_tokens": 1279,
-      "output_tokens": 303
+      "input_tokens": 1226,
+      "output_tokens": 377
     }
   },
   "sequence": 0

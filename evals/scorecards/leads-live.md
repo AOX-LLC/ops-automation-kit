@@ -4,19 +4,9 @@ Mode: record.
 
 | Cases | Passed | Accuracy | p50 latency | p95 latency | Total cost | Cost per case |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 20 | 13 | 65.0% | 2711 ms | 4689 ms | $0.050014 | $0.002501 |
+| 20 | 20 | 100.0% | 3428 ms | 4256 ms | $0.049046 | $0.002452 |
 
-### Failed cases (7)
-
-| Case | Why |
-| --- | --- |
-| aeroflow-heating-and-cooling | fields: employee_band: expected '51-200', got null |
-| brightwell-orthodontics | fields: employee_band: expected '1-10', got null |
-| copperline-plumbing-and-heat | fields: employee_band: expected '11-50', got null |
-| ironwood-collision | fields: employee_band: expected '51-200', got null |
-| kettlebrook-mechanical | fields: employee_band: expected '51-200', got null |
-| mistral-climate-services | fields: employee_band: expected '11-50', got null |
-| redline-auto-works | fields: employee_band: expected '1-10', got null |
+No failed cases.
 
 
 ## Field accuracy by field
@@ -25,7 +15,7 @@ Mode: record.
 | --- | --- | --- |
 | domain | 100% | |
 | industry | 100% | |
-| employee_band | 59% | |
+| employee_band | 100% | |
 | hq_city | 100% | |
 | founded_year | 100% | |
 | description | 100% | |
@@ -34,9 +24,9 @@ Mode: record.
 
 | Measure | Value |
 | --- | --- |
-| citations returned by the model | 111 |
-| citations that passed the checks | 104 |
-| citation validity, raw model output | 0.9369 |
+| citations returned by the model | 109 |
+| citations that passed the checks | 108 |
+| citation validity, raw model output | 0.9908 |
 | citation validity, after checks | 1.0 |
 | honest-null rate | 1.0 |
 | conflicts reported | 2/2 |

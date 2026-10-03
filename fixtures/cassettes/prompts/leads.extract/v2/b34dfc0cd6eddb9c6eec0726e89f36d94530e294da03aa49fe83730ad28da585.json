@@ -10,13 +10,13 @@
     },
     "output_schema": "LeadExtraction",
     "prompt_id": "leads.extract",
-    "schema_sha256": "127089f0282e16a38f89db5cbe41bbfa8d322049146b9047bbd68e09abc20297",
+    "schema_sha256": "e9487dfa69373af116845b6df62dc49f29e9b196ea7f65e0024375ebd2ab9918",
     "system_sha256": "093255f7929dcb51c1b10433a5cc502eb01642a7f7c3a9df4f387a1abb816bc1",
     "template_sha256": "05911557acab5e7aee6da9295ea29e195b71d8512f0ed662cf74cac6bfef86c2",
     "tier": "small",
-    "version": 1
+    "version": 2
   },
-  "replay_hash": "b3214f6fa35bb96361c5a8696db0047a590f9af0621360c73b9710ab152c3203",
+  "replay_hash": "b34dfc0cd6eddb9c6eec0726e89f36d94530e294da03aa49fe83730ad28da585",
   "request": {
     "effort": null,
     "max_tokens": 16000,
@@ -69,14 +69,6 @@
           "title": "Description",
           "type": "array"
         },
-        "domain": {
-          "description": "The company's website domain.",
-          "items": {
-            "$ref": "#/$defs/Cite"
-          },
-          "title": "Domain",
-          "type": "array"
-        },
         "employee_band": {
           "description": "Headcount range exactly as written, like 11-50.",
           "items": {
@@ -119,12 +111,12 @@
   "response": {
     "model": "claude-haiku-4-5-20251001",
     "stop_reason": "end_turn",
-    "text": "{\"domain\": [{\"value\": \"pennywhistle.example\", \"source_url\": \"corpus://pennywhistle.example/about.html\", \"quote\": \"Website: pennywhistle.example\"}], \"industry\": [{\"value\": \"Tax preparation\", \"source_url\": \"corpus://pennywhistle.example/about.html\", \"quote\": \"Practice: Tax preparation\"}, {\"value\": \"Tax preparation\", \"source_url\": \"corpus://tritown-directory.example/export-finance.txt\", \"quote\": \"Pennywhistle Tax Partners | Corbin Ridge | Tax preparation\"}], \"employee_band\": [{\"value\": \"11-50\", \"source_url\": \"corpus://pennywhistle.example/about.html\", \"quote\": \"Staff: 11-50 employees\"}, {\"value\": \"51-200\", \"source_url\": \"corpus://pennywhistle.example/press-filing-season.html\", \"quote\": \"the firm lists 51-200 employees for the quarter\"}], \"hq_city\": [{\"value\": \"Corbin Ridge\", \"source_url\": \"corpus://pennywhistle.example/about.html\", \"quote\": \"Office: Corbin Ridge\"}], \"founded_year\": [{\"value\": \"1997\", \"source_url\": \"corpus://pennywhistle.example/about.html\", \"quote\": \"The firm was founded in 1997\"}], \"description\": [{\"value\": \"Pennywhistle prepares individual and small-business tax returns in Corbin Ridge.\", \"source_url\": \"corpus://pennywhistle.example/about.html\", \"quote\": \"Pennywhistle prepares individual and small-business tax returns in Corbin Ridge.\"}]}",
+    "text": "{\"industry\": [{\"value\": \"Tax preparation\", \"source_url\": \"corpus://pennywhistle.example/about.html\", \"quote\": \"Practice: Tax preparation\"}, {\"value\": \"Tax preparation\", \"source_url\": \"corpus://tritown-directory.example/export-finance.txt\", \"quote\": \"Pennywhistle Tax Partners | Corbin Ridge | Tax preparation\"}], \"employee_band\": [{\"value\": \"11-50 employees\", \"source_url\": \"corpus://pennywhistle.example/about.html\", \"quote\": \"Staff: 11-50 employees\"}, {\"value\": \"51-200 employees\", \"source_url\": \"corpus://pennywhistle.example/press-filing-season.html\", \"quote\": \"the firm lists 51-200 employees for the quarter\"}], \"hq_city\": [{\"value\": \"Corbin Ridge\", \"source_url\": \"corpus://pennywhistle.example/about.html\", \"quote\": \"Office: Corbin Ridge\"}], \"founded_year\": [{\"value\": \"1997\", \"source_url\": \"corpus://pennywhistle.example/about.html\", \"quote\": \"The firm was founded in 1997\"}], \"description\": [{\"value\": \"Pennywhistle prepares individual and small-business tax returns in Corbin Ridge.\", \"source_url\": \"corpus://pennywhistle.example/about.html\", \"quote\": \"Pennywhistle prepares individual and small-business tax returns in Corbin Ridge.\"}]}",
     "usage": {
       "cache_creation_input_tokens": 0,
       "cache_read_input_tokens": 0,
-      "input_tokens": 1260,
-      "output_tokens": 402
+      "input_tokens": 1201,
+      "output_tokens": 358
     }
   },
   "sequence": 0

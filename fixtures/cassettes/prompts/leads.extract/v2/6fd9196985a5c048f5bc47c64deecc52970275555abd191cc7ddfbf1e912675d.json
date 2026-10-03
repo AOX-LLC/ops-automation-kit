@@ -4,26 +4,26 @@
     "attachments": [],
     "attempt": 1,
     "inputs": {
-      "city_hint": "Pellam",
-      "company_name": "Redline Auto Works",
-      "documents": "<document url=\"corpus://redlineworks.example/about.html\">\nAbout Redline Auto Works\nAbout Redline Auto Works\nRedline Auto Works restores and tunes classic cars in a single-bay garage in Pellam. The garage opened in 2017.\nTrade: Auto repair\nGarage: Pellam\nCrew: 1-10 employees\nWebsite: redlineworks.example\n</document>\n\n<document url=\"corpus://pellam-chamber.example/members.html\">\nPellam Chamber of Commerce - Member List\nPellam Chamber of Commerce - Member List\nPellam members this year.\nCopperline Plumbing and Heat, Pellam, founded 2010\nRedline Auto Works, Pellam, founded 2017\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-auto.html\">\nTri-Town Business Directory - Auto repair\nTri-Town Business Directory - Auto repair\nGarages and body shops. Note that two listings have similar names; check the town.\nIronwood Collision, Ashgrove Mills: Auto repair\nRedline Auto, Orlen Falls: Auto repair\nRedline Auto Works, Pellam: Auto repair\n</document>"
+      "city_hint": "Alderton",
+      "company_name": "Mistral Climate Services",
+      "documents": "<document url=\"corpus://mistral.example/about.html\">\nAbout Mistral Climate Services\nAbout Mistral Climate Services\nMistral maintains rooftop cooling units for restaurants and shops in Alderton. We started in 2014.\nTrade: HVAC and plumbing\nTown: Alderton\nTeam: 11-50 employees\nWebsite: mistral.example\n</document>\n\n<document url=\"corpus://alderton-chamber.example/members.html\">\nAlderton Chamber of Commerce - Member List\nAlderton Chamber of Commerce - Member List\nMembers in good standing.\nKettlebrook Mechanical, Alderton, 51-200 employees\nMistral Climate Services, Alderton, 11-50 employees\n</document>\n\n<document url=\"corpus://tritown-directory.example/export-hvac.txt\">\nDirectory export - HVAC and plumbing\n====================================\n\n* Aeroflow Heating and Cooling | Wexmoor | HVAC and plumbing\n* Copperline Plumbing and Heat | Pellam | HVAC and plumbing\n* Mistral Climate Services | Alderton | HVAC and plumbing\n\n</document>"
     },
     "output_schema": "LeadExtraction",
     "prompt_id": "leads.extract",
-    "schema_sha256": "127089f0282e16a38f89db5cbe41bbfa8d322049146b9047bbd68e09abc20297",
+    "schema_sha256": "e9487dfa69373af116845b6df62dc49f29e9b196ea7f65e0024375ebd2ab9918",
     "system_sha256": "093255f7929dcb51c1b10433a5cc502eb01642a7f7c3a9df4f387a1abb816bc1",
     "template_sha256": "05911557acab5e7aee6da9295ea29e195b71d8512f0ed662cf74cac6bfef86c2",
     "tier": "small",
-    "version": 1
+    "version": 2
   },
-  "replay_hash": "3e5589475fa16719190bf3b55d7a7d38cd754890054a13e03b2e35b00546c345",
+  "replay_hash": "6fd9196985a5c048f5bc47c64deecc52970275555abd191cc7ddfbf1e912675d",
   "request": {
     "effort": null,
     "max_tokens": 16000,
     "messages": [
       {
         "attachments": [],
-        "content": "Company: Redline Auto Works\nCity (to tell similar names apart, not a source): Pellam\n\n<document url=\"corpus://redlineworks.example/about.html\">\nAbout Redline Auto Works\nAbout Redline Auto Works\nRedline Auto Works restores and tunes classic cars in a single-bay garage in Pellam. The garage opened in 2017.\nTrade: Auto repair\nGarage: Pellam\nCrew: 1-10 employees\nWebsite: redlineworks.example\n</document>\n\n<document url=\"corpus://pellam-chamber.example/members.html\">\nPellam Chamber of Commerce - Member List\nPellam Chamber of Commerce - Member List\nPellam members this year.\nCopperline Plumbing and Heat, Pellam, founded 2010\nRedline Auto Works, Pellam, founded 2017\n</document>\n\n<document url=\"corpus://tritown-directory.example/listing-auto.html\">\nTri-Town Business Directory - Auto repair\nTri-Town Business Directory - Auto repair\nGarages and body shops. Note that two listings have similar names; check the town.\nIronwood Collision, Ashgrove Mills: Auto repair\nRedline Auto, Orlen Falls: Auto repair\nRedline Auto Works, Pellam: Auto repair\n</document>",
+        "content": "Company: Mistral Climate Services\nCity (to tell similar names apart, not a source): Alderton\n\n<document url=\"corpus://mistral.example/about.html\">\nAbout Mistral Climate Services\nAbout Mistral Climate Services\nMistral maintains rooftop cooling units for restaurants and shops in Alderton. We started in 2014.\nTrade: HVAC and plumbing\nTown: Alderton\nTeam: 11-50 employees\nWebsite: mistral.example\n</document>\n\n<document url=\"corpus://alderton-chamber.example/members.html\">\nAlderton Chamber of Commerce - Member List\nAlderton Chamber of Commerce - Member List\nMembers in good standing.\nKettlebrook Mechanical, Alderton, 51-200 employees\nMistral Climate Services, Alderton, 11-50 employees\n</document>\n\n<document url=\"corpus://tritown-directory.example/export-hvac.txt\">\nDirectory export - HVAC and plumbing\n====================================\n\n* Aeroflow Heating and Cooling | Wexmoor | HVAC and plumbing\n* Copperline Plumbing and Heat | Pellam | HVAC and plumbing\n* Mistral Climate Services | Alderton | HVAC and plumbing\n\n</document>",
         "role": "user"
       }
     ],
@@ -69,14 +69,6 @@
           "title": "Description",
           "type": "array"
         },
-        "domain": {
-          "description": "The company's website domain.",
-          "items": {
-            "$ref": "#/$defs/Cite"
-          },
-          "title": "Domain",
-          "type": "array"
-        },
         "employee_band": {
           "description": "Headcount range exactly as written, like 11-50.",
           "items": {
@@ -119,12 +111,12 @@
   "response": {
     "model": "claude-haiku-4-5-20251001",
     "stop_reason": "end_turn",
-    "text": "{\"domain\": [{\"value\": \"redlineworks.example\", \"source_url\": \"corpus://redlineworks.example/about.html\", \"quote\": \"Website: redlineworks.example\"}], \"industry\": [{\"value\": \"Auto repair\", \"source_url\": \"corpus://redlineworks.example/about.html\", \"quote\": \"Trade: Auto repair\"}], \"employee_band\": [{\"value\": \"1-10 employees\", \"source_url\": \"corpus://redlineworks.example/about.html\", \"quote\": \"Crew: 1-10 employees\"}], \"hq_city\": [{\"value\": \"Pellam\", \"source_url\": \"corpus://redlineworks.example/about.html\", \"quote\": \"Garage: Pellam\"}], \"founded_year\": [{\"value\": \"2017\", \"source_url\": \"corpus://redlineworks.example/about.html\", \"quote\": \"The garage opened in 2017\"}, {\"value\": \"2017\", \"source_url\": \"corpus://pellam-chamber.example/members.html\", \"quote\": \"Redline Auto Works, Pellam, founded 2017\"}], \"description\": [{\"value\": \"Redline Auto Works restores and tunes classic cars in a single-bay garage in Pellam.\", \"source_url\": \"corpus://redlineworks.example/about.html\", \"quote\": \"Redline Auto Works restores and tunes classic cars in a single-bay garage in Pellam.\"}]}",
+    "text": "{\"industry\": [{\"value\": \"HVAC and plumbing\", \"source_url\": \"corpus://mistral.example/about.html\", \"quote\": \"Trade: HVAC and plumbing\"}], \"employee_band\": [{\"value\": \"11-50 employees\", \"source_url\": \"corpus://mistral.example/about.html\", \"quote\": \"Team: 11-50 employees\"}, {\"value\": \"11-50 employees\", \"source_url\": \"corpus://alderton-chamber.example/members.html\", \"quote\": \"Mistral Climate Services, Alderton, 11-50 employees\"}], \"hq_city\": [{\"value\": \"Alderton\", \"source_url\": \"corpus://mistral.example/about.html\", \"quote\": \"Town: Alderton\"}], \"founded_year\": [{\"value\": \"2014\", \"source_url\": \"corpus://mistral.example/about.html\", \"quote\": \"We started in 2014\"}], \"description\": [{\"value\": \"Mistral maintains rooftop cooling units for restaurants and shops in Alderton.\", \"source_url\": \"corpus://mistral.example/about.html\", \"quote\": \"Mistral maintains rooftop cooling units for restaurants and shops in Alderton.\"}]}",
     "usage": {
       "cache_creation_input_tokens": 0,
       "cache_read_input_tokens": 0,
-      "input_tokens": 1265,
-      "output_tokens": 349
+      "input_tokens": 1201,
+      "output_tokens": 301
     }
   },
   "sequence": 0

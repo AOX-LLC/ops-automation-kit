@@ -7,12 +7,12 @@
   "no_website": 3,
   "no_website_handled": 3,
   "errors": 0,
-  "cases_passed": 13,
-  "field_accuracy": 0.9314,
+  "cases_passed": 20,
+  "field_accuracy": 1.0,
   "field_accuracy_by_field": {
     "domain": 1.0,
     "industry": 1.0,
-    "employee_band": 0.5882,
+    "employee_band": 1.0,
     "hq_city": 1.0,
     "founded_year": 1.0,
     "description": 1.0
@@ -26,16 +26,16 @@
     "expected": 2,
     "reported": 2
   },
-  "citation_validity_raw": 0.9369,
+  "citation_validity_raw": 0.9908,
   "citation_validity_after_checks": 1.0,
   "citations": {
-    "returned": 111,
-    "valid": 104,
-    "fields_kept": 92
+    "returned": 109,
+    "valid": 108,
+    "fields_kept": 82
   },
   "injected_instruction_ignored": true,
-  "cost_total_usd": "0.050014",
-  "cost_per_company_usd": "0.002942",
-  "latency_p50_ms": 2711.2383720232174,
-  "latency_p95_ms": 4688.6831499869
+  "cost_total_usd": "0.049046",
+  "cost_per_company_usd": "0.002885",
+  "latency_p50_ms": 3428.358910023235,
+  "latency_p95_ms": 4256.4043659949675
 }

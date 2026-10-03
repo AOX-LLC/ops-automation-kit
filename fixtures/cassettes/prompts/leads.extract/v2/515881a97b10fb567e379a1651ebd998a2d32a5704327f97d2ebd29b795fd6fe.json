@@ -10,13 +10,13 @@
     },
     "output_schema": "LeadExtraction",
     "prompt_id": "leads.extract",
-    "schema_sha256": "127089f0282e16a38f89db5cbe41bbfa8d322049146b9047bbd68e09abc20297",
+    "schema_sha256": "e9487dfa69373af116845b6df62dc49f29e9b196ea7f65e0024375ebd2ab9918",
     "system_sha256": "093255f7929dcb51c1b10433a5cc502eb01642a7f7c3a9df4f387a1abb816bc1",
     "template_sha256": "05911557acab5e7aee6da9295ea29e195b71d8512f0ed662cf74cac6bfef86c2",
     "tier": "small",
-    "version": 1
+    "version": 2
   },
-  "replay_hash": "fbb0baa134bce10b3a82cbbd1a838ed9645bd47ce14abf69f7828696563f9457",
+  "replay_hash": "515881a97b10fb567e379a1651ebd998a2d32a5704327f97d2ebd29b795fd6fe",
   "request": {
     "effort": null,
     "max_tokens": 16000,
@@ -69,14 +69,6 @@
           "title": "Description",
           "type": "array"
         },
-        "domain": {
-          "description": "The company's website domain.",
-          "items": {
-            "$ref": "#/$defs/Cite"
-          },
-          "title": "Domain",
-          "type": "array"
-        },
         "employee_band": {
           "description": "Headcount range exactly as written, like 11-50.",
           "items": {
@@ -119,11 +111,11 @@
   "response": {
     "model": "claude-haiku-4-5-20251001",
     "stop_reason": "end_turn",
-    "text": "{\"domain\": [{\"value\": \"redlineauto.example\", \"source_url\": \"corpus://redlineauto.example/about.html\", \"quote\": \"Website: redlineauto.example\"}], \"industry\": [{\"value\": \"Auto repair\", \"source_url\": \"corpus://redlineauto.example/about.html\", \"quote\": \"Trade: Auto repair\"}], \"employee_band\": [{\"value\": \"11-50\", \"source_url\": \"corpus://redlineauto.example/about.html\", \"quote\": \"Headcount: 11-50 employees\"}], \"hq_city\": [{\"value\": \"Orlen Falls\", \"source_url\": \"corpus://redlineauto.example/about.html\", \"quote\": \"Shop location: Orlen Falls\"}], \"founded_year\": [{\"value\": \"2004\", \"source_url\": \"corpus://redlineauto.example/about.html\", \"quote\": \"We have been fixing cars since 2004\"}, {\"value\": \"2004\", \"source_url\": \"corpus://orlenfalls-chamber.example/members.html\", \"quote\": \"Redline Auto, Orlen Falls, founded 2004\"}], \"description\": [{\"value\": \"Redline Auto handles routine maintenance and engine diagnostics for commuter cars in Orlen Falls.\", \"source_url\": \"corpus://redlineauto.example/about.html\", \"quote\": \"Redline Auto handles routine maintenance and engine diagnostics for commuter cars in Orlen Falls.\"}]}",
+    "text": "{\"industry\": [{\"value\": \"Auto repair\", \"source_url\": \"corpus://redlineauto.example/about.html\", \"quote\": \"Trade: Auto repair\"}, {\"value\": \"Auto repair\", \"source_url\": \"corpus://tritown-directory.example/listing-auto.html\", \"quote\": \"Redline Auto, Orlen Falls: Auto repair\"}], \"employee_band\": [{\"value\": \"11-50 employees\", \"source_url\": \"corpus://redlineauto.example/about.html\", \"quote\": \"Headcount: 11-50 employees\"}], \"hq_city\": [{\"value\": \"Orlen Falls\", \"source_url\": \"corpus://redlineauto.example/about.html\", \"quote\": \"Shop location: Orlen Falls\"}], \"founded_year\": [{\"value\": \"2004\", \"source_url\": \"corpus://redlineauto.example/about.html\", \"quote\": \"We have been fixing cars since 2004\"}, {\"value\": \"2004\", \"source_url\": \"corpus://orlenfalls-chamber.example/members.html\", \"quote\": \"Redline Auto, Orlen Falls, founded 2004\"}], \"description\": [{\"value\": \"Redline Auto handles routine maintenance and engine diagnostics for commuter cars in Orlen Falls.\", \"source_url\": \"corpus://redlineauto.example/about.html\", \"quote\": \"Redline Auto handles routine maintenance and engine diagnostics for commuter cars in Orlen Falls.\"}]}",
     "usage": {
       "cache_creation_input_tokens": 0,
       "cache_read_input_tokens": 0,
-      "input_tokens": 1366,
+      "input_tokens": 1307,
       "output_tokens": 357
     }
   },
