@@ -7,14 +7,17 @@ from uuid import UUID
 from aox_agent_core.errors import (
     AgentCoreError,
     ApprovalAlreadyResolvedError,
+    ApprovalConflictError,
     ApprovalError,
     ApprovalExpiredError,
+    ApprovalIntegrityError,
     ApprovalNotFoundError,
     ApprovalNotGrantedError,
     ApprovalPayloadMismatchError,
     AttachmentError,
     AuditIntegrityError,
     AuditPayloadRejectedError,
+    AuditTimeRejectedError,
     ModelRefusalError,
     NotAuthorizedToResolveError,
     ReplayMissError,
@@ -25,15 +28,19 @@ from aox_agent_core.errors import (
 __all__ = [
     "AgentCoreError",
     "ApprovalAlreadyResolvedError",
+    "ApprovalConflictError",
     "ApprovalError",
     "ApprovalExpiredError",
+    "ApprovalIntegrityError",
     "ApprovalNotFoundError",
     "ApprovalNotGrantedError",
     "ApprovalPayloadMismatchError",
+    "ApprovalPayloadPurgedError",
     "ApprovalUnreadableError",
     "AttachmentError",
     "AuditIntegrityError",
     "AuditPayloadRejectedError",
+    "AuditTimeRejectedError",
     "CoreError",
     "ModelRefusalError",
     "NotAuthorizedToResolveError",
@@ -59,4 +66,13 @@ class ApprovalUnreadableError(ApprovalError):
 
     def __init__(self, approval_id: UUID) -> None:
         super().__init__(f"approval {approval_id} is stored in a form this application cannot read")
+        self.approval_id = approval_id
+
+
+class ApprovalPayloadPurgedError(ApprovalError):
+    """The stored payload was removed after the retention period (`payload_purged_at` says when).
+    The hash in `payload_sha256` still binds what it was; the payload itself cannot be shown."""
+
+    def __init__(self, approval_id: UUID) -> None:
+        super().__init__(f"the payload of approval {approval_id} was purged")
         self.approval_id = approval_id
