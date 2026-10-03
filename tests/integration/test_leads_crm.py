@@ -75,21 +75,21 @@ def _field(value: str | int, domain: str, quote: str = "quote") -> dict[str, Any
     return {"value": value, "source_url": f"https://{domain}/about", "quote": quote}
 
 
-def _outcome(domain: str, **overrides: Any) -> dict[str, Any]:
+def _outcome(site: str, **overrides: Any) -> dict[str, Any]:
     """A fully researched, fictional company on a `.example` domain."""
     base: dict[str, Any] = {
-        "company_name": f"Company {domain}",
+        "company_name": f"Company {site}",
         "city_hint": "Springfield",
-        "website": f"https://{domain}",
-        "domain": domain,
+        "website": f"https://{site}",
+        "domain": site,
         "status": "researched",
         "fields": {
-            "domain": _field(domain, domain, "Welcome to us"),
-            "industry": _field("Plumbing", domain, "We fix pipes"),
-            "employee_band": _field("11-50", domain, "A team of 20"),
-            "hq_city": _field("Springfield", domain, "Based in Springfield"),
-            "founded_year": _field(1999, domain, "Since 1999"),
-            "description": _field("Local plumbers", domain, "Local plumbers"),
+            "domain": _field(site, site, "Welcome to us"),
+            "industry": _field("Plumbing", site, "We fix pipes"),
+            "employee_band": _field("11-50", site, "A team of 20"),
+            "hq_city": _field("Springfield", site, "Based in Springfield"),
+            "founded_year": _field(1999, site, "Since 1999"),
+            "description": _field("Local plumbers", site, "Local plumbers"),
         },
     }
     return {**base, **overrides}
@@ -219,7 +219,7 @@ def test_summary_groups_a_run(run_id: str, domain: str) -> None:
     gaps["fields"]["founded_year"] = None
     gaps["findings"] = [{"field": "industry", "kind": "conflict", "detail": "two answers"}]
     blank = {name: None for name in gaps["fields"]}
-    steps = [
+    steps: list[dict[str, Any]] = [
         {
             "op": "save",
             "run_id": run_id,
