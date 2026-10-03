@@ -114,25 +114,26 @@ async def close(request: Request, draft_id: UUID) -> Response:
 
     A rejected approval closes the draft as rejected. A pending approval past its expiry
     (the workflow's Wait timed out) is expired first, then the draft is closed as expired.
-    An approved draft is released, not closed, and a still-live approval can't be closed.
+    An approved draft is released, not closed, and a draft with no approval or a still-live
+    one can't be closed.
     """
     draft = await _draft_or_404(request, draft_id)
     approvals = _core(request).approvals
     outcome: Literal["rejected", "expired"]
     if draft.approval_id is None:
+        # Nobody decided anything, so there is no outcome to record.
+        raise HTTPException(status.HTTP_409_CONFLICT, "the draft has no approval; not closing")
+    approval = await approvals.get(draft.approval_id)
+    if approval.status.value == "pending" and approval.is_expired(datetime.now(UTC)):
+        approval = await approvals.expire(draft.approval_id)
+    if approval.status.value == "rejected":
         outcome = "rejected"
+    elif approval.status.value == "expired":
+        outcome = "expired"
     else:
-        approval = await approvals.get(draft.approval_id)
-        if approval.status.value == "pending" and approval.is_expired(datetime.now(UTC)):
-            approval = await approvals.expire(draft.approval_id)
-        if approval.status.value == "rejected":
-            outcome = "rejected"
-        elif approval.status.value == "expired":
-            outcome = "expired"
-        else:
-            raise HTTPException(
-                status.HTTP_409_CONFLICT, f"the approval is {approval.status.value}; not closing"
-            )
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, f"the approval is {approval.status.value}; not closing"
+        )
     session_factory = _session_factory(request)
     await store.set_draft_status(
         session_factory, draft_id, from_statuses=("draft", "pending"), to_status=outcome

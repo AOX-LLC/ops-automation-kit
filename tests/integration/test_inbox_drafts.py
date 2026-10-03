@@ -163,6 +163,15 @@ def test_an_expired_approval_closes_the_draft_as_expired(
     assert service.post(f"/v1/inbox/drafts/{draft_id}/release").status_code == 409
 
 
+def test_a_draft_with_no_approval_cannot_be_closed(service: httpx.Client) -> None:
+    draft_id = _sql("select id from inbox.drafts where approval_id is null limit 1")
+    if not draft_id:
+        pytest.skip("every draft has an approval")
+    status_before = _draft_status(draft_id)
+    assert service.post(f"/v1/inbox/drafts/{draft_id}/close").status_code == 409
+    assert _draft_status(draft_id) == status_before
+
+
 @pytest.mark.parametrize("file", ["m15.eml", "m26.eml", "m27.eml"])
 def test_held_injection_emails_get_no_draft(service: httpx.Client, file: str) -> None:
     message_id = _message_id(file)
