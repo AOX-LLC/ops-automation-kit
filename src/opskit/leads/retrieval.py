@@ -133,17 +133,17 @@ CONTACT_DETAILS = re.compile(
     rf"|(?:e-?mail|mail|write|contact|reach)\b\W{{0,12}}{_LOCAL}\s{{1,3}}at\s{{1,3}}{_HOST}\.[a-z]{{2,24}}"
     r"|\+\d[\d\s().-]{6,20}\d"  # +44 20 7946 0958
     r"|(?<![\w-])\d{10,}(?!\d)"  # 5550100142
-    r"|(?<!\d)\(?\d{3}\)?[ .\-/]{1,3}\d{3}[ .\-/]{1,3}\d{4}(?!\d)"  # 555 - 010 - 0142
-    r"|(?<!\d)\(\d{3}\)[ .\-/]{0,3}\d{3}[ .\-/]{1,3}\d{4}(?!\d)"  # (555)010-0142
+    r"|(?<!\d)\(?\d{3}\)?[ \t\n.\-/]{1,3}\d{3}[ \t\n.\-/]{1,3}\d{4}(?!\d)"  # 555 - 010 - 0142
+    r"|(?<!\d)\(\d{3}\)[ \t\n.\-/]{0,3}\d{3}[ \t\n.\-/]{1,3}\d{4}(?!\d)"  # (555)010-0142
     r"|(?<!\d)0\d{2,4}[ -]\d{5,8}(?!\d)"  # 07700 900123, 030 12345678
     r"|(?<!\d)0\d{2,4}[ -]\d{3,4}[ -]\d{3,4}(?!\d)"  # 020 7946 0958
     rf"|(?<![a-z])(?:{_CUES})\b[^\d\n]{{0,25}}\d{{3}}[ .\-]?\d{{4}}(?!\d)",
     re.I,
 )
-# A bare seven-digit number, 555-0142 or 555 0142. It is a phone number unless it reads as a
-# range: "501-1000 employees" counts upward and its second half has no leading zero. A
-# phone's line number often starts with 0 or does not climb ("555-0142", "555-0100").
-_LOCAL_NUMBER = re.compile(r"(?<![\d$-])(\d{3})[ .-](\d{4})(?![\d-])")
+# A bare seven-digit number, 555-0142, 212-3456 or 555 0142. It is a phone number unless it
+# reads as a headcount or price range: the second half climbs above the first and is a round
+# number ("501-1000", "250-1000", "150-2500"). A line number is rarely round.
+_LOCAL_NUMBER = re.compile(r"(?<![\d$-])(\d{3})[ \t\n.-](\d{4})(?![\d-])")
 
 # Dashes and spaces that are not the plain ASCII ones, mapped to the plain ones.
 _DASHES_AND_SPACES = {
@@ -172,7 +172,8 @@ def visible(text: str) -> str:
 
 def _is_local_number(match: re.Match[str]) -> bool:
     first, second = match.groups()
-    return second.startswith("0") or int(second) <= int(first) or first == "555"
+    round_and_climbing = second.endswith("00") and int(second) > int(first)
+    return not round_and_climbing
 
 
 def has_contact_details(text: str) -> bool:

@@ -464,6 +464,11 @@ async def test_the_recorded_aeroflow_band_with_its_unit_is_kept_as_the_bare_band
 
 
 CONTACT_QUOTES = [
+    "Springfield office, 212-3456",
+    "Springfield office, 555-1234",
+    "Springfield office, 555-0100",
+    "Springfield office, call 555\n010\n0142",
+    "Springfield office, (555)\n010-0142",
     "Springfield office. Orders: 555-0129.",
     "Springfield office. Dispatch line: 555-0154.",
     "Springfield office. Media contact: 555-0188.",
@@ -671,3 +676,14 @@ def test_a_page_of_twenty_thousand_hostile_characters_is_redacted_quickly() -> N
         started = time.monotonic()
         redact_contact_details(hostile)
         assert time.monotonic() - started < 1.0
+
+
+def test_a_number_split_over_table_cells_is_redacted() -> None:
+    from opskit.leads.retrieval import html_to_text, redact_contact_details
+
+    html = (
+        "<table><tr><td>555</td><td>010</td><td>0142</td></tr>"
+        "<tr><td>jane<span>@</span>acme.example</td></tr></table>"
+    )
+    cleaned = redact_contact_details(html_to_text(html))
+    assert "0142" not in cleaned and "jane" not in cleaned
