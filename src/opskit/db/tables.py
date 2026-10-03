@@ -96,6 +96,7 @@ audit_log = Table(
     Column("run_context", Text),
     Column("prev_hash", String(64), nullable=False),
     Column("record_hash", String(64), nullable=False, unique=True),
+    Column("db_role", Text),  # set by an insert trigger, whatever was sent; not in the hash
     schema="core",
 )
 
