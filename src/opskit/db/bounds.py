@@ -112,18 +112,21 @@ def detach_sql(table: str, name: str) -> str:
     return f"DROP TRIGGER {name} ON {table};"
 
 
-def report_sql(table: str, spec: Spec, key: Sequence[str]) -> str:
+def report_sql(table: str, spec: Spec, key: Sequence[str], *, hash_key: bool = False) -> str:
     """A DO block that raises one WARNING per table naming the rows already outside the spec:
     their keys and the column and kind of the problem, never the values (this repository is
-    public and a value may be client data). It changes nothing."""
+    public and a value may be client data). With `hash_key` the key itself is a client's (a
+    Message-ID, a file name) and is shown as a short digest. It changes nothing."""
     keys = "ARRAY[" + ", ".join(f"'{column}'" for column in key) + "]"
+    hashed = "true" if hash_key else "false"
     return f"""
         DO $report$
         DECLARE
             found text[];
         BEGIN
             SELECT coalesce(array_agg(v), '{{}}') INTO found
-            FROM core.bounds_violations('{table}'::regclass, {literal(dict(spec))}, {keys}) v;
+            FROM core.bounds_violations(
+                '{table}'::regclass, {literal(dict(spec))}, {keys}, {hashed}) v;
             IF cardinality(found) > 0 THEN
                 RAISE WARNING
                     '{table}: % stored row(s) are outside the new bounds and are kept: %',

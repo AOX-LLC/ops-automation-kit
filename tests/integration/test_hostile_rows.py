@@ -181,13 +181,13 @@ APPROVAL_CASES: list[Case] = [
     ("payload-json-null-literal", {"payload": jsonb("null")}, "payload: must not be null"),
     # jsonb prints {"k": "xxx"}: nine characters of frame around the value.
     (
-        "payload-exactly-at-32768-bytes",
-        {"payload": "jsonb_build_object('k', repeat('x', 32759))"},
+        "payload-exactly-at-131072-bytes",
+        {"payload": "jsonb_build_object('k', repeat('x', 131063))"},
         None,
     ),
     (
-        "payload-32769-bytes",
-        {"payload": "jsonb_build_object('k', repeat('x', 32760))"},
+        "payload-131073-bytes",
+        {"payload": "jsonb_build_object('k', repeat('x', 131064))"},
         "payload: too large",
     ),
     ("payload-8-levels", {"payload": jsonb(nested_object(8))}, None),
@@ -410,6 +410,9 @@ RUNS_CASES: list[Case] = [
     ("finished-yesterday", {"finished_at": after(-86400)}, None),
     ("finished-infinity", {"finished_at": q("infinity")}, "finished_at: not a finite time"),
     ("finished-minus-infinity", {"finished_at": q("-infinity")}, "finished_at: not a finite time"),
+    ("finished-before-2000", {"finished_at": q("1999-12-31T23:59:59Z")}, "finished_at: too early"),
+    ("n8n-workflow-id-empty", {"n8n_workflow_id": q("")}, None),
+    ("n8n-execution-id-empty", {"n8n_execution_id": q("")}, None),
     ("workflow-not-listed", {"workflow": q("evil")}, "violates check constraint"),
     ("mode-not-listed", {"mode": q("mock")}, "violates check constraint"),
 ]
@@ -468,6 +471,8 @@ SAMPLE_FILES_CASES: list[Case] = [
     ("path-parent-in-the-middle", {"path": q("a/../b")}, f"path: {FORM}"),
     ("path-leading-slash", {"path": q("/etc/passwd")}, f"path: {FORM}"),
     ("path-nested-ok", {"path": q("receipts/2026/a.png")}, None),
+    ("path-double-dot-in-a-file-name", {"path": q("receipts/inbox/a..png")}, None),
+    ("path-parent-segment-at-the-end", {"path": q("a/..")}, f"path: {FORM}"),
     ("workflow-not-listed", {"workflow": q("kit_smoke")}, "workflow: not an allowed value"),
     ("workflow-leads", {"workflow": q("leads"), "kind": q("company_list")}, None),
     ("workflow-inbox", {"workflow": q("inbox"), "kind": q("email")}, None),

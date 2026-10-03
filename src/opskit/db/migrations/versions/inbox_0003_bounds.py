@@ -61,7 +61,9 @@ DRAFTS = {
     "to_addr": b.text(320),
     "subject": b.text(998),
     "in_reply_to": b.text(998, nullable=True),
-    "body": b.text(65536),
+    # With the rest of the reply it must fit core.approvals.payload (131072 bytes of jsonb text,
+    # at most 6 per character): 16384 characters is 98304.
+    "body": b.text(16384),
     "facts_used": b.document("array", max_bytes=16384, depth=2, items=64),
     "grounding": b.document("object", max_bytes=16384, depth=3),
     "failure_reason": b.text(200, nullable=True),
@@ -79,9 +81,13 @@ BOUNDS = [
 ]
 
 
+# Keyed by an email's Message-ID, which is untrusted and usually names the sender's host.
+HASHED_KEYS = {"inbox.messages", "inbox.triage"}
+
+
 def upgrade() -> None:
     for table, _, spec, key in BOUNDS:
-        op.execute(b.report_sql(table, spec, key))
+        op.execute(b.report_sql(table, spec, key, hash_key=table in HASHED_KEYS))
     for table, name, spec, _ in BOUNDS:
         op.execute(b.attach_sql(table, name, spec))
 

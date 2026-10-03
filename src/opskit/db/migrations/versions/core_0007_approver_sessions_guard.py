@@ -28,6 +28,10 @@ APPROVER = "opskit_approver"
 
 
 def upgrade() -> None:
+    # The whole upgrade is one transaction. An old api finishing a decision holds the approvals
+    # lock and then needs the outbox, so take the approvals lock first (as core_0010 does) and
+    # only then touch anything the outbox guard will lock: no lock is taken in the other order.
+    op.execute("LOCK TABLE core.approvals IN EXCLUSIVE MODE")
     op.execute(
         f"""
         CREATE FUNCTION core.approver_sessions_guard() RETURNS trigger

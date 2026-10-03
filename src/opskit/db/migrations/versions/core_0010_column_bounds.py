@@ -39,16 +39,20 @@ SUBJECT = r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$"
 ACTION = r"^[a-z][a-z0-9_]*([.][a-z][a-z0-9_]*)*$"
 EXTERNAL_ID_NAME = r"^[a-z][a-z0-9_]{0,63}$"
 HEX64 = r"^[0-9a-f]{64}$"
-N8N_ID = r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,63}$"
+# Empty is allowed: the application treats an empty id as none.
+N8N_ID = r"^([A-Za-z0-9][A-Za-z0-9._:/-]{0,63})?$"
 DAY = 86400
 
 RUNS = {
     "n8n_workflow_id": b.text(64, regex=N8N_ID, nullable=True),
     "n8n_execution_id": b.text(64, regex=N8N_ID, nullable=True),
-    "finished_at": b.moment(max_s=300, nullable=True),
+    # Not before started_at is a two-column rule the spec cannot say; this keeps it sane.
+    "finished_at": b.moment(after="2000-01-01T00:00:00Z", max_s=300, nullable=True),
 }
 APPROVALS = {
-    "payload": b.document("object", max_bytes=32768, depth=8),
+    # Room for an inbox reply: drafts.body is at most 16384 characters, which jsonb prints in at
+    # most 6 bytes each, plus a few short fields.
+    "payload": b.document("object", max_bytes=131072, depth=8),
     "resume_url": b.text(512, regex=r"^https?://[^[:space:]]+$", nullable=True),
     "run_context": b.document("object", max_bytes=2048, depth=3, nullable=True),
     "run_context.external_ids": b.id_map(
@@ -76,7 +80,8 @@ MODEL_CALLS = {
     "latency_ms": b.number(0, 100_000_000),
 }
 SAMPLE_FILES = {
-    "path": b.text(512, min=1, regex=r"^(?!/)(?!.*[.][.]).+$"),
+    # No leading slash and no ".." as a whole path segment ("a..png" is a file name).
+    "path": b.text(512, min=1, regex=r"^(?!/)(?!(.*/)?[.][.](/|$)).+$"),
     "workflow": b.enum("receipts", "leads", "inbox"),
     "kind": b.enum(
         "receipt_image",
@@ -92,6 +97,8 @@ SAMPLE_FILES = {
 }
 
 # (table, trigger, spec, key columns); approvals are insert-time bounds, the guard fixes the rest.
+# Triggers on one table fire in name order, so approvals_bounds runs before approvals_guard
+# rewrites the times: keep time columns out of the approvals spec (the guard owns them).
 CORE_BOUNDS = [
     ("core.runs", "runs_bounds", RUNS, ["id"]),
     ("core.approvals", "approvals_bounds", APPROVALS, ["id"]),
@@ -249,7 +256,10 @@ END;
 $$;
 
 -- One text per problem: "<key values> | <column> | <problem>". Reads every stored row.
-CREATE FUNCTION core.bounds_violations(tbl regclass, spec jsonb, key_columns text[])
+-- hash_keys swaps the key for a short digest, for tables whose key is client data (a Message-ID,
+-- a file name) that must not reach a log.
+CREATE FUNCTION core.bounds_violations(
+    tbl regclass, spec jsonb, key_columns text[], hash_keys boolean DEFAULT false)
     RETURNS SETOF text
     LANGUAGE plpgsql STABLE
     SET search_path = pg_catalog, pg_temp
@@ -263,6 +273,9 @@ DECLARE
 BEGIN
     FOR row_json IN EXECUTE format('SELECT to_jsonb(t) FROM %s t', tbl) LOOP
         key_text := (SELECT string_agg(row_json ->> k, ',') FROM unnest(key_columns) AS k);
+        IF hash_keys THEN
+            key_text := left(encode(sha256(convert_to(key_text, 'UTF8')), 'hex'), 12);
+        END IF;
         FOR path, rule IN SELECT e.key, e.value FROM jsonb_each(spec) AS e(key, value) LOOP
             problem := core.bound_problem(core.bound_value(row_json, path), rule);
             IF problem IS NOT NULL THEN
@@ -282,7 +295,14 @@ CANCEL_LIVE_OUTSIDE_BOUNDS = """
     BEGIN
         WITH outside AS (
             SELECT DISTINCT split_part(v, ' | ', 1)::uuid AS id
-            FROM core.bounds_violations('core.approvals'::regclass, {spec}, ARRAY['id']) v),
+            FROM core.bounds_violations('core.approvals'::regclass, {spec}, ARRAY['id']) v
+            -- Times the spec cannot express: a reader cannot fetch an infinite or out-of-range
+            -- timestamp, and the old app role could write a lifetime of any length.
+            UNION
+            SELECT id FROM core.approvals
+            WHERE created_at IN ('infinity', '-infinity') OR expires_at IN ('infinity', '-infinity')
+               OR extract(epoch FROM expires_at) - extract(epoch FROM created_at) > 604800
+               OR created_at < '1990-01-01' OR expires_at > '2100-01-01'),
         closed AS (
             UPDATE core.approvals a
             SET status = 'cancelled', closed_at = now(), decision = NULL,
@@ -321,7 +341,7 @@ def downgrade() -> None:
         op.execute(b.detach_sql(table, name))
     op.execute(
         """
-        DROP FUNCTION core.bounds_violations(regclass, jsonb, text[]);
+        DROP FUNCTION core.bounds_violations(regclass, jsonb, text[], boolean);
         DROP FUNCTION core.enforce_bounds();
         DROP FUNCTION core.bound_value(jsonb, text);
         DROP FUNCTION core.bound_problem(jsonb, jsonb);

@@ -46,9 +46,13 @@ BOUNDS = [
 ]
 
 
+# Keyed by the receipt's file name, which is the client's.
+HASHED_KEYS = {"receipts.extractions"}
+
+
 def upgrade() -> None:
     for table, _, spec, key in BOUNDS:
-        op.execute(b.report_sql(table, spec, key))
+        op.execute(b.report_sql(table, spec, key, hash_key=table in HASHED_KEYS))
     for table, name, spec, _ in BOUNDS:
         op.execute(b.attach_sql(table, name, spec))
 

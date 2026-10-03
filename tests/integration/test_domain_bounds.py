@@ -18,7 +18,7 @@ from tests.integration.conftest import psql
 pytestmark = pytest.mark.integration
 
 ACCEPTED = "inserted ok"
-PARENT_MESSAGE = "parent@example.test"
+PARENT_MESSAGE = "parent@mail.example"
 HEX64 = "repeat('a', 64)"
 
 # JSON values, as SQL.
@@ -91,11 +91,11 @@ BASE: dict[str, dict[str, str]] = {
         "latency_ms": "900",
     },
     "inbox.messages": {
-        "message_id": "'child@example.test'",
+        "message_id": "'child@mail.example'",
         "mailpit_id": "'mp-1'",
-        "from_header": "'Pat Example <pat@example.test>'",
-        "reply_to_header": "'pat@example.test'",
-        "to_addr": "'help@example.test'",
+        "from_header": "'Pat Example <pat@mail.example>'",
+        "reply_to_header": "'pat@mail.example'",
+        "to_addr": "'help@mail.example'",
         "subject": "'Opening hours'",
         "received_at": "'2026-10-01T09:00:00Z'",
         "body_text": "'When are you open?'",
@@ -117,9 +117,9 @@ BASE: dict[str, dict[str, str]] = {
     "inbox.drafts": {
         "message_id": f"'{PARENT_MESSAGE}'",
         "run_id": "r",
-        "to_addr": "'pat@example.test'",
+        "to_addr": "'pat@mail.example'",
         "subject": "'Re: Opening hours'",
-        "in_reply_to": "'<abc@example.test>'",
+        "in_reply_to": "'<abc@mail.example>'",
         "body": "'We open at nine.'",
         "facts_used": "'[\"hours\"]'::jsonb",
         "grounding": '\'{"hours": "9-5"}\'::jsonb',
@@ -149,7 +149,7 @@ def run_insert(table: str, **overrides: str) -> str:
             insert into core.runs (workflow, mode) values ('inbox', 'replay') returning id into r;
             insert into crm.accounts (name) values ('Parent Co') returning id into a;
             insert into inbox.messages (message_id, mailpit_id, from_header, subject, body_text)
-                values ('{PARENT_MESSAGE}', 'mp-0', 'x@example.test', '', '');
+                values ('{PARENT_MESSAGE}', 'mp-0', 'x@mail.example', '', '');
             insert into {table} ({columns}) values ({values});
             raise exception '{ACCEPTED}';
         end $$
@@ -347,7 +347,7 @@ REFUSALS: list[tuple[str, str, str, str]] = [
     ("inbox.drafts", "to_addr", long_text(321), TOO_LONG),
     ("inbox.drafts", "subject", long_text(999), TOO_LONG),
     ("inbox.drafts", "in_reply_to", long_text(999), TOO_LONG),
-    ("inbox.drafts", "body", long_text(65537), TOO_LONG),
+    ("inbox.drafts", "body", long_text(16385), TOO_LONG),
     ("inbox.drafts", "facts_used", "'{}'::jsonb", "must be a JSON array"),
     ("inbox.drafts", "facts_used", f"jsonb_build_array({long_text(16384)})", "too large"),
     ("inbox.drafts", "facts_used", NESTED, "nested too deeply"),
