@@ -42,6 +42,7 @@ from aox_agent_core.evals import (
 )
 from pydantic import JsonValue
 
+from opskit.evals.spend import Spend
 from opskit.receipts.bank import parse_statement
 from opskit.receipts.extraction import extract_receipt
 from opskit.receipts.reconcile import ReceiptFacts, reconcile
@@ -59,20 +60,6 @@ FLAGS = (
     "unreceipted_charge",
     "out_of_scope",
 )
-
-
-class BudgetExceeded(RuntimeError):
-    pass
-
-
-@dataclass
-class Spend:
-    limit: Decimal
-    total: Decimal = Decimal(0)
-
-    def check(self) -> None:
-        if self.total >= self.limit:
-            raise BudgetExceeded(f"stopped at ${self.total} of a ${self.limit} budget")
 
 
 # --- extraction scoring ---------------------------------------------------------------

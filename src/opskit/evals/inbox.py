@@ -42,6 +42,7 @@ from aox_agent_core.evals import (
 )
 from pydantic import JsonValue
 
+from opskit.evals.spend import Spend
 from opskit.inbox import policy
 from opskit.inbox.mail import InboundMessage
 from opskit.inbox.service import draft_reply, triage_message
@@ -51,20 +52,6 @@ KEY = REPO / "evals" / "answer_keys" / "inbox" / "triage.json"
 MESSAGES = REPO / "samples" / "inbox" / "messages"
 PROFILE = REPO / "samples" / "inbox" / "business_profile.md"
 TIERS = {"triage": "small", "drafting": "mid"}
-
-
-class BudgetExceeded(RuntimeError):
-    pass
-
-
-@dataclass
-class Spend:
-    limit: Decimal
-    total: Decimal = Decimal(0)
-
-    def check(self) -> None:
-        if self.total >= self.limit:
-            raise BudgetExceeded(f"stopped at ${self.total} of a ${self.limit} budget")
 
 
 # --- inputs ---------------------------------------------------------------------------
