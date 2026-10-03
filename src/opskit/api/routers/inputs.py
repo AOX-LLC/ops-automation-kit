@@ -6,8 +6,8 @@ import asyncio
 import base64
 import binascii
 import csv
-import hashlib
 import re
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,7 +19,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from opskit.api.auth import ServiceAuth
 from opskit.config import Settings
-from opskit.receipts.store import processed_hashes, session_factory_of
+from opskit.receipts.extraction import sha256_of_file
+from opskit.receipts.store import processed_paths, session_factory_of
 
 router = APIRouter(prefix="/v1", tags=["inputs"], dependencies=[ServiceAuth])
 
@@ -180,8 +181,29 @@ def inbox_item(raw: dict[str, Any]) -> InboxItem:
     )
 
 
+HASH_CACHE_MAX_ENTRIES = 4096
+_hash_cache: dict[tuple[Path, int, int], str] = {}
+_hash_cache_lock = threading.Lock()
+
+
+def _file_sha256(path: Path) -> str:
+    """Chunked SHA-256, cached by (path, size, mtime) so an unchanged file is read once."""
+    info = path.stat()
+    key = (path, info.st_size, info.st_mtime_ns)
+    with _hash_cache_lock:
+        cached = _hash_cache.get(key)
+    if cached is not None:
+        return cached
+    digest = sha256_of_file(path)
+    with _hash_cache_lock:
+        _hash_cache[key] = digest
+        while len(_hash_cache) > HASH_CACHE_MAX_ENTRIES:
+            del _hash_cache[next(iter(_hash_cache))]
+    return digest
+
+
 def _hash_files(files: list[ReceiptFile]) -> list[tuple[ReceiptFile, str]]:
-    return [(f, hashlib.sha256(f.path.read_bytes()).hexdigest()) for f in files]
+    return [(f, _file_sha256(f.path)) for f in files]
 
 
 @router.get("/receipts/pending")
@@ -191,15 +213,15 @@ async def pending_receipts(
     cursor: Cursor = None,
     include_processed: bool = False,
 ) -> ReceiptPage:
-    """Receipt files not yet extracted (by content hash); `include_processed` lists all."""
+    """Receipt files not yet extracted (by public path); `include_processed` lists all."""
     settings: Settings = request.app.state.settings
     cursor_key = decode_cursor(cursor)
     files = await asyncio.to_thread(collect_receipts, settings)
     hashed = await asyncio.to_thread(_hash_files, files)
     session_factory = None if include_processed else session_factory_of(request.app)
     if session_factory is not None:
-        done = await processed_hashes(session_factory)
-        hashed = [(f, sha) for f, sha in hashed if sha not in done]
+        done = await processed_paths(session_factory)
+        hashed = [(f, sha) for f, sha in hashed if f.public_path not in done]
     page, next_cursor = page_after_key(hashed, lambda pair: pair[0].key, cursor_key, limit)
     return ReceiptPage(
         items=[receipt_item(f, sha) for f, sha in page],
