@@ -213,7 +213,7 @@ async def request_draft_approval(
     ctx = await _run_context(request, body.run_id)
     core = _core(request)
     approval = await core.approvals.submit(
-        action="inbox.send_reply",
+        action=store.SEND_REPLY_ACTION,
         summary=f"Reply to {draft.to}: {draft.subject}"[:SUMMARY_MAX_CHARS],
         payload=store.approval_payload(draft),
         requested_by=N8N_SERVICE,

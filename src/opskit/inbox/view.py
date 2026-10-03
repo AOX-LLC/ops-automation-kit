@@ -16,8 +16,6 @@ from uuid import UUID
 from opskit.db.engine import SessionFactory
 from opskit.inbox import store
 
-ACTION = "inbox.send_reply"
-
 
 @dataclass(frozen=True, slots=True)
 class InboxReplyView:

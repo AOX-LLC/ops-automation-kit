@@ -30,8 +30,6 @@ from opskit.receipts.store import session_factory_of
 
 router = APIRouter(prefix="/v1/inbox/drafts", tags=["inbox"], dependencies=[ServiceAuth])
 
-SEND_ACTION = "inbox.send_reply"
-
 
 class Envelope(BaseModel):
     to: str
@@ -70,7 +68,7 @@ async def release(request: Request, draft_id: UUID) -> Envelope:
     try:
         await _core(request).approvals.consume(
             draft.approval_id,
-            action=SEND_ACTION,
+            action=store.SEND_REPLY_ACTION,
             payload=store.approval_payload(draft),
             principal=N8N_SERVICE,
         )

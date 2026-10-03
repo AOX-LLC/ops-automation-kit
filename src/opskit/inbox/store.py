@@ -47,6 +47,10 @@ class StoredDraft(BaseModel):
     sent_at: datetime | None
 
 
+# The approval action for sending a reply; submit, release and the approver page share it.
+SEND_REPLY_ACTION = "inbox.send_reply"
+
+
 def approval_payload(draft: StoredDraft) -> dict[str, str]:
     """What an inbox.send_reply approval covers: exactly the envelope that will be sent.
 

@@ -23,7 +23,7 @@ from opskit.core.errors import (
     ApprovalNotFoundError,
 )
 from opskit.core.ports import APPROVER, ApprovalRequest, AuditEvent, Core, Decision
-from opskit.inbox.view import ACTION as INBOX_REPLY_ACTION
+from opskit.inbox.store import SEND_REPLY_ACTION
 from opskit.inbox.view import InboxReplyView, load_inbox_reply_view
 from opskit.receipts.store import session_factory_of
 
@@ -92,7 +92,7 @@ async def _inbox_view(
 ) -> InboxReplyView | None:
     """The dedicated reply view for an inbox draft; other actions keep the generic JSON."""
     factory = session_factory_of(request.app)
-    if approval.action != INBOX_REPLY_ACTION or factory is None:
+    if approval.action != SEND_REPLY_ACTION or factory is None:
         return None
     return await load_inbox_reply_view(factory, approval.id, payload)
 
