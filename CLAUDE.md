@@ -66,7 +66,7 @@ All ports bind `127.0.0.1`. The Compose project is `ops-automation-kit` (`COMPOS
 | `make test` | unit tests, then integration tests against the running stack (`make up` first); the integration tests pin the approval state machine, CSRF, token separation, lockout, append-only audit and role isolation |
 | `make smoke` | clean compose boot, seeded-data checks, approval round-trip, second boot |
 | `make samples` | regenerate `samples/` and `evals/answer_keys/` inside the pinned image |
-| `make evals` | score receipts extraction and reconciliation in replay; writes `evals/scorecards/` |
+| `make evals` | score receipts and the inbox in replay; writes `evals/scorecards/` |
 | `make export` | write workflows edited in the n8n editor back to `n8n/workflows/` |
 | `make reimport` | force re-import of every workflow from the repo (overwrites editor changes) |
 
@@ -79,7 +79,7 @@ On boot, a workflow is re-imported only when its committed JSON changed since th
 - Public repo: synthetic data only, `.example` domains, 555-01xx phone numbers. No names of real clients, internal products, tools or hosts.
 - `.env.example` only; never commit a real key. gitleaks runs in pre-commit and in CI.
 - Model calls go through agent-core v0.1.0a2 (pinned in `pyproject.toml`). `AGENT_CORE_MODE=replay` is the default and never spends; `live` and `record` read the viewer's own key from `AGENT_CORE_ANTHROPIC_API_KEY`, never `ANTHROPIC_API_KEY`. Model IDs and prices live in config, never in code.
-- Recordings are made from the host (`AGENT_CORE_MODE=record uv run python -m opskit.evals.receipts`), never by hand. Hand-written fixtures never score extraction.
+- Recordings are made from the host (`AGENT_CORE_MODE=record uv run python -m opskit.evals.receipts`, or `.inbox`), never by hand. Hand-written fixtures never score extraction.
 - Secrets never go to logs. Generated secrets live on the `kit-secrets` volume; `make login` is the only way to read the human passwords.
 - Answer keys under `evals/` are never mounted into a running container.
 - Workflow JSON uses fixed IDs and no inline credentials, no `pinData`, and helper URLs under `http://api:8000/`. `scripts/lint_workflows.py` checks this.

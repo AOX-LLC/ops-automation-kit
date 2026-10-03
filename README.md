@@ -8,7 +8,7 @@ Three n8n + Claude workflows for small businesses, runnable from one `docker com
 
 n8n orchestrates. A small Python helper API does the work.
 
-**Status:** Phase 2: the receipts workflow runs end to end (in replay by default) on agent-core v0.1.0a2; leads and inbox land in Phase 3.
+**Status:** Phase 3: the receipts and inbox workflows run end to end (in replay by default) on agent-core v0.1.0a2; leads is next.
 
 <!-- GIF arrives with Phase 4 -->
 
@@ -36,7 +36,7 @@ Passwords are generated on first boot and never logged. `make login` prints the 
 
 | Command | What it does |
 | --- | --- |
-| `make evals` | Score receipts extraction and reconciliation in replay; free |
+| `make evals` | Score receipts and the inbox in replay; free |
 | `make smoke` | End-to-end check: clean boot, seeded data, approval round-trip, second boot |
 | `make down` | Stop the stack and keep its volumes |
 | `make clean` | Stop the stack and remove its volumes |
@@ -120,6 +120,46 @@ Reproduce:
 
 Committed scorecards: [live](evals/scorecards/receipts-small-live.md) ([summary](evals/scorecards/receipts-small-live.summary.json)) and [replay](evals/scorecards/receipts-small-replay.md) ([summary](evals/scorecards/receipts-small-replay.summary.json)).
 
+## Inbox workflow
+
+Workflow `03-inbox` runs every 5 minutes, or when its webhook is called.
+
+1. Read new mail from Mailpit.
+2. Triage each email: category, priority, whether it needs a reply. A deterministic scan and the model each look for prompt injection. Either one flagging an email holds it.
+3. Draft a reply for emails that need one, in the categories the kit answers. The drafting call sees only that one email and the business profile.
+4. Check the draft without a model. Every price, phone number, email address, URL, time or percentage must come from the profile or the customer's own email; a draft that invents one is never shown. Commitment words (refund, discount, free, same-day and similar) that the profile does not make are flagged for the approver.
+5. Each draft waits on the approver page in its own execution of `04-inbox-reply-approval`: **Approve and send** or **Reject (stays unsent)**. On approval, Send Email delivers exactly the approved text. A draft changed after approval is refused, and an approval works only once.
+6. Email the owner a summary: counts per category, drafts waiting, and held messages with the evidence.
+
+**Replies go to the From address only.** The helper sets the recipient, never the model. When Reply-To differs, the approver page says so and the kit still replies to From.
+
+**Held messages** are never drafted, and the API refuses to draft them. To answer one, reply from your own mail client; to dismiss it, do nothing. Details in [docs/architecture.md](docs/architecture.md#a11-inbox).
+
+## Eval scorecard (inbox)
+
+Measured on 28 generator-made synthetic emails with no held-out set. Treat it as a wiring and regression check, not a benchmark.
+
+Recording run: triage on tier `small` (`claude-haiku-4-5-20251001`), drafting on tier `mid` (`claude-sonnet-5-5`).
+
+| Measure | Result |
+| --- | --- |
+| Emails | 28 |
+| Triage accuracy | 0.89 (25 of 28) |
+| Injection emails held | 3 of 3, no false positives |
+| Drafts produced where expected | 16 of 16; 15 passed the grounding check, 1 invented a price and was held back |
+| Replies addressed to From | 16 of 16 |
+| Draft grounding pass rate | 0.88 at recording, 0.94 after the "feel free" fix (re-scored in replay) |
+| Must-include facts | 0.81 |
+| Cost per email | $0.0050 |
+| Latency p50 / p95 | 3.6 s / 6.5 s |
+
+Reproduce:
+
+- `make evals` scores the recordings in replay. It is free. CI requires every injection email to be held and triage accuracy of at least 0.85.
+- Re-record from the host with your own key: `AGENT_CORE_MODE=record uv run python -m opskit.evals.inbox`
+
+Committed scorecards: [live](evals/scorecards/inbox-live.md) ([summary](evals/scorecards/inbox-live.summary.json)) and [replay](evals/scorecards/inbox-replay.md) ([summary](evals/scorecards/inbox-replay.summary.json)).
+
 ## Ports and parallel stacks
 
 All ports bind `127.0.0.1`. Set them in `.env`; copy `.env.example` to start.
@@ -138,7 +178,7 @@ To run a second copy beside the first, use another checkout. In its `.env`, set 
 
 - **Receipts:** 30 receipt images and one bank statement CSV. The mismatch types are amount mismatch, date drift, missing in bank and duplicate receipt.
 - **Leads:** 20 company names, a local corpus of about 37 documents standing in for web research, and 5 existing CRM accounts.
-- **Inbox:** 25 emails for a fictional plumbing business, plus its business profile.
+- **Inbox:** 28 emails for a fictional plumbing business, plus its business profile. Three of them are prompt-injection attempts, and one has a Reply-To that differs from its From.
 
 Answer keys live in `evals/answer_keys/`. They are never mounted into containers. `make samples` regenerates all of it inside the pinned image.
 
@@ -150,7 +190,7 @@ Workflows live in `n8n/workflows/` as JSON, and that is the source of truth.
 - `make export` writes changes made in the n8n editor back to `n8n/workflows/`.
 - `make reimport` forces a re-import of every workflow and overwrites editor changes.
 
-Workflows: `00-kit-smoke` (the approval round-trip), `01-receipts` (Phase 2), and skeletons `02-leads` and `03-inbox`.
+Workflows: `00-kit-smoke` (the approval round-trip), `01-receipts` (Phase 2), `03-inbox` and its per-draft sub-workflow `04-inbox-reply-approval` (Phase 3), and the skeleton `02-leads`.
 
 ## Repository layout
 
