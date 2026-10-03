@@ -8,12 +8,19 @@ approver), the resume URL, closing a timed-out request and a string-cursor page.
 
 A pending request past its lifetime is reported as EXPIRED by every read, whether or not the
 sweep has stored it yet; either way `closed_at` is its `expires_at`.
+
+A row that cannot be parsed (the database bounds keep them out; this covers rows stored before
+the bounds, and anything a bound cannot express) never crashes a reader or stops the sweep. A
+listing skips it. A read, a decision, a use or a withdrawal of it raises ApprovalUnreadableError
+and changes nothing, so a decision on it fails closed. Each such row is recorded once in the audit
+log (`approval.unreadable`). The sweep closes it anyway, without its run context in the record.
 """
 
 from __future__ import annotations
 
+import contextlib
 import logging
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import AsyncIterator, Collection, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -43,10 +50,11 @@ from aox_agent_core.errors import (
     NotTheRequesterError,
 )
 from pydantic import JsonValue
-from sqlalchemy import and_, func, insert, null, or_, select, update
+from sqlalchemy import and_, func, insert, null, or_, select, true, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from opskit.core.pg.audit import append_in
+from opskit.core.errors import ApprovalUnreadableError
+from opskit.core.pg.audit import append_in, append_once_in
 from opskit.core.ports import JsonObject, Page
 from opskit.db.engine import SessionFactory
 from opskit.db.tables import approvals, outbox
@@ -81,12 +89,54 @@ def _request(row: Any) -> ApprovalRequest:
     return ApprovalRequest.model_validate(data)
 
 
+# What a malformed row raises: the model refusing it, or a column of the wrong JSON type.
+_UNPARSABLE = (ValueError, TypeError, KeyError)
+UNREADABLE_ACTION = "approval.unreadable"
+ACTOR_SYSTEM = "system"
+
+
+class _UnreadableRow(Exception):
+    """Raised inside a transaction; turned into ApprovalUnreadableError once it has rolled back."""
+
+    def __init__(self, request_id: UUID) -> None:
+        super().__init__(str(request_id))
+        self.request_id = request_id
+
+
+def _parsed(row: Any) -> ApprovalRequest:
+    try:
+        return _request(row)
+    except _UNPARSABLE as exc:
+        raise _UnreadableRow(row.id) from exc
+
+
 def _readable(row: Any) -> ApprovalRequest | None:
     """A listing skips a row the model refuses (and says so) rather than failing the page."""
     try:
         return _request(row)
-    except ValueError:
+    except _UNPARSABLE:
         log.error("approval %s is malformed and is left out of the listing", row.id)
+        return None
+
+
+def _covers(request: ApprovalRequest, payload: Any) -> bool:
+    """Whether the stored payload is the one the approval's hash covers. A payload that is not
+    an object, or that cannot be hashed, cannot be said to be: that row is unreadable."""
+    if not isinstance(payload, dict):
+        raise _UnreadableRow(request.id)
+    try:
+        return approval_payload_hash(request.action, payload) == request.payload_sha256
+    except _UNPARSABLE as exc:
+        raise _UnreadableRow(request.id) from exc
+
+
+def _stored_context(run_context: Any) -> RunContext | None:
+    """The run context of a stored row, or None if it cannot be parsed (or there is none)."""
+    if not run_context:
+        return None
+    try:
+        return RunContext.model_validate(run_context)
+    except _UNPARSABLE:
         return None
 
 
@@ -205,6 +255,36 @@ class PgApprovalQueue:
         self._approver_session_factory = approver_session_factory
         self._policy = policy
         self._listed_actions = sorted(listed_actions)
+        # Rows the sweep could not close; skipped until the process restarts, so one bad row
+        # cannot hold up the others or be retried every minute.
+        self._unsweepable: set[UUID] = set()
+
+    @contextlib.asynccontextmanager
+    async def _reading(self, reader: str) -> AsyncIterator[None]:
+        """Turn an unparsable row met inside the block into ApprovalUnreadableError, after the
+        block's transaction has rolled back, recording it once in the audit log."""
+        try:
+            yield
+        except _UnreadableRow as exc:
+            await self._record_unreadable(exc.request_id, reader)
+            raise ApprovalUnreadableError(exc.request_id) from exc
+
+    async def _record_unreadable(self, request_id: UUID, reader: str) -> None:
+        try:
+            async with self._session_factory.begin() as session:
+                await append_once_in(
+                    session,
+                    AuditEvent(
+                        action=UNREADABLE_ACTION,
+                        actor_id=ACTOR_SYSTEM,
+                        subject_id=str(request_id),
+                        payload={"subject_type": "approval", "reader": reader},
+                    ),
+                )
+        except Exception:
+            # Recording is best effort: failing to write the note must not turn a refused read
+            # into a crash.
+            log.exception("could not record unreadable approval %s", request_id)
 
     async def submit(
         self,
@@ -264,19 +344,23 @@ class PgApprovalQueue:
 
     async def get(self, request_id: UUID) -> ApprovalRequest:
         query = select(*REQUEST_COLUMNS).where(approvals.c.id == request_id)
-        async with self._session_factory() as session:
-            row = (await session.execute(query)).one_or_none()
-        if row is None:
-            raise ApprovalNotFoundError(f"approval {request_id} not found")
-        return _judged(_request(row), datetime.now(UTC))
+        async with self._reading("get"):
+            async with self._session_factory() as session:
+                row = (await session.execute(query)).one_or_none()
+            if row is None:
+                raise ApprovalNotFoundError(f"approval {request_id} not found")
+            return _judged(_parsed(row), datetime.now(UTC))
 
     async def payload_of(self, request_id: UUID) -> JsonObject:
         query = select(approvals.c.payload).where(approvals.c.id == request_id)
-        async with self._session_factory() as session:
-            payload = (await session.execute(query)).scalar_one_or_none()
-        if payload is None:
-            raise ApprovalNotFoundError(f"approval {request_id} not found")
-        return dict(payload)
+        async with self._reading("payload_of"):
+            async with self._session_factory() as session:
+                payload = (await session.execute(query)).scalar_one_or_none()
+            if payload is None:
+                raise ApprovalNotFoundError(f"approval {request_id} not found")
+            if not isinstance(payload, dict):
+                raise _UnreadableRow(request_id)
+            return dict(payload)
 
     async def _pending_rows(
         self, principal: Principal, *, limit: int, after: UUID | None
@@ -316,7 +400,7 @@ class PgApprovalQueue:
     ) -> Sequence[ApprovalRequest]:
         """Pending, unexpired requests this principal may resolve, oldest first."""
         rows = await self._pending_rows(principal, limit=limit, after=after)
-        return [request for row in rows if (request := _readable(row)) is not None]
+        return await self._readable_rows(rows)
 
     async def list_pending_page(
         self, principal: Principal, *, limit: int = 50, cursor: str | None = None
@@ -330,8 +414,18 @@ class PgApprovalQueue:
         # end the listing and hide every request after it.
         page = rows[:limit]
         next_cursor = str(page[-1].id) if len(rows) > limit else None
-        items = [request for row in page if (request := _readable(row)) is not None]
-        return Page(items=items, next_cursor=next_cursor)
+        return Page(items=await self._readable_rows(page), next_cursor=next_cursor)
+
+    async def _readable_rows(self, rows: Sequence[Any]) -> list[ApprovalRequest]:
+        """The rows that parse; each one that does not is recorded once and left out."""
+        items: list[ApprovalRequest] = []
+        for row in rows:
+            request = _readable(row)
+            if request is None:
+                await self._record_unreadable(row.id, "listing")
+            else:
+                items.append(request)
+        return items
 
     async def resolve(
         self,
@@ -342,48 +436,47 @@ class PgApprovalQueue:
         reason: str | None = None,
         context: RunContext | None = None,
     ) -> ApprovalRequest:
-        if self._approver_session_factory is None:
-            raise ConfigError("this queue has no approver-role connection; it cannot resolve")
-        now = datetime.now(UTC)
-        async with self._approver_session_factory.begin() as session:
-            row = (
-                await session.execute(
-                    select(*REQUEST_COLUMNS, approvals.c.resume_url, approvals.c.payload)
-                    .where(approvals.c.id == request_id)
-                    .with_for_update()
-                )
-            ).one_or_none()
-            if row is None:
-                raise ApprovalNotFoundError(f"approval {request_id} not found")
-            request = _request(row)
-            verdict = self._policy.evaluate(principal, request, now=now)
-            denial: Exception | None
-            if verdict.allowed and approval_payload_hash(request.action, row.payload) != (
-                request.payload_sha256
-            ):
-                # What the approver is shown is not what the approval would cover: the
-                # requester role writes both columns, and the database cannot compare them.
-                await _audit(
-                    session,
-                    "approval.denied",
-                    principal.id,
-                    request.id,
-                    {"reason": "payload_mismatch"},
-                    None,
-                )
-                denial = NotAuthorizedToResolveError(
-                    f"approval {request.id}: the payload shown does not match what it covers"
-                )
-            elif not verdict.allowed:
-                denial = await self._record_denial(session, request, principal, verdict.reason)
-            else:
-                denial = None
-                request = await self._apply_decision(
-                    session, request, row.resume_url, decision, principal, reason, context, now
-                )
-        if denial is not None:
-            raise denial
-        return request
+        async with self._reading("decision"):
+            if self._approver_session_factory is None:
+                raise ConfigError("this queue has no approver-role connection; it cannot resolve")
+            now = datetime.now(UTC)
+            async with self._approver_session_factory.begin() as session:
+                row = (
+                    await session.execute(
+                        select(*REQUEST_COLUMNS, approvals.c.resume_url, approvals.c.payload)
+                        .where(approvals.c.id == request_id)
+                        .with_for_update()
+                    )
+                ).one_or_none()
+                if row is None:
+                    raise ApprovalNotFoundError(f"approval {request_id} not found")
+                request = _parsed(row)
+                verdict = self._policy.evaluate(principal, request, now=now)
+                denial: Exception | None
+                if verdict.allowed and not _covers(request, row.payload):
+                    # What the approver is shown is not what the approval would cover: the
+                    # requester role writes both columns, and the database cannot compare them.
+                    await _audit(
+                        session,
+                        "approval.denied",
+                        principal.id,
+                        request.id,
+                        {"reason": "payload_mismatch"},
+                        None,
+                    )
+                    denial = NotAuthorizedToResolveError(
+                        f"approval {request.id}: the payload shown does not match what it covers"
+                    )
+                elif not verdict.allowed:
+                    denial = await self._record_denial(session, request, principal, verdict.reason)
+                else:
+                    denial = None
+                    request = await self._apply_decision(
+                        session, request, row.resume_url, decision, principal, reason, context, now
+                    )
+            if denial is not None:
+                raise denial
+            return request
 
     async def _record_denial(
         self,
@@ -474,33 +567,36 @@ class PgApprovalQueue:
         status. Every refusal is audited (approval.consume_denied) and committed before the
         error is raised.
         """
-        now = datetime.now(UTC)
-        refusal: tuple[Exception, str] | None = None
-        async with self._session_factory.begin() as session:
-            row = await self._locked(session, request_id)
-            refusal = _consume_refusal(_request(row), action, payload, principal, now)
-            if refusal is not None:
-                await _audit(
-                    session,
-                    "approval.consume_denied",
-                    principal.id,
-                    request_id,
-                    {"reason": refusal[1]},
-                    context,
-                )
-            else:
-                row = (
-                    await session.execute(
-                        update(approvals)
-                        .where(approvals.c.id == request_id)
-                        .values(status=ApprovalStatus.CONSUMED.value, consumed_at=now)
-                        .returning(*REQUEST_COLUMNS)
+        async with self._reading("consume"):
+            now = datetime.now(UTC)
+            refusal: tuple[Exception, str] | None = None
+            async with self._session_factory.begin() as session:
+                row = await self._locked(session, request_id)
+                refusal = _consume_refusal(_parsed(row), action, payload, principal, now)
+                if refusal is not None:
+                    await _audit(
+                        session,
+                        "approval.consume_denied",
+                        principal.id,
+                        request_id,
+                        {"reason": refusal[1]},
+                        context,
                     )
-                ).one()
-                await _audit(session, "approval.consumed", principal.id, request_id, {}, context)
-        if refusal is not None:
-            raise refusal[0]
-        return _request(row)
+                else:
+                    row = (
+                        await session.execute(
+                            update(approvals)
+                            .where(approvals.c.id == request_id)
+                            .values(status=ApprovalStatus.CONSUMED.value, consumed_at=now)
+                            .returning(*REQUEST_COLUMNS)
+                        )
+                    ).one()
+                    await _audit(
+                        session, "approval.consumed", principal.id, request_id, {}, context
+                    )
+            if refusal is not None:
+                raise refusal[0]
+            return _request(row)
 
     async def cancel(
         self,
@@ -511,43 +607,44 @@ class PgApprovalQueue:
         context: RunContext | None = None,
     ) -> ApprovalRequest:
         """The requester withdraws a pending request. A delegate may not."""
-        now = datetime.now(UTC)
-        refusal: tuple[Exception, str] | None = None
-        async with self._session_factory.begin() as session:
-            row = await self._locked(session, request_id)
-            refusal = _cancel_refusal(_request(row), principal, now)
-            if refusal is not None:
-                await _audit(
-                    session,
-                    "approval.cancel_denied",
-                    principal.id,
-                    request_id,
-                    {"reason": refusal[1]},
-                    context,
-                )
-            else:
-                row = (
-                    await session.execute(
-                        update(approvals)
-                        .where(approvals.c.id == request_id)
-                        .values(
-                            status=ApprovalStatus.CANCELLED.value,
-                            closed_at=func.statement_timestamp(),
-                        )
-                        .returning(*REQUEST_COLUMNS)
+        async with self._reading("cancel"):
+            now = datetime.now(UTC)
+            refusal: tuple[Exception, str] | None = None
+            async with self._session_factory.begin() as session:
+                row = await self._locked(session, request_id)
+                refusal = _cancel_refusal(_parsed(row), principal, now)
+                if refusal is not None:
+                    await _audit(
+                        session,
+                        "approval.cancel_denied",
+                        principal.id,
+                        request_id,
+                        {"reason": refusal[1]},
+                        context,
                     )
-                ).one()
-                await _audit(
-                    session,
-                    "approval.cancelled",
-                    principal.id,
-                    request_id,
-                    {"cancel_reason": reason} if reason else {},
-                    context,
-                )
-        if refusal is not None:
-            raise refusal[0]
-        return _request(row)
+                else:
+                    row = (
+                        await session.execute(
+                            update(approvals)
+                            .where(approvals.c.id == request_id)
+                            .values(
+                                status=ApprovalStatus.CANCELLED.value,
+                                closed_at=func.statement_timestamp(),
+                            )
+                            .returning(*REQUEST_COLUMNS)
+                        )
+                    ).one()
+                    await _audit(
+                        session,
+                        "approval.cancelled",
+                        principal.id,
+                        request_id,
+                        {"cancel_reason": reason} if reason else {},
+                        context,
+                    )
+            if refusal is not None:
+                raise refusal[0]
+            return _request(row)
 
     async def _locked(self, session: AsyncSession, request_id: UUID) -> Any:
         row = (
@@ -580,32 +677,47 @@ class PgApprovalQueue:
     ) -> int:
         """Store EXPIRED on pending requests past their lifetime; returns how many.
 
-        Works in batches of `limit`. A request counts as due only if the database's clock
-        agrees, so a skewed caller clock expires nothing early.
+        Works in batches of `limit`, one transaction per request, so a request that cannot be
+        closed is logged and skipped (until the process restarts) instead of rolling back, and
+        blocking, every other request in its batch. A request counts as due only if the
+        database's clock agrees, so a skewed caller clock expires nothing early.
         """
         if limit < 1:
             raise ValueError("limit must be at least 1")
         total = 0
         while True:
-            condition = approvals.c.id.in_(
+            query = (
                 select(approvals.c.id)
                 .where(
                     approvals.c.status == ApprovalStatus.PENDING.value,
                     approvals.c.expires_at <= (now or datetime.now(UTC)),
                     approvals.c.expires_at <= func.statement_timestamp(),
+                    approvals.c.id.not_in(self._unsweepable) if self._unsweepable else true(),
                 )
                 .order_by(approvals.c.expires_at, approvals.c.id)
                 .limit(limit)
-                .with_for_update(skip_locked=True)
             )
-            async with self._session_factory.begin() as session:
-                batch = await self._store_expired(session, condition, principal.id)
-            total += batch
-            if batch < limit:
+            async with self._session_factory() as session:
+                due = list((await session.execute(query)).scalars())
+            for request_id in due:
+                total += await self._expire_one(request_id, principal.id)
+            if len(due) < limit:
                 return total
 
+    async def _expire_one(self, request_id: UUID, actor_id: str) -> int:
+        try:
+            async with self._session_factory.begin() as session:
+                return await self._store_expired(session, approvals.c.id == request_id, actor_id)
+        except Exception:
+            log.exception("approval %s could not be expired; the sweep skips it", request_id)
+            self._unsweepable.add(request_id)
+            return 0
+
     async def _store_expired(self, session: AsyncSession, condition: Any, actor_id: str) -> int:
-        """Store EXPIRED on pending rows matching `condition` that the database also finds due."""
+        """Store EXPIRED on pending rows matching `condition` that the database also finds due.
+
+        A row whose run context cannot be parsed is still closed and audited, with the record
+        saying so in place of the context."""
         statement = (
             update(approvals)
             .where(
@@ -618,6 +730,9 @@ class PgApprovalQueue:
         )
         expired = (await session.execute(statement)).all()
         for request_id, run_context in expired:
-            context = RunContext.model_validate(run_context) if run_context else None
-            await _audit(session, "approval.expired", actor_id, request_id, {}, context)
+            context = _stored_context(run_context)
+            note: dict[str, JsonValue] = (
+                {"run_context": "unreadable"} if run_context and context is None else {}
+            )
+            await _audit(session, "approval.expired", actor_id, request_id, note, context)
         return len(expired)
