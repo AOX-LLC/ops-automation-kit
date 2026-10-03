@@ -17,13 +17,18 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from opskit.api.approver_session import COOKIE_NAME, COOKIE_PATH, ApproverSession
-from opskit.core.errors import ApprovalExpired, ApprovalNotPending, NotFound
-from opskit.core.ports import Core, Decision
+from opskit.core.errors import (
+    ApprovalAlreadyResolvedError,
+    ApprovalExpiredError,
+    ApprovalNotFoundError,
+)
+from opskit.core.ports import APPROVER, AuditEvent, Core, Decision
 
 router = APIRouter(prefix="/approver", include_in_schema=False)
 templates = Jinja2Templates(directory=Path(__file__).parents[1] / "templates")
-ACTOR = "approver"
 BCRYPT_MAX_BYTES = 72
+# agent-core stores the decision note as ApprovalRequest.reason, at most 500 characters.
+NOTE_MAX_CHARS = 500
 
 
 def _refuse_bearer(request: Request) -> None:
@@ -109,12 +114,9 @@ async def login(
     if len(candidate) > BCRYPT_MAX_BYTES or not bcrypt.checkpw(candidate, expected_hash):
         throttle.record_failure()
         await audit.append(
-            ctx=None,
-            actor=ACTOR,
-            action="approver.login",
-            subject_type=None,
-            subject_id=None,
-            details={"outcome": "failure"},
+            AuditEvent(
+                action="approver.login", actor_id=APPROVER.id, payload={"outcome": "failure"}
+            )
         )
         page = templates.TemplateResponse(
             request,
@@ -126,12 +128,7 @@ async def login(
 
     throttle.record_success()
     await audit.append(
-        ctx=None,
-        actor=ACTOR,
-        action="approver.login",
-        subject_type=None,
-        subject_id=None,
-        details={"outcome": "success"},
+        AuditEvent(action="approver.login", actor_id=APPROVER.id, payload={"outcome": "success"})
     )
     redirect = RedirectResponse("/approver/", status_code=status.HTTP_303_SEE_OTHER)
     return _with_cookie(request, redirect, await request.app.state.session_store.create())
@@ -145,12 +142,7 @@ async def logout(
     if session.session_id is not None:
         await request.app.state.session_store.revoke(session.session_id)
         await _core(request).audit.append(
-            ctx=None,
-            actor=ACTOR,
-            action="approver.logout",
-            subject_type=None,
-            subject_id=None,
-            details={},
+            AuditEvent(action="approver.logout", actor_id=APPROVER.id, payload={})
         )
     redirect = RedirectResponse("/approver/login", status_code=status.HTTP_303_SEE_OTHER)
     redirect.delete_cookie(COOKIE_NAME, path=COOKIE_PATH)
@@ -160,7 +152,7 @@ async def logout(
 @router.get("/", response_class=HTMLResponse)
 async def queue(request: Request, cursor: str | None = None) -> Response:
     session = await _require_login(request)
-    page = await _core(request).approvals.list_pending(limit=25, cursor=cursor)
+    page = await _core(request).approvals.list_pending_page(APPROVER, limit=25, cursor=cursor)
     return templates.TemplateResponse(
         request,
         "queue.html",
@@ -177,7 +169,8 @@ async def detail(request: Request, approval_id: UUID) -> Response:
     session = await _require_login(request)
     try:
         approval = await _core(request).approvals.get(approval_id)
-    except NotFound as exc:
+        payload = await _core(request).approvals.payload_of(approval_id)
+    except ApprovalNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such approval") from exc
     return templates.TemplateResponse(
         request,
@@ -185,7 +178,7 @@ async def detail(request: Request, approval_id: UUID) -> Response:
         {
             "csrf_token": session.csrf_token,
             "approval": approval,
-            "subject_json": json.dumps(approval.subject, indent=2, sort_keys=True),
+            "subject_json": json.dumps(payload, indent=2, sort_keys=True),
             "error": None,
         },
     )
@@ -197,19 +190,22 @@ async def decide(
     approval_id: UUID,
     decision: Annotated[Decision, Form()],
     csrf_token: Annotated[str, Form(max_length=128)] = "",
-    note: Annotated[str, Form(max_length=2000)] = "",
+    note: Annotated[str, Form(max_length=NOTE_MAX_CHARS)] = "",
 ) -> Response:
     session = _require_csrf(await _require_login(request), csrf_token)
     approvals = _core(request).approvals
     try:
-        await approvals.decide(approval_id, decision=decision, actor=ACTOR, note=note or None)
-    except NotFound as exc:
+        await approvals.resolve(
+            approval_id, decision=decision, principal=APPROVER, reason=note or None
+        )
+    except ApprovalNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such approval") from exc
-    except (ApprovalExpired, ApprovalNotPending) as exc:
+    except (ApprovalExpiredError, ApprovalAlreadyResolvedError) as exc:
         approval = await approvals.get(approval_id)
+        payload = await approvals.payload_of(approval_id)
         message = (
             "This approval expired before a decision was made."
-            if isinstance(exc, ApprovalExpired)
+            if isinstance(exc, ApprovalExpiredError)
             else f"This approval was already {approval.status.value}."
         )
         return templates.TemplateResponse(
@@ -218,7 +214,7 @@ async def decide(
             {
                 "csrf_token": session.csrf_token,
                 "approval": approval,
-                "subject_json": json.dumps(approval.subject, indent=2, sort_keys=True),
+                "subject_json": json.dumps(payload, indent=2, sort_keys=True),
                 "error": message,
             },
             status_code=status.HTTP_409_CONFLICT,

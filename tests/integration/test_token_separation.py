@@ -32,7 +32,7 @@ def test_service_token_cannot_decide_even_alongside_a_valid_session(
     approval_id = make_approval()["approval_id"]
     response = approver.client.post(
         f"/approver/approvals/{approval_id}/decision",
-        data={"decision": "approved", "csrf_token": approver.page_csrf()},
+        data={"decision": "approve", "csrf_token": approver.page_csrf()},
         headers={"Authorization": f"Bearer {service_token}"},
     )
     assert response.status_code == 401
@@ -53,7 +53,7 @@ def test_no_service_route_decides(
     service: httpx.Client, make_approval: MakeApproval, method: str, path: str
 ) -> None:
     approval_id = make_approval()["approval_id"]
-    body = {"decision": "approved", "status": "approved"}
+    body = {"decision": "approve", "status": "approved"}
     response = service.request(method, path.format(id=approval_id), json=body)
     assert response.status_code in (404, 405)
     assert service.get(f"/v1/approvals/{approval_id}").json()["status"] == "pending"
@@ -119,4 +119,4 @@ def test_login_form_token_dies_at_login(
         == 303
     )
     approval_id = make_approval()["approval_id"]
-    assert client.decide(approval_id, "approved", csrf=pre_login_token).status_code == 403
+    assert client.decide(approval_id, "approve", csrf=pre_login_token).status_code == 403

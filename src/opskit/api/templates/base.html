@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light" data-accent="verdigris" data-density="comfortable">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,12 +9,15 @@
 <body>
   <header class="bar">
     <span class="brand">Approvals</span>
+    <div class="bar-end">
+    <span class="badge badge-sample">Sample data</span>
     {% if logged_in %}
     <form method="post" action="/approver/logout">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit" class="link">Sign out</button>
     </form>
     {% endif %}
+    </div>
   </header>
   <main>{% block content %}{% endblock %}</main>
 </body>

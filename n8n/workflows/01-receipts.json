@@ -1,34 +1,169 @@
 {
   "active": false,
   "connections": {
+    "Any flags?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send summary email",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Finish run",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Anything new?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "One item per receipt",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Finish run (nothing new)",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Collect results": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Reconcile",
+            "type": "main"
+          }
+        ]
+      ]
+    },
     "Every 15 minutes": {
       "main": [
         [
           {
             "index": 0,
-            "node": "List pending inputs",
+            "node": "Start run",
             "type": "main"
           }
         ]
       ]
     },
-    "List pending inputs": {
+    "Extract receipt": {
       "main": [
         [
           {
             "index": 0,
-            "node": "One item per input",
+            "node": "Collect results",
             "type": "main"
           }
         ]
       ]
     },
-    "One item per input": {
+    "List new receipts": {
       "main": [
         [
           {
             "index": 0,
-            "node": "Next phase starts here",
+            "node": "Anything new?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "One item per receipt": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Extract receipt",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "One item per row": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Spreadsheet",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Reconcile": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "One item per row",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Send summary email": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Finish run",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Spreadsheet": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Write to exports",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Start run": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "List new receipts",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Start run",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Write to exports": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Any flags?",
             "type": "main"
           }
         ]
@@ -36,19 +171,19 @@
     }
   },
   "id": "receipts00000001",
-  "name": "Receipts → reconciled spreadsheet (skeleton)",
+  "name": "Receipts → reconciled spreadsheet",
   "nodes": [
     {
       "id": "receipts-note-01",
       "name": "Note 01",
       "parameters": {
-        "content": "## Receipts (Phase 2)\nLists receipts the helper has not processed yet. Phase 2 adds extraction and reconciliation in the helper, then Convert to File and a disk write for the spreadsheet.",
-        "height": 160,
-        "width": 520
+        "content": "## Receipts: n8n orchestrates, the helper works\nn8n starts a run, lists new receipts, calls the helper once per receipt to extract it, then asks the helper to reconcile the batch. The helper owns extraction and all the math; n8n only moves data, writes the spreadsheet to exports/ and sends the summary email. There are no Code nodes: if a step needs logic, it belongs in the helper.\nTriggers: every 15 minutes, or POST /webhook/receipts-run.",
+        "height": 200,
+        "width": 640
       },
       "position": [
         -60,
-        -240
+        -300
       ],
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1
@@ -76,12 +211,64 @@
     {
       "credentials": {
         "httpHeaderAuth": {
+          "id": "kitWebhookAuth01",
+          "name": "Kit webhooks (caller token)"
+        }
+      },
+      "id": "receipts-webhook-01",
+      "name": "Webhook",
+      "parameters": {
+        "authentication": "headerAuth",
+        "httpMethod": "POST",
+        "options": {},
+        "path": "receipts-run",
+        "responseMode": "onReceived"
+      },
+      "position": [
+        0,
+        200
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "8b2f6c4e-1a73-4d95-b0e8-5f3a9c7d2e02"
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "receipts-start-01",
+      "name": "Start run",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ { \"workflow\": \"receipts\", \"n8n_workflow_id\": $workflow.id, \"n8n_execution_id\": String($execution.id) } }}",
+        "method": "POST",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "http://api:8000/v1/runs"
+      },
+      "position": [
+        260,
+        100
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
           "id": "kitApiAuth000001",
           "name": "Helper API (service token)"
         }
       },
       "id": "receipts-pending-01",
-      "name": "List pending inputs",
+      "name": "List new receipts",
       "parameters": {
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
@@ -89,39 +276,300 @@
         "options": {
           "timeout": 10000
         },
-        "url": "http://api:8000/v1/receipts/pending"
+        "url": "http://api:8000/v1/receipts/pending?limit=100"
       },
       "position": [
-        220,
-        0
+        480,
+        100
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "receipts-if-new-01",
+      "name": "Anything new?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "receipts-cond-new-01",
+              "leftValue": "={{ $json.items.length }}",
+              "operator": {
+                "operation": "gt",
+                "type": "number"
+              },
+              "rightValue": 0
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          }
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "position": [
+        700,
+        100
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "receipts-finish-empty-01",
+      "name": "Finish run (nothing new)",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ { \"status\": \"succeeded\" } }}",
+        "method": "POST",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "=http://api:8000/v1/runs/{{ $('Start run').first().json.run_id }}/finish"
+      },
+      "position": [
+        920,
+        300
       ],
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2
     },
     {
       "id": "receipts-split-01",
-      "name": "One item per input",
+      "name": "One item per receipt",
       "parameters": {
         "fieldToSplitOut": "items",
         "options": {}
       },
       "position": [
-        440,
+        920,
         0
       ],
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1
     },
     {
-      "id": "receipts-next-01",
-      "name": "Next phase starts here",
-      "parameters": {},
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "receipts-extract-01",
+      "name": "Extract receipt",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ { \"run_id\": $('Start run').item.json.run_id, \"path\": $json.path } }}",
+        "method": "POST",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchInterval": 500,
+              "batchSize": 2
+            }
+          },
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "http://api:8000/v1/receipts/extract"
+      },
       "position": [
-        660,
+        1140,
         0
       ],
-      "type": "n8n-nodes-base.noOp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "receipts-collect-01",
+      "name": "Collect results",
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "position": [
+        1360,
+        0
+      ],
+      "type": "n8n-nodes-base.aggregate",
       "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "receipts-reconcile-01",
+      "name": "Reconcile",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ { \"run_id\": $('Start run').first().json.run_id } }}",
+        "method": "POST",
+        "options": {
+          "timeout": 60000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "http://api:8000/v1/receipts/reconcile"
+      },
+      "position": [
+        1580,
+        0
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "receipts-rows-01",
+      "name": "One item per row",
+      "parameters": {
+        "fieldToSplitOut": "rows",
+        "options": {}
+      },
+      "position": [
+        1800,
+        0
+      ],
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1
+    },
+    {
+      "id": "receipts-sheet-01",
+      "name": "Spreadsheet",
+      "parameters": {
+        "binaryPropertyName": "data",
+        "operation": "xlsx",
+        "options": {
+          "fileName": "=reconciliation-{{ $now.toFormat('yyyyLLdd-HHmm') }}.xlsx",
+          "sheetName": "Reconciliation"
+        }
+      },
+      "position": [
+        2020,
+        0
+      ],
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1
+    },
+    {
+      "id": "receipts-write-01",
+      "name": "Write to exports",
+      "parameters": {
+        "dataPropertyName": "data",
+        "fileName": "=/home/node/exports/{{ $binary.data.fileName }}",
+        "operation": "write",
+        "options": {}
+      },
+      "position": [
+        2240,
+        0
+      ],
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1
+    },
+    {
+      "id": "receipts-if-flags-01",
+      "name": "Any flags?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "receipts-cond-flags-01",
+              "leftValue": "={{ $('Reconcile').first().json.summary.flagged }}",
+              "operator": {
+                "operation": "gt",
+                "type": "number"
+              },
+              "rightValue": 0
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          }
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "position": [
+        2460,
+        0
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "credentials": {
+        "smtp": {
+          "id": "kitMailpitSmtp01",
+          "name": "Mailpit SMTP (local, captures all mail)"
+        }
+      },
+      "id": "receipts-email-01",
+      "name": "Send summary email",
+      "parameters": {
+        "emailFormat": "text",
+        "fromEmail": "receipts@kit.example",
+        "options": {},
+        "subject": "=Receipts reconciled: {{ $('Reconcile').first().json.summary.flagged }} item(s) need a look",
+        "text": "={{ 'The receipts run finished.\\n\\n' + 'Matched: ' + $('Reconcile').first().json.summary.matched + '\\n' + 'Amount off: ' + $('Reconcile').first().json.summary.amount_mismatch + '\\n' + 'Date drift: ' + $('Reconcile').first().json.summary.date_drift + '\\n' + 'Missing from the bank statement: ' + $('Reconcile').first().json.summary.missing_in_bank + '\\n' + 'Duplicate receipts: ' + $('Reconcile').first().json.summary.duplicate_receipt + '\\n' + 'Duplicate charges: ' + $('Reconcile').first().json.summary.duplicate_charge + '\\n' + 'Charges with no receipt: ' + $('Reconcile').first().json.summary.unreceipted_charge + '\\n' + 'Needs review: ' + $('Reconcile').first().json.summary.needs_review + '\\n\\n' + 'Spreadsheet: exports/' + $('Spreadsheet').first().binary.data.fileName }}",
+        "toEmail": "owner@kit.example"
+      },
+      "position": [
+        2680,
+        -100
+      ],
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "receipts-finish-01",
+      "name": "Finish run",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ { \"status\": \"succeeded\" } }}",
+        "method": "POST",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "=http://api:8000/v1/runs/{{ $('Start run').first().json.run_id }}/finish"
+      },
+      "position": [
+        2900,
+        0
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
     }
   ],
   "settings": {

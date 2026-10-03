@@ -27,7 +27,7 @@ def test_decision_without_the_right_token_is_refused(
     csrf: str | None,
 ) -> None:
     approval_id = make_approval()["approval_id"]
-    response = approver.decide(approval_id, "approved", csrf=csrf)
+    response = approver.decide(approval_id, "approve", csrf=csrf)
     assert response.status_code == 403
     assert pending(service, approval_id)
     assert audit_count("approval.decided", approval_id) == 0
@@ -45,7 +45,7 @@ def test_another_sessions_token_is_refused(
     foreign_token = other.page_csrf()
 
     approval_id = make_approval()["approval_id"]
-    assert approver.decide(approval_id, "approved", csrf=foreign_token).status_code == 403
+    assert approver.decide(approval_id, "approve", csrf=foreign_token).status_code == 403
     assert pending(service, approval_id)
 
 

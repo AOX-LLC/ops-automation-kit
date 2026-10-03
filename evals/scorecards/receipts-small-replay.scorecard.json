@@ -1,0 +1,2452 @@
+{
+  "accuracy": 1.0,
+  "cost_per_case_usd": "0.002754433333333333333333333333",
+  "cost_total_usd": "0.082633",
+  "finished_at": "2026-10-03T00:37:53.565410Z",
+  "format_version": 1,
+  "latency_p50_ms": null,
+  "latency_p95_ms": null,
+  "mode": "replay",
+  "results": [
+    {
+      "case_id": "r01",
+      "cost_usd": "0.002485",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "VISA",
+        "card_last4": "4417",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 1150,
+            "description": "Oat latte"
+          },
+          {
+            "amount_cents": null,
+            "description": "2 @ 5.75"
+          },
+          {
+            "amount_cents": 425,
+            "description": "Almond croissant"
+          }
+        ],
+        "receipt_date": "2026-08-03",
+        "receipt_number": "HB-20417",
+        "status": "extracted",
+        "subtotal_cents": 1575,
+        "tax_cents": 100,
+        "tip_cents": 200,
+        "total_cents": 1875,
+        "vendor_name": "HARBOR BEAN CO"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r02",
+      "cost_usd": "0.002927",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "VISA",
+        "card_last4": "4417",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 4890,
+            "description": "Copier paper 10 ream"
+          },
+          {
+            "amount_cents": 1498,
+            "description": "Gel pens 12 pack"
+          },
+          {
+            "amount_cents": 3897,
+            "description": "Label sheets"
+          }
+        ],
+        "receipt_date": "2026-08-04",
+        "receipt_number": "TG-88213",
+        "status": "extracted",
+        "subtotal_cents": 10285,
+        "tax_cents": 653,
+        "tip_cents": null,
+        "total_cents": 10938,
+        "vendor_name": "Tallgrass Office Supply"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r03",
+      "cost_usd": "0.002293",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "MASTERCARD",
+        "card_last4": "5528",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 5183,
+            "description": "Regular fuel 14.2 gal"
+          }
+        ],
+        "receipt_date": "2026-08-05",
+        "receipt_number": "CF-0412-6619",
+        "status": "extracted",
+        "subtotal_cents": 5183,
+        "tax_cents": null,
+        "tip_cents": null,
+        "total_cents": 5183,
+        "vendor_name": "COPPERLINE FUEL STOP"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r04",
+      "cost_usd": "0.003748",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "VISA",
+        "card_last4": "4417",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 4800,
+            "description": "Managed server plan"
+          },
+          {
+            "amount_cents": 1000,
+            "description": "Backup storage 200 GB"
+          }
+        ],
+        "receipt_date": "2026-08-05",
+        "receipt_number": "LF-INV-30871",
+        "status": "extracted",
+        "subtotal_cents": 5800,
+        "tax_cents": null,
+        "tip_cents": null,
+        "total_cents": 5800,
+        "vendor_name": "Lumenfield Cloud Hosting"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r05",
+      "cost_usd": "0.002669",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "VISA",
+        "card_last4": "0193",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 2390,
+            "description": "Club sandwich"
+          },
+          {
+            "amount_cents": null,
+            "description": "2 @ 11.95"
+          },
+          {
+            "amount_cents": 650,
+            "description": "Iced tea"
+          },
+          {
+            "amount_cents": null,
+            "description": "2 @ 3.25"
+          },
+          {
+            "amount_cents": 650,
+            "description": "Pie slice"
+          }
+        ],
+        "receipt_date": "2026-08-06",
+        "receipt_number": "PD-7731",
+        "status": "extracted",
+        "subtotal_cents": 3690,
+        "tax_cents": 258,
+        "tip_cents": 500,
+        "total_cents": 4448,
+        "vendor_name": "PEBBLE STREET DINER"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r06",
+      "cost_usd": "0.002566",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "MASTERCARD",
+        "card_last4": "5528",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 699,
+            "description": "Sparkling water 12pk"
+          },
+          {
+            "amount_cents": 1098,
+            "description": "Granola bars"
+          },
+          {
+            "amount_cents": null,
+            "description": "2 @ 5.49"
+          },
+          {
+            "amount_cents": 597,
+            "description": "Apples 3 lb"
+          }
+        ],
+        "receipt_date": "2026-08-07",
+        "receipt_number": "FM-205518",
+        "status": "extracted",
+        "subtotal_cents": 2394,
+        "tax_cents": null,
+        "tip_cents": null,
+        "total_cents": 2394,
+        "vendor_name": "FERNHOLLOW MARKET"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r07",
+      "cost_usd": "0.002867",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "VISA",
+        "card_last4": "4417",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 4200,
+            "description": "Color copies"
+          },
+          {
+            "amount_cents": 1800,
+            "description": "Spiral binding"
+          },
+          {
+            "amount_cents": 1275,
+            "description": "Courier label"
+          }
+        ],
+        "receipt_date": "2026-08-08",
+        "receipt_number": "BP-41190",
+        "status": "extracted",
+        "subtotal_cents": 7275,
+        "tax_cents": 462,
+        "tip_cents": null,
+        "total_cents": 7737,
+        "vendor_name": "Brightwick Print & Ship"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r08",
+      "cost_usd": "0.00257",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "AMEX",
+        "card_last4": "3006",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 1798,
+            "description": "Cable ties 100 pk"
+          },
+          {
+            "amount_cents": null,
+            "description": "2 @ 8.99"
+          },
+          {
+            "amount_cents": 1649,
+            "description": "Work gloves"
+          },
+          {
+            "amount_cents": 1199,
+            "description": "Utility knife"
+          }
+        ],
+        "receipt_date": "2026-08-10",
+        "receipt_number": "CP-93021",
+        "status": "extracted",
+        "subtotal_cents": 4646,
+        "tax_cents": 295,
+        "tip_cents": null,
+        "total_cents": 4941,
+        "vendor_name": "CEDAR & PINE HARDWARE"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r09",
+      "cost_usd": "0.002747",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "VISA",
+        "card_last4": "4417",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 2400,
+            "description": "Same-day delivery zone 2"
+          },
+          {
+            "amount_cents": 180,
+            "description": "Fuel surcharge"
+          }
+        ],
+        "receipt_date": "2026-08-11",
+        "receipt_number": "WC-55067",
+        "status": "extracted",
+        "subtotal_cents": 2580,
+        "tax_cents": null,
+        "tip_cents": null,
+        "total_cents": 2580,
+        "vendor_name": "Wrenfield Courier"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r10",
+      "cost_usd": "0.002474",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "VISA",
+        "card_last4": "0193",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 1790,
+            "description": "Chowder bowl 2 @ 8.95"
+          },
+          {
+            "amount_cents": 300,
+            "description": "Roll 2 @ 1.50"
+          }
+        ],
+        "receipt_date": "2026-08-12",
+        "receipt_number": "SL-1184",
+        "status": "extracted",
+        "subtotal_cents": 2090,
+        "tax_cents": 146,
+        "tip_cents": 300,
+        "total_cents": 2536,
+        "vendor_name": "SALTMARSH LUNCH COUNTER"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r11",
+      "cost_usd": "0.003755",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "VISA",
+        "card_last4": "4417",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 7000,
+            "description": "Day pass"
+          },
+          {
+            "amount_cents": 2500,
+            "description": "Meeting room 1 hr"
+          }
+        ],
+        "receipt_date": "2026-08-12",
+        "receipt_number": "SC-D-60214",
+        "status": "extracted",
+        "subtotal_cents": 9500,
+        "tax_cents": null,
+        "tip_cents": null,
+        "total_cents": 9500,
+        "vendor_name": "Starling Coworking"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r12",
+      "cost_usd": "0.002263",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "MASTERCARD",
+        "card_last4": "5528",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 1800,
+            "description": "Garage parking 6 hr"
+          }
+        ],
+        "receipt_date": "2026-08-13",
+        "receipt_number": "NG-883402",
+        "status": "extracted",
+        "subtotal_cents": 1800,
+        "tax_cents": null,
+        "tip_cents": null,
+        "total_cents": 1800,
+        "vendor_name": "NORTHGATE PARKING CO"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r13",
+      "cost_usd": "0.002787",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "AMEX",
+        "card_last4": "3006",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 6500,
+            "description": "Plate compactor day rental"
+          },
+          {
+            "amount_cents": 650,
+            "description": "Damage waiver"
+          }
+        ],
+        "receipt_date": "2026-08-14",
+        "receipt_number": "IB-20931",
+        "status": "extracted",
+        "subtotal_cents": 7150,
+        "tax_cents": 454,
+        "tip_cents": null,
+        "total_cents": 7604,
+        "vendor_name": "Ironbark Tool Rental"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r14",
+      "cost_usd": "0.002481",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "VISA",
+        "card_last4": "0193",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 1500,
+            "description": "Sourdough loaf"
+          },
+          {
+            "amount_cents": null,
+            "description": "2 @ 7.50"
+          },
+          {
+            "amount_cents": 825,
+            "description": "Seeded rolls 6 pk"
+          }
+        ],
+        "receipt_date": "2026-08-14",
+        "receipt_number": "MB-30921",
+        "status": "extracted",
+        "subtotal_cents": 2325,
+        "tax_cents": null,
+        "tip_cents": null,
+        "total_cents": 2325,
+        "vendor_name": "MOSSGATE BAKERY"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r15",
+      "cost_usd": "0.002782",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "VISA",
+        "card_last4": "4417",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 8700,
+            "description": "Dot-grid notebook"
+          },
+          {
+            "amount_cents": 895,
+            "description": "Brass bulldog clips"
+          }
+        ],
+        "receipt_date": "2026-08-17",
+        "receipt_number": "VM-71455",
+        "status": "extracted",
+        "subtotal_cents": 9595,
+        "tax_cents": 609,
+        "tip_cents": null,
+        "total_cents": 10204,
+        "vendor_name": "Velvet Moth Stationers"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r16",
+      "cost_usd": "0.002474",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "VISA",
+        "card_last4": "4417",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 1575,
+            "description": "Cold brew 3 @ 5.25"
+          },
+          {
+            "amount_cents": 1185,
+            "description": "Blueberry scone 3 @ 3.95"
+          }
+        ],
+        "receipt_date": "2026-08-18",
+        "receipt_number": "HB-20688",
+        "status": "extracted",
+        "subtotal_cents": 2760,
+        "tax_cents": 175,
+        "tip_cents": 250,
+        "total_cents": 3185,
+        "vendor_name": "HARBOR BEAN CO"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r17",
+      "cost_usd": "0.00258",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "AMEX",
+        "card_last4": "3006",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 6995,
+            "description": "Oil change synthetic"
+          },
+          {
+            "amount_cents": 2900,
+            "description": "Wiper blades"
+          },
+          {
+            "amount_cents": 2900,
+            "description": "2 @ 14.50"
+          },
+          {
+            "amount_cents": 495,
+            "description": "Shop supplies fee"
+          }
+        ],
+        "receipt_date": "2026-08-18",
+        "receipt_number": "MT-662019",
+        "status": "extracted",
+        "subtotal_cents": 10390,
+        "tax_cents": 660,
+        "tip_cents": null,
+        "total_cents": 11050,
+        "vendor_name": "MERIDIAN TIRE & LUBE"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r18",
+      "cost_usd": "0.002767",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "MASTERCARD",
+        "card_last4": "5528",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 11900,
+            "description": "Screen replacement"
+          },
+          {
+            "amount_cents": 1500,
+            "description": "Diagnostic fee"
+          }
+        ],
+        "receipt_date": "2026-08-19",
+        "receipt_number": "DM-4471",
+        "status": "extracted",
+        "subtotal_cents": 13400,
+        "tax_cents": 851,
+        "tip_cents": null,
+        "total_cents": 14251,
+        "vendor_name": "Dovetail Mobile Repair"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r19",
+      "cost_usd": "0.00369",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "VISA",
+        "card_last4": "4417",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 6000,
+            "description": "Team plan 5 seats monthly"
+          }
+        ],
+        "receipt_date": "2026-08-19",
+        "receipt_number": "TD-2026-08-1923",
+        "status": "extracted",
+        "subtotal_cents": 6000,
+        "tax_cents": null,
+        "tip_cents": null,
+        "total_cents": 6000,
+        "vendor_name": "Thistledown Software"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r20",
+      "cost_usd": "0.002672",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "VISA",
+        "card_last4": "4417",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": -8999,
+            "description": "Return - toner cartridge"
+          }
+        ],
+        "receipt_date": "2026-08-20",
+        "receipt_number": "TG-88540-R",
+        "status": "extracted",
+        "subtotal_cents": -8999,
+        "tax_cents": -571,
+        "tip_cents": null,
+        "total_cents": -9570,
+        "vendor_name": "Tallgrass Office Supply"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r21",
+      "cost_usd": "0.002565",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "VISA",
+        "card_last4": "0193",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 3150,
+            "description": "Breakfast plate"
+          },
+          {
+            "amount_cents": null,
+            "description": "3 @ 10.50"
+          },
+          {
+            "amount_cents": 825,
+            "description": "Coffee"
+          },
+          {
+            "amount_cents": null,
+            "description": "3 @ 2.75"
+          }
+        ],
+        "receipt_date": "2026-08-27",
+        "receipt_number": "PD-8120",
+        "status": "extracted",
+        "subtotal_cents": 3975,
+        "tax_cents": 278,
+        "tip_cents": 600,
+        "total_cents": 4853,
+        "vendor_name": "PEBBLE STREET DINER"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r22",
+      "cost_usd": "0.00256",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "VISA",
+        "card_last4": "0193",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 2990,
+            "description": "Fish plate"
+          },
+          {
+            "amount_cents": null,
+            "description": "2 @ 14.95"
+          },
+          {
+            "amount_cents": 700,
+            "description": "Slaw"
+          },
+          {
+            "amount_cents": null,
+            "description": "2 @ 3.50"
+          }
+        ],
+        "receipt_date": "2026-08-21",
+        "receipt_number": "SL-1241",
+        "status": "extracted",
+        "subtotal_cents": 3690,
+        "tax_cents": 258,
+        "tip_cents": null,
+        "total_cents": 3948,
+        "vendor_name": "SALTMARSH LUNCH COUNTER"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r23",
+      "cost_usd": "0.00256",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "AMEX",
+        "card_last4": "3006",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 3598,
+            "description": "Paint roller kit"
+          },
+          {
+            "amount_cents": null,
+            "description": "2 @ 17.99"
+          },
+          {
+            "amount_cents": 2547,
+            "description": "Drop cloth"
+          },
+          {
+            "amount_cents": null,
+            "description": "3 @ 8.49"
+          }
+        ],
+        "receipt_date": "2026-08-22",
+        "receipt_number": "CP-93544",
+        "status": "extracted",
+        "subtotal_cents": 6145,
+        "tax_cents": 390,
+        "tip_cents": null,
+        "total_cents": 6535,
+        "vendor_name": "CEDAR & PINE HARDWARE"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r24",
+      "cost_usd": "0.002561",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "MASTERCARD",
+        "card_last4": "5528",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 2499,
+            "description": "Bottled juice 6pk"
+          },
+          {
+            "amount_cents": 958,
+            "description": "3 @ 8.33"
+          },
+          {
+            "amount_cents": null,
+            "description": "Rye bread"
+          },
+          {
+            "amount_cents": null,
+            "description": "2 @ 4.79"
+          }
+        ],
+        "receipt_date": "2026-08-23",
+        "receipt_number": "FM-206291",
+        "status": "extracted",
+        "subtotal_cents": 3457,
+        "tax_cents": null,
+        "tip_cents": null,
+        "total_cents": 3457,
+        "vendor_name": "FERNHOLLOW MARKET"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r25",
+      "cost_usd": "0.002782",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "VISA",
+        "card_last4": "4417",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 8400,
+            "description": "Banner print 3x6 ft"
+          },
+          {
+            "amount_cents": 600,
+            "description": "Grommets"
+          }
+        ],
+        "receipt_date": "2026-08-04",
+        "receipt_number": "BP-41233",
+        "status": "extracted",
+        "subtotal_cents": 9000,
+        "tax_cents": 572,
+        "tip_cents": null,
+        "total_cents": 9572,
+        "vendor_name": "Brightwick Print & Ship"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r26",
+      "cost_usd": "0.002667",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "AMEX",
+        "card_last4": "3006",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 9000,
+            "description": "Wet saw weekend rental"
+          }
+        ],
+        "receipt_date": "2026-08-09",
+        "receipt_number": "IB-20877",
+        "status": "extracted",
+        "subtotal_cents": 9000,
+        "tax_cents": 572,
+        "tip_cents": null,
+        "total_cents": 9572,
+        "vendor_name": "Ironbark Tool Rental"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r27",
+      "cost_usd": "0.003637",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "VISA",
+        "card_last4": "4417",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 3500,
+            "description": "Day pass"
+          }
+        ],
+        "receipt_date": "2026-08-21",
+        "receipt_number": "SC-D-60388",
+        "status": "extracted",
+        "subtotal_cents": 3500,
+        "tax_cents": null,
+        "tip_cents": null,
+        "total_cents": 3500,
+        "vendor_name": "Starling Coworking"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r28",
+      "cost_usd": "0.00257",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "AMEX",
+        "card_last4": "3006",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 6995,
+            "description": "Oil change synthetic"
+          },
+          {
+            "amount_cents": 2900,
+            "description": "Wiper blades"
+          },
+          {
+            "amount_cents": null,
+            "description": "2 @ 14.50"
+          },
+          {
+            "amount_cents": 495,
+            "description": "Shop supplies fee"
+          }
+        ],
+        "receipt_date": "2026-08-18",
+        "receipt_number": "MT-662019",
+        "status": "extracted",
+        "subtotal_cents": 10390,
+        "tax_cents": 660,
+        "tip_cents": null,
+        "total_cents": 11050,
+        "vendor_name": "MERIDIAN TIRE & LUBE"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r29",
+      "cost_usd": "0.002357",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "VISA",
+        "card_last4": "0193",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 2400,
+            "description": "Pastry box"
+          },
+          {
+            "amount_cents": 1800,
+            "description": "Drip coffee carafe"
+          }
+        ],
+        "receipt_date": "2026-08-24",
+        "receipt_number": "MB-31188",
+        "status": "extracted",
+        "subtotal_cents": 4200,
+        "tax_cents": null,
+        "tip_cents": null,
+        "total_cents": 4200,
+        "vendor_name": "MOSSGATE BAKERY"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    },
+    {
+      "case_id": "r30",
+      "cost_usd": "0.002777",
+      "error": null,
+      "latency_ms": null,
+      "output": {
+        "card_brand": "VISA",
+        "card_last4": "4417",
+        "currency": null,
+        "line_items": [
+          {
+            "amount_cents": 3300,
+            "description": "Fountain pen ink"
+          },
+          {
+            "amount_cents": 700,
+            "description": "Blotting paper"
+          }
+        ],
+        "receipt_date": "2026-08-26",
+        "receipt_number": "VM-71602",
+        "status": "extracted",
+        "subtotal_cents": 4000,
+        "tax_cents": 254,
+        "tip_cents": null,
+        "total_cents": 4254,
+        "vendor_name": "Velvet Moth Stationers"
+      },
+      "scores": [
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:vendor_name",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:receipt_date",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:subtotal_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tax_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:tip_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:total_cents",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "field:card_last4",
+          "value": 1.0
+        },
+        {
+          "detail": null,
+          "passed": true,
+          "scorer": "honest_nulls",
+          "value": 1.0
+        }
+      ]
+    }
+  ],
+  "started_at": "2026-10-03T00:37:53.438822Z",
+  "suite": "receipts-extraction"
+}

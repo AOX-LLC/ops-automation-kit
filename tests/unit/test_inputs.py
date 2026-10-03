@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -177,3 +178,39 @@ def test_inbox_pending_mailpit_error_is_502(settings: Settings) -> None:
 
     assert response.status_code == 502
     assert response.json() == {"detail": "mailpit unavailable"}
+
+
+def test_receipt_hash_is_cached_until_the_file_changes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inputs._hash_cache.clear()
+    calls: list[Path] = []
+    real = inputs.sha256_of_file
+
+    def counting(path: Path) -> str:
+        calls.append(path)
+        return real(path)
+
+    monkeypatch.setattr(inputs, "sha256_of_file", counting)
+    path = tmp_path / "r.png"
+    path.write_bytes(b"one")
+    first = inputs._file_sha256(path)
+    assert inputs._file_sha256(path) == first
+    assert len(calls) == 1
+    path.write_bytes(b"three")
+    assert inputs._file_sha256(path) != first
+    assert len(calls) == 2
+    stat = path.stat()
+    os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000))
+    inputs._file_sha256(path)
+    assert len(calls) == 3
+
+
+def test_receipt_hash_cache_is_bounded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    inputs._hash_cache.clear()
+    monkeypatch.setattr(inputs, "HASH_CACHE_MAX_ENTRIES", 2)
+    for name in ("a", "b", "c"):
+        path = tmp_path / f"{name}.png"
+        path.write_bytes(name.encode())
+        inputs._file_sha256(path)
+    assert len(inputs._hash_cache) == 2

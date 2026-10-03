@@ -14,7 +14,16 @@ from fastapi.staticfiles import StaticFiles
 
 from opskit.api.approver_session import LoginThrottle, SessionCodec, SessionStore
 from opskit.api.middleware import SecurityHeaders
-from opskit.api.routers import approvals, approver, health, inputs, runs, smoke
+from opskit.api.routers import (
+    approvals,
+    approver,
+    health,
+    inputs,
+    receipts,
+    reconcile,
+    runs,
+    smoke,
+)
 from opskit.api.routers.health import load_build_info
 from opskit.approvals.resume import N8nResumeSender
 from opskit.config import Settings
@@ -49,6 +58,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.settings = settings
         app.state.engine = engine
         app.state.core = core
+        app.state.session_factory = session_factory
         app.state.service_token = settings.read_secret("api_service_token")
         app.state.approver_password_hash = settings.read_secret("approver_password.bcrypt").encode()
         app.state.session_codec = SessionCodec(
@@ -83,6 +93,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.build_info = load_build_info()
     app.add_middleware(SecurityHeaders)
     app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
-    for module in (health, runs, approvals, smoke, inputs, approver):
+    for module in (health, runs, approvals, smoke, inputs, approver, receipts, reconcile):
         app.include_router(module.router)
     return app

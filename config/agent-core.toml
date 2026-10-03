@@ -1,0 +1,24 @@
+# agent-core configuration for the kit. Merged over agent-core's packaged defaults
+# (tiers, models and prices live there and here, never in code). Relative paths resolve
+# against this file's folder. AGENT_CORE_MODE overrides `mode`.
+mode = "replay"
+
+[routing]
+default_tier = "small"
+# Receipts come from users, so never trust a PDF's own page count for budgeting: every PDF
+# is budgeted at the API's 100-page ceiling. The kit also caps pages and size itself before
+# any call (see opskit/receipts/extraction.py).
+count_pdf_pages = false
+# With count_pdf_pages = false every PDF is budgeted at 100 pages ($0.88 worst case on the
+# small tier), so the per-call budget must clear that. Actual spend is billed on real tokens
+# (about $0.002 per receipt).
+budget_usd_per_call = "1.00"
+on_budget_exceeded = "raise"
+
+[routing.tasks]
+extraction = "small"
+
+[replay]
+cassette_dir = "../fixtures/cassettes"
+cassette = "ops-kit"
+on_secret = "refuse"

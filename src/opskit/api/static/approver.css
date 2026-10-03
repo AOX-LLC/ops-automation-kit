@@ -1,55 +1,114 @@
+/* Approver page: the portfolio UI system's light theme, Verdigris accent, comfortable density.
+   Role tokens only below this block; values copied from the system's tokens. Fonts use the
+   system's stacks without loading web fonts, so the page keeps its strict same-origin CSP. */
 :root {
-  --surface: #ffffff;
-  --surface-raised: #f4f5f7;
-  --text: #16181d;
-  --text-muted: #5a606b;
-  --accent: #2f5bd3;
-  --accent-text: #ffffff;
-  --danger: #b42318;
-  --border: #d9dce1;
-  --radius: 8px;
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 1rem;
-  --space-4: 1.5rem;
-  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --surface: #121418;
-    --surface-raised: #1c1f25;
-    --text: #e8eaee;
-    --text-muted: #a0a6b1;
-    --accent: #7c9cff;
-    --accent-text: #0b0d12;
-    --danger: #ff8a7a;
-    --border: #2c3038;
-  }
+  --pui-bg: #F6F7F8;
+  --pui-surface: #FFFFFF;
+  --pui-surface-muted: #F0F2F4;
+  --pui-border: #DDE1E5;
+  --pui-border-strong: #C5CBD1;
+  --pui-border-control: #828A92;
+  --pui-text: #15181B;
+  --pui-text-secondary: #3D444B;
+  --pui-text-muted: #5B636B;
+  --pui-accent: #0F7A6F;
+  --pui-accent-hover: #0B6159;
+  --pui-on-accent: #FFFFFF;
+  --pui-accent-soft: #E3F2EF;
+  --pui-accent-text: #0B6159;
+  --pui-focus-ring: var(--pui-accent);
+  --pui-success: #1E7A44;
+  --pui-success-soft: #E4F2E9;
+  --pui-danger: #B4233A;
+  --pui-danger-soft: #FBE7EA;
+  --pui-pending: #6B4FC2;
+  --pui-pending-soft: #EFEBFA;
+  --pui-font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --pui-font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --pui-font-display: "Space Grotesk", "IBM Plex Sans", system-ui, sans-serif;
+  --pui-radius-sm: 2px;
+  --pui-radius-md: 4px;
+  --pui-space-1: 4px;
+  --pui-space-2: 8px;
+  --pui-space-3: 12px;
+  --pui-space-4: 16px;
+  --pui-space-5: 20px;
+  --pui-space-6: 24px;
+  --pui-control-lg: 40px;
+  --pui-topbar-height: 56px;
+  color-scheme: light;
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--surface); color: var(--text); font: 16px/1.5 var(--font); }
-main { max-width: 46rem; margin: 0 auto; padding: var(--space-4) var(--space-3); }
-.bar { display: flex; justify-content: space-between; align-items: center;
-       padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border); }
+body {
+  margin: 0;
+  background: var(--pui-bg);
+  color: var(--pui-text);
+  font: 400 15px/24px var(--pui-font-sans);
+}
+main { max-width: 52rem; margin: 0 auto; padding: var(--pui-space-6); }
+.bar {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--pui-space-4);
+  height: var(--pui-topbar-height); padding: 0 var(--pui-space-6);
+  background: var(--pui-surface); border-bottom: 1px solid var(--pui-border);
+}
 .brand { font-weight: 600; }
-h1 { font-size: 1.5rem; margin: 0 0 var(--space-3); }
-h2 { font-size: 1.1rem; margin: var(--space-4) 0 var(--space-2); }
-a { color: var(--accent); }
-.card { background: var(--surface-raised); border: 1px solid var(--border);
-        border-radius: var(--radius); padding: var(--space-3); }
-.stack { display: grid; gap: var(--space-2); }
-.list { list-style: none; padding: 0; display: grid; gap: var(--space-2); }
-.meta, .hint, .empty { color: var(--text-muted); margin: var(--space-1) 0 0; font-size: 0.9rem; }
-.error { color: var(--danger); margin: 0; }
-pre { font: 0.9rem/1.4 var(--mono); overflow-x: auto; white-space: pre-wrap; }
-input, textarea { font: inherit; color: var(--text); background: var(--surface);
-                  border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-2); }
-input[aria-invalid="true"] { border-color: var(--danger); }
-button { font: inherit; font-weight: 600; cursor: pointer; border-radius: var(--radius);
-         padding: var(--space-2) var(--space-3); border: 1px solid var(--accent);
-         background: var(--accent); color: var(--accent-text); }
-button.secondary { background: transparent; color: var(--accent); }
-button.link { background: none; border: none; color: var(--accent); padding: 0; font-weight: 400; }
-.actions { display: flex; gap: var(--space-2); }
-:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.bar-end { display: flex; align-items: center; gap: var(--pui-space-4); }
+.eyebrow {
+  margin: 0 0 var(--pui-space-1);
+  font: 500 11px/14px var(--pui-font-mono); letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--pui-text-muted);
+}
+h1 { margin: 0 0 var(--pui-space-5); font: 500 26px/30px var(--pui-font-display); letter-spacing: -0.01em; }
+h2 { margin: var(--pui-space-6) 0 var(--pui-space-2); font-size: 15px; font-weight: 600; }
+a { color: var(--pui-accent-text); }
+.card {
+  background: var(--pui-surface); border: 1px solid var(--pui-border);
+  border-radius: var(--pui-radius-md); padding: var(--pui-space-4);
+}
+.stack { display: grid; gap: var(--pui-space-2); }
+.list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--pui-space-3); }
+.row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--pui-space-4); }
+.mono, code, pre { font-family: var(--pui-font-mono); }
+.meta, .hint, .empty { margin: var(--pui-space-1) 0 0; color: var(--pui-text-muted); font-size: 13px; line-height: 20px; }
+.meta .mono { font-size: 12.5px; }
+.error {
+  margin: 0; padding: var(--pui-space-2) var(--pui-space-3);
+  color: var(--pui-danger); background: var(--pui-danger-soft); border-radius: var(--pui-radius-sm);
+}
+pre { margin: 0; font-size: 12.5px; line-height: 18px; overflow-x: auto; white-space: pre-wrap; }
+label { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--pui-text-secondary); }
+input, textarea {
+  font: inherit; color: var(--pui-text); background: var(--pui-surface);
+  border: 1px solid var(--pui-border-control); border-radius: var(--pui-radius-sm);
+  padding: var(--pui-space-2) var(--pui-space-3);
+}
+input { min-height: var(--pui-control-lg); }
+input[aria-invalid="true"] { border-color: var(--pui-danger); }
+button {
+  font: inherit; font-weight: 500; cursor: pointer; min-height: var(--pui-control-lg);
+  padding: 0 var(--pui-space-4); border-radius: var(--pui-radius-sm);
+  border: 1px solid var(--pui-accent); background: var(--pui-accent); color: var(--pui-on-accent);
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+button:hover { background: var(--pui-accent-hover); border-color: var(--pui-accent-hover); }
+button.secondary { background: var(--pui-surface); color: var(--pui-text); border-color: var(--pui-border-strong); }
+button.secondary:hover { background: var(--pui-surface-muted); }
+button.link {
+  min-height: 0; padding: 0; border: none; background: none;
+  color: var(--pui-accent-text); font-weight: 400;
+}
+.actions { display: flex; gap: var(--pui-space-2); }
+/* The shared pending state: colour, a dashed edge, a clock and the word. */
+.badge {
+  display: inline-flex; align-items: center; gap: var(--pui-space-1); white-space: nowrap;
+  padding: 2px var(--pui-space-2); border-radius: var(--pui-radius-sm);
+  font-size: 11.5px; line-height: 16px; font-weight: 500;
+}
+.badge svg { width: 12px; height: 12px; }
+.badge-pending { color: var(--pui-pending); background: var(--pui-pending-soft); border: 1px dashed var(--pui-pending); }
+.badge-approved, .badge-consumed { color: var(--pui-success); background: var(--pui-success-soft); border: 1px solid transparent; }
+.badge-rejected, .badge-expired { color: var(--pui-danger); background: var(--pui-danger-soft); border: 1px solid transparent; }
+.badge-sample { color: var(--pui-text-secondary); background: var(--pui-surface-muted); border: 1px solid var(--pui-border); }
+.approve-bar { border-top: 1px dashed var(--pui-pending); }
+:focus-visible { outline: 2px solid var(--pui-focus-ring); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

@@ -15,9 +15,10 @@ from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
+from aox_agent_core.audit import AuditEvent
 from sqlalchemy import func, select, update
 
-from opskit.core.stub.audit_pg import append_in
+from opskit.core.pg.audit import append_in
 from opskit.db.engine import SessionFactory
 from opskit.db.tables import approvals, outbox
 
@@ -39,7 +40,7 @@ type ResumeSender = Callable[[str, dict[str, Any]], Awaitable[int]]
 class Claim:
     outbox_id: int
     approval_id: UUID
-    run_id: UUID
+    run_id: UUID | None
     resume_url: str
     payload: dict[str, Any]
     attempts: int
@@ -139,12 +140,16 @@ async def deliver_due(session_factory: SessionFactory, send: ResumeSender) -> in
 async def _audit(session: Any, claim: Claim, action: str, details: dict[str, Any]) -> None:
     await append_in(
         session,
-        ctx=None,
-        actor="system",
-        action=action,
-        subject_type="approval",
-        subject_id=str(claim.approval_id),
-        details={"run_id": str(claim.run_id), **details},
+        AuditEvent(
+            action=action,
+            actor_id="system",
+            subject_id=str(claim.approval_id),
+            payload={
+                "subject_type": "approval",
+                **({"run_id": str(claim.run_id)} if claim.run_id else {}),
+                **details,
+            },
+        ),
     )
 
 

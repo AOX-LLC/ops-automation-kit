@@ -1,5 +1,5 @@
 # Day-to-day commands. Everything runs through docker compose or uv.
-.PHONY: up down clean login check test smoke samples export reimport
+.PHONY: up down clean login check test smoke samples evals export reimport
 
 up:
 	@eval "$$(scripts/build_identity.sh)"; \
@@ -27,6 +27,9 @@ check:
 test:
 	uv run pytest tests/unit -q
 	KIT_INTEGRATION=1 uv run pytest tests/integration -v -rs
+
+evals:
+	uv run python -m opskit.evals.receipts --label small-replay --min-field-accuracy 0.95
 
 smoke:
 	scripts/smoke.sh --clean

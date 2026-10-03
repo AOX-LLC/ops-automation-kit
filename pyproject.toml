@@ -7,11 +7,13 @@ license = "MIT"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "alembic>=1.14",
+    "aox-agent-core",
     "bcrypt>=4.2",
     "fastapi>=0.115",
     "httpx>=0.28",
     "itsdangerous>=2.2",
     "jinja2>=3.1",
+    "pillow==12.3.0",
     "psycopg[binary]>=3.2",
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
@@ -76,3 +78,6 @@ asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
 pythonpath = ["."]
 markers = ["integration: needs Postgres (and Mailpit) from the compose stack or CI services"]
+
+[tool.uv.sources]
+aox-agent-core = { git = "https://github.com/AOX-LLC/agent-core", rev = "v0.1.0a2" }

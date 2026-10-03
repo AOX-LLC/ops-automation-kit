@@ -72,7 +72,7 @@ n8n reads `N8N_ENCRYPTION_KEY_FILE` and `DB_POSTGRESDB_PASSWORD_FILE` natively. 
 **`.env` is optional** (`env_file: {path: .env, required: false}`). It carries:
 - `COMPOSE_PROJECT_NAME` (default `ops-automation-kit`);
 - the five host ports `KIT_N8N_PORT=4300`, `KIT_API_PORT=4301`, `KIT_PG_PORT=4302`, `KIT_MAILPIT_WEB_PORT=4303`, `KIT_MAILPIT_SMTP_PORT=4304`, read in `compose.yaml` as `${KIT_N8N_PORT:-4300}` and so on;
-- `MOCK_MODE`, `RECORD_FIXTURES` and `AGENT_CORE_ANTHROPIC_API_KEY`.
+- `AGENT_CORE_MODE` (`replay`, `live` or `record`) and `AGENT_CORE_ANTHROPIC_API_KEY`.
 
 A second worktree sets `COMPOSE_PROJECT_NAME=ops-automation-kit-2` and ports 4310–4314. Its volumes, network and containers are then fully separate. `N8N_PUBLIC_URL` and `WEBHOOK_URL` follow `KIT_N8N_PORT`.
 
@@ -95,7 +95,7 @@ CREATE TABLE core.runs (
     workflow          text NOT NULL CHECK (workflow IN ('kit_smoke', 'receipts', 'leads', 'inbox')),
     n8n_workflow_id   text,
     n8n_execution_id  text UNIQUE,
-    mode              text NOT NULL CHECK (mode IN ('mock', 'live', 'record')),
+    mode              text NOT NULL CHECK (mode IN ('replay', 'live', 'record')),
     status            text NOT NULL DEFAULT 'running'
                       CHECK (status IN ('running', 'waiting', 'succeeded', 'failed')),
     started_at        timestamptz NOT NULL DEFAULT now(),
@@ -150,7 +150,7 @@ CREATE TABLE core.model_calls (                    -- feeds the cost and latency
     prompt_version  integer NOT NULL,
     tier            text NOT NULL CHECK (tier IN ('small', 'mid', 'large')),
     fixture_key     char(64) NOT NULL,
-    mode            text NOT NULL CHECK (mode IN ('mock', 'live', 'record')),
+    mode            text NOT NULL CHECK (mode IN ('replay', 'live', 'record')),
     input_tokens    integer NOT NULL,
     output_tokens   integer NOT NULL,
     cost_usd        numeric(10, 6) NOT NULL,
@@ -236,7 +236,7 @@ Money is stored as integer cents. Dates the business sees use `date`; event time
 
   | ID | Name | Published | Shape |
   | --- | --- | --- | --- |
-  | `kitSmoke00000001` | Kit smoke: approval round-trip | yes | Webhook (header auth) → `POST /v1/runs` → `POST /v1/smoke/classify` (mock model call) → `POST /v1/approvals` (with `$execution.resumeUrl`) → Wait (on webhook call, 10 min limit) → IF `decision == approved` → Send Email (SMTP → Mailpit) → `POST /v1/runs/{id}/finish` |
+  | `kitSmoke00000001` | Kit smoke: approval round-trip | yes | Webhook (header auth) → `POST /v1/runs` → `POST /v1/smoke/classify` (replayed model call) → `POST /v1/approvals` (with `$execution.resumeUrl`) → Wait (on webhook call, 10 min limit) → IF `decision == approved` → Send Email (SMTP → Mailpit) → `POST /v1/runs/{id}/finish` |
   | `receipts00000001` | Receipts → reconciled sheet (skeleton) | no | Schedule (15 min) → `GET /v1/receipts/pending` → Split Out → NoOp "Phase 2: extract, reconcile, Convert to File" |
   | `leads00000000001` | Companies → enriched CRM (skeleton) | no | Manual → `GET /v1/leads/pending` → Split Out → NoOp "Phase 3" |
   | `inbox00000000001` | Inbox triage with approvals (skeleton) | no | Schedule (5 min) → `GET /v1/inbox/pending` → Split Out → NoOp "Phase 3: triage, Switch on label, Wait, Send Email" |
@@ -291,41 +291,33 @@ IF status == approved                    2xx → delivered_at; audit approval.re
 6. **Timeout.** When the Wait limit elapses, n8n resumes with no body. The workflow then calls `POST /v1/approvals/{id}/expire`. A helper sweeper also expires overdue rows every 60 s. A decision after expiry gets a 409, shown on the page as "expired".
 7. **Race.** If a decision lands before n8n has parked the execution, the resume call fails and the outbox retries it. Delivery is at-least-once; the IF branch keys on `approval_id`, and side effects are idempotent per approval.
 
-## A7. Mock mode and fixtures
+## A7. Replay mode and cassettes
 
-```
-fixtures/model/<workflow>/<prompt_id>/<fixture_key>.json
-```
+Model calls go through agent-core v0.1.0a2. Its settings are in `config/agent-core.toml`; `AGENT_CORE_MODE` overrides `mode`.
 
-```json
-{
-  "fixture_key": "9f2c…(sha256)",
-  "prompt_id": "receipts.extract",
-  "prompt_version": 1,
-  "tier": "small",
-  "schema": "ReceiptExtraction",
-  "request_digest": {"inputs": {"…": "…"}, "attachments": [{"media_type": "image/png", "sha256": "…"}]},
-  "response": {"…parsed structured output…": "…"},
-  "usage": {"input_tokens": 1234, "output_tokens": 210},
-  "cost_usd": "0.000912",
-  "latency_ms": 1840,
-  "recorded_at": "2026-10-02T00:00:00Z",
-  "recorded_model": "<model id from config at record time>"
-}
-```
-
-- **Key:** `fixture_key = sha256(canonical_json({prompt_id, prompt_version, tier, schema, inputs, attachment_sha256s}))`. It never includes the run ID, n8n execution ID, timestamps or call order, so parallel fan-out and re-runs replay identically. It also leaves out the model ID: tiers live in config, so a model bump does not orphan fixtures, and `recorded_model` keeps the provenance.
 - **Modes:**
 
   | Mode | Behaviour |
   | --- | --- |
-  | `MOCK_MODE=true` (default) | Replay only. A miss raises `FixtureMissing(key, expected_path)`. |
-  | `MOCK_MODE=false` | Live. Needs `AGENT_CORE_ANTHROPIC_API_KEY`, and startup fails fast without it. |
-  | `MOCK_MODE=false RECORD_FIXTURES=true` | Live, writing fixtures atomically (temp file plus rename). |
+  | `replay` (default) | Serves recordings. No key, never spends. |
+  | `live` | Calls the model. Needs `AGENT_CORE_ANTHROPIC_API_KEY`. |
+  | `record` | Calls the model and writes recordings. Needs the same key. |
 
-- **Live path in Phase 1:** config, key loading and the fail-fast check are complete. The live call itself raises `LiveModeUnavailable("lands with the agent-core pin in Phase 2")`. Phase 1 has no real model calls, so building a second client that agent-core will replace would be waste. If the agent-core tag slips, Phase 2 adds a ~60-line live path to the stub, behind the same port.
-- Fixtures never hold the API key, request headers or raw image bytes; images appear only as hashes. Inputs are synthetic, so the request digest is safe to commit, and it is what reviewers diff.
-- Phase 1 ships exactly one fixture: `fixtures/model/kit_smoke/smoke.classify/<key>.json`, used by the smoke workflow.
+- **Layout** (agent-core format 2, keyed by content):
+
+  ```
+  <cassette_dir>/prompts/<prompt_id>/v<version>/<key>.json
+  ```
+
+  The config sets `cassette_dir = "../fixtures/cassettes"` (relative to the config file) and `on_secret = "refuse"`. The repo holds `prompts/receipts.extract/v1/` and `prompts/smoke.classify/v1/`.
+- **Misses:** a replay miss raises. It never falls back to a live call.
+- **Versioning:** editing a prompt template or output schema without bumping the prompt's version raises `StaleRecordingError`.
+- **PDF budgeting:** receipts come from users, so `routing.count_pdf_pages = false`: every PDF is budgeted at the API's 100-page ceiling. That worst case costs $0.88 on the small tier, so `routing.budget_usd_per_call` is `"1.00"` and `on_budget_exceeded = "raise"`. Actual spend is billed on real tokens, about $0.002 per receipt.
+- **The kit's own caps** (`src/opskit/receipts/extraction.py`), enforced before any call:
+  - images: 4 MiB and 2048 px on the long edge (larger images are downscaled, EXIF orientation applied);
+  - PDFs: 5 MiB and at most 2 pages;
+  - a file that is unreadable or still over a cap is flagged `needs_review` with a reason and never sent.
+- Recordings are made from the host with `AGENT_CORE_MODE=record uv run python -m opskit.evals.receipts`, never by hand. Hand-written recordings never score extraction.
 
 ## A8. Licensing
 
@@ -335,69 +327,57 @@ fixtures/model/<workflow>/<prompt_id>/<fixture_key>.json
 
 ## A9. The adapter (`opskit.core`): the only door to models, approvals and audit
 
-```python
-# src/opskit/core/ports.py — shaped after agent-core's planned interfaces
-class Mode(StrEnum): MOCK = "mock"; LIVE = "live"; RECORD = "record"
-class Tier(StrEnum): SMALL = "small"; MID = "mid"; LARGE = "large"
+`opskit.core.ports` re-exports agent-core's types, so the rest of the app imports only `opskit.core`. import-linter forbids `anthropic` and `aox_agent_core` outside it, and only `opskit.core` may reference the `core.approvals`, `core.audit_log` and `core.model_calls` tables.
 
-@dataclass(frozen=True, slots=True)
-class RunContext:
-    run_id: UUID
-    workflow: str
-    mode: Mode
-    external_ids: Mapping[str, str]          # {"n8n_workflow_id": …, "n8n_execution_id": …}
+| Concern | In the kit |
+| --- | --- |
+| Mode | agent-core's `Mode`: `replay` (default), `live`, `record`, set by `AGENT_CORE_MODE`. |
+| Prompts, tiers, attachments | agent-core's `Tier`, `PromptRef` and `Attachment` (`Attachment.from_bytes`). |
+| Run context | agent-core's `RunContext(run_id=str(uuid), external_ids={"workflow", "n8n_workflow_id", "n8n_execution_id"})`. |
+| Models | agent-core's `ModelClient.call(...) -> CallResult`, wrapped by `MeteredModelClient`, which writes `core.model_calls` and a `model.call` audit record after each call. |
+| Approvals | `PgApprovalQueue` implements agent-core's `ApprovalQueue`: `submit` (with an extra `resume_url` keyword), `get`, `list_pending(principal, after=UUID)`, `resolve(principal)` and `consume`. `RoleApproverPolicy` runs inside `resolve`. The kit keeps its own extras: `expire`, `expire_due`, `list_pending_page` (string cursor, `Page`) and the outbox. |
+| Audit | `PgAuditLog` implements agent-core's `AuditLog`: `append(AuditEvent) -> AuditRecord`, `iter_records`, `head`, `verify`. Records are hash-chained with agent-core's `compute_record_hash` (schema 2), and appends are serialised with a transaction-scoped advisory lock. `append_in(session, event)` writes inside a caller's transaction. |
+| Principals | The approver is `Principal("approver", HUMAN, {"approver"})` and `required_role = "approver"`. n8n is `Principal("service.n8n", SERVICE)`, which can request approvals but never resolve them. |
 
-@dataclass(frozen=True, slots=True)
-class PromptRef:
-    id: str                                   # "receipts.extract"
-    version: int
-    template: str
+The Phase 1 audit table is kept read-only as `core.audit_log_v1`; migration `core_0003` creates the hash-chained `core.audit_log` with the same append-only triggers and grants.
 
-@dataclass(frozen=True, slots=True)
-class Attachment:
-    media_type: Literal["image/png", "image/jpeg", "application/pdf"]
-    data: bytes
+## A10. Receipts
 
-@dataclass(frozen=True, slots=True)
-class ModelResult(Generic[T]):
-    output: T
-    input_tokens: int
-    output_tokens: int
-    cost_usd: Decimal
-    latency_ms: int
-    fixture_key: str
-    mode: Mode
+### Reconciliation rules
 
-class ModelClient(Protocol):
-    async def structured(self, *, ctx: RunContext, prompt: PromptRef, tier: Tier,
-                         schema: type[T], inputs: Mapping[str, JsonValue],
-                         attachments: Sequence[Attachment] = ()) -> ModelResult[T]: ...
+`src/opskit/receipts/reconcile.py` is pure: integer cents, dates from the inputs, no model calls, no clock. Debits are compared by absolute value. Output does not depend on receipt input order.
 
-class ApprovalQueue(Protocol):
-    async def request(self, *, ctx: RunContext, kind: str, subject: JsonObject,
-                      resume_url: str, expires_in: timedelta) -> Approval: ...
-    async def decide(self, approval_id: UUID, *, decision: Decision, actor: str,
-                     note: str | None = None, edited_subject: JsonObject | None = None) -> Approval: ...
-    async def get(self, approval_id: UUID) -> Approval: ...
-    async def list_pending(self, *, limit: int = 50, cursor: str | None = None) -> Page[Approval]: ...
-    async def expire_due(self, *, now: datetime) -> int: ...
+1. **Out of scope.** A bank line whose description contains `ACH CREDIT`, `TRANSFER` or `DEPOSIT` is `out_of_scope` and never matched. Any other credit is in scope only against a refund receipt (negative total); a credit with no match is also `out_of_scope`.
+2. **Candidates.** A receipt and a bank line are candidates when the amounts are equal, or within 20 % of the receipt amount with a merchant-token match. The posting date runs from 1 day before to 10 days after the receipt date. Merchant similarity is the share of the shorter side's tokens that match, after removing processor prefixes (`SQ *`, `TST*`, `PAYPAL *`, `PP *`), non-letters and corporate words (LLC, INC and similar). A token also matches by a prefix of 4 or more characters, so a truncated descriptor still counts.
+3. **Assignment.** Greedy, best first: exact amount, then merchant similarity, then smallest absolute lag. Each receipt and each bank line is used once.
+4. **Duplicate receipt.** The first receipt (by file name) with a given vendor, date and total is the original. Later copies are `duplicate_receipt` with no bank line. This is decided before assignment, so two copies never compete for one charge.
+5. **Labels for a matched pair.** Amounts differ: `amount_mismatch` (wins over date). Lag of 0 to 3 days: `matched`. Longer lag: `date_drift`.
+6. **Leftovers.** A receipt with no candidate is `missing_in_bank`. An unused bank debit is `duplicate_charge` when an earlier matched line has the same descriptor and amount, 0 to 7 days before it; otherwise `unreceipted_charge`.
+7. **Needs review.** A receipt flagged `needs_review` in extraction is reported as such and never matched.
 
-class AuditLog(Protocol):
-    async def append(self, *, ctx: RunContext | None, actor: str, action: str,
-                     subject_type: str | None, subject_id: str | None, details: JsonObject) -> None: ...
+Every paired row carries `delta_cents` (bank amount minus receipt amount, both absolute) and `delta_days` (posting date minus receipt date). Rows with no pair leave both empty. The summary counts each status and a `flagged` total: every status except `matched` and `out_of_scope`.
 
-@dataclass(frozen=True, slots=True)
-class Core:
-    models: ModelClient
-    approvals: ApprovalQueue
-    audit: AuditLog
+### Workflow node chain
+
+`n8n/workflows/01-receipts.json`, with no Code nodes. A schedule trigger (every 15 minutes) and a header-authenticated webhook (`receipts-run`) both start it.
+
+```
+Every 15 minutes / Webhook
+  -> Start run (POST /v1/runs)
+  -> List new receipts (GET /v1/receipts/pending)
+  -> Anything new?  -- no -> Finish run (nothing new)
+  -> One item per receipt (Split Out)
+  -> Extract receipt (POST /v1/receipts/extract, one per receipt)
+  -> Collect results (Aggregate)
+  -> Reconcile (POST /v1/receipts/reconcile)
+  -> One item per row (Split Out)
+  -> Spreadsheet (Convert to File, XLSX, sheet "Reconciliation")
+  -> Write to exports (/home/node/exports)
+  -> Any flags?  -- yes -> Send summary email (SMTP to Mailpit) -> Finish run
+                 -- no  -> Finish run
 ```
 
-- `opskit.core.factory.build_core(settings, session_factory) -> Core` returns the stub implementations: `ReplayModelClient`, `PgApprovalQueue`, `PgAuditLog`. In Phase 2, only `factory.py` and `stub/` change.
-- import-linter contracts:
-  - Only `opskit.core` may import `anthropic` or `aox_agent_core`.
-  - Only `opskit.core` may reference the `core.approvals`, `core.audit_log` and `core.model_calls` tables. A test greps the SQLAlchemy table objects' import sites.
-- agent-core's Phase 1 (public interfaces) has not started. These protocols are therefore our proposal, sent in the "needs" list below. If agent-core lands different signatures, the shim lives in `factory.py`.
+The stack mounts `./exports` into n8n, and n8n may read and write files only there, so `exports/` must exist and be writable by uid 1000 before the stack starts.
 
 ## Health endpoints
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -11,8 +11,8 @@ from pydantic import BaseModel, Field
 
 from opskit.api.auth import ServiceAuth
 from opskit.approvals.resume import InvalidResumeUrl, internal_resume_target
-from opskit.core.errors import NotFound
-from opskit.core.ports import Approval, Core
+from opskit.core.errors import ApprovalNotFoundError, NotFound
+from opskit.core.ports import APPROVER_ROLE, N8N_SERVICE, ApprovalRequest, Core, run_uuid
 
 router = APIRouter(prefix="/v1/approvals", tags=["approvals"], dependencies=[ServiceAuth])
 
@@ -21,8 +21,10 @@ MAX_EXPIRY_S = 7 * 24 * 3600
 
 class RequestApproval(BaseModel):
     run_id: UUID
-    kind: str = Field(min_length=1, max_length=64, pattern=r"^[a-z0-9_.]+$")
+    # agent-core's action-name pattern: dotted lowercase, such as "inbox.reply".
+    kind: str = Field(max_length=100, pattern=r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$")
     subject: dict[str, Any]
+    summary: str | None = Field(default=None, min_length=1, max_length=500)
     resume_url: str = Field(max_length=512)
     expires_in_s: int = Field(gt=0, le=MAX_EXPIRY_S)
 
@@ -31,7 +33,7 @@ class ApprovalView(BaseModel):
     """What callers may see. The resume URL is deliberately absent."""
 
     approval_id: UUID
-    run_id: UUID
+    run_id: UUID | None
     kind: str
     status: str
     requested_at: datetime
@@ -39,15 +41,16 @@ class ApprovalView(BaseModel):
     decided_at: datetime | None
 
     @classmethod
-    def of(cls, approval: Approval) -> ApprovalView:
+    def of(cls, approval: ApprovalRequest) -> ApprovalView:
+        run_context = approval.run_context
         return cls(
             approval_id=approval.id,
-            run_id=approval.run_id,
-            kind=approval.kind,
+            run_id=run_uuid(run_context) if run_context is not None else None,
+            kind=approval.action,
             status=approval.status.value,
-            requested_at=approval.requested_at,
+            requested_at=approval.created_at,
             expires_at=approval.expires_at,
-            decided_at=approval.decided_at,
+            decided_at=approval.resolved_at,
         )
 
 
@@ -67,12 +70,15 @@ async def request_approval(request: Request, body: RequestApproval) -> ApprovalV
         ctx = await core.runs.get(body.run_id)
     except NotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such run") from exc
-    approval = await core.approvals.request(
-        ctx=ctx,
-        kind=body.kind,
-        subject=body.subject,
+    approval = await core.approvals.submit(
+        action=body.kind,
+        summary=body.summary or f"Approve {body.kind}",
+        payload=body.subject,
+        requested_by=N8N_SERVICE,
+        required_role=APPROVER_ROLE,
+        ttl_seconds=body.expires_in_s,
+        context=ctx,
         resume_url=body.resume_url,
-        expires_in=timedelta(seconds=body.expires_in_s),
     )
     return ApprovalView.of(approval)
 
@@ -86,7 +92,7 @@ async def get_approval(request: Request, approval_id: UUID) -> ApprovalView:
     """
     try:
         return ApprovalView.of(await _core(request).approvals.get(approval_id))
-    except NotFound as exc:
+    except ApprovalNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such approval") from exc
 
 
@@ -94,5 +100,5 @@ async def get_approval(request: Request, approval_id: UUID) -> ApprovalView:
 async def expire_approval(request: Request, approval_id: UUID) -> ApprovalView:
     try:
         return ApprovalView.of(await _core(request).approvals.expire(approval_id))
-    except NotFound as exc:
+    except ApprovalNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such approval") from exc

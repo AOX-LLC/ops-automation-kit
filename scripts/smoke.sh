@@ -2,7 +2,8 @@
 # End-to-end check of the compose stack:
 #   1. clean boot, 2. seeded data visible in n8n, Mailpit and Postgres,
 #   3. approval round-trip through n8n's Wait node and the approver page,
-#   4. a second boot that changes nothing.
+#   4. the receipts workflow end to end in replay: extract, reconcile, spreadsheet, email,
+#   5. a second boot that changes nothing.
 # Secrets stay in shell variables and are never echoed.
 set -euo pipefail
 
@@ -61,7 +62,7 @@ curl -sf -b "$WORK/n8n.jar" "$N8N/rest/workflows" > "$WORK/workflows.json"
 ids=$(json '",".join(sorted(w["id"] for w in d["data"]))' < "$WORK/workflows.json")
 [ "$ids" = "inbox00000000001,kitSmoke00000001,leads00000000001,receipts00000001" ] || fail "unexpected workflows: $ids"
 active=$(json '",".join(sorted(w["id"] for w in d["data"] if w.get("active")))' < "$WORK/workflows.json")
-[ "$active" = "kitSmoke00000001" ] || fail "only the smoke workflow should be published, got: $active"
+[ "$active" = "kitSmoke00000001,receipts00000001" ] || fail "unexpected published workflows: $active"
 echo "workflows: $ids (published: $active)"
 
 step "approval round-trip"
@@ -79,7 +80,7 @@ wait_for 60 "the smoke approval to appear on the approver page" pending
 approval_path=$(cat "$WORK/approval")
 curl -sf -b "$WORK/approver.jar" "$API$approval_path" > "$WORK/detail.html"
 status=$(curl -s -o /dev/null -w '%{http_code}' -b "$WORK/approver.jar" \
-    --data-urlencode "decision=approved" --data-urlencode "csrf_token=$(csrf_from "$WORK/detail.html")" \
+    --data-urlencode "decision=approve" --data-urlencode "csrf_token=$(csrf_from "$WORK/detail.html")" \
     "$API$approval_path/decision")
 [ "$status" = "303" ] || fail "decision POST returned $status"
 
@@ -91,9 +92,22 @@ done
 wait_for 30 "the Send Email node's message in Mailpit" test "$(mail_count)" = 26
 echo "approved on the page, n8n resumed, audit rows written, confirmation email captured"
 
+step "receipts workflow end to end (replay)"
+receipts() { [ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "X-Kit-Token: $KIT_WEBHOOK_TOKEN" "$N8N/webhook/receipts-run")" = "200" ]; }
+wait_for 90 "the receipts webhook to register" receipts
+receipts_done() { [ "$(sql "select status from core.runs where workflow = 'receipts' order by started_at desc limit 1")" = "succeeded" ]; }
+wait_for 240 "the receipts run to finish" receipts_done
+[ "$(sql "select count(*) from receipts.extractions where status = 'extracted'")" = "30" ] \
+    || fail "expected 30 extracted receipts, got $(sql "select count(*) from receipts.extractions")"
+flagged=$(sql "select summary->>'flagged' from receipts.reconciliations order by created_at desc limit 1")
+[ -n "$flagged" ] || fail "no reconciliation was stored"
+ls exports/reconciliation-*.xlsx >/dev/null 2>&1 || fail "no spreadsheet in exports/"
+wait_for 30 "the receipts summary email" test "$(mail_count)" = 27
+echo "30 receipts extracted from recordings, reconciled ($flagged flagged), spreadsheet written, summary emailed"
+
 step "second boot without -v"
 docker compose up -d --wait || fail "second boot did not become healthy"
-check_seeded_data 26
+check_seeded_data 27
 if docker compose logs --no-color n8n-import | grep -q WARNING; then
     fail "second boot re-imported a workflow that did not change"
 fi

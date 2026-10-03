@@ -40,7 +40,7 @@ async def start_run(request: Request, body: StartRun) -> RunStarted:
         n8n_workflow_id=body.n8n_workflow_id,
         n8n_execution_id=body.n8n_execution_id,
     )
-    return RunStarted(run_id=ctx.run_id, mode=ctx.mode.value)
+    return RunStarted(run_id=UUID(ctx.run_id), mode=core.mode.value)
 
 
 @router.post("/{run_id}/finish", status_code=status.HTTP_204_NO_CONTENT)

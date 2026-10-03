@@ -1,0 +1,124 @@
+{
+  "suite": "receipts-extraction",
+  "mode": "record",
+  "tier": "small",
+  "receipts": 30,
+  "errors": 0,
+  "field_accuracy": {
+    "field:vendor_name": 1.0,
+    "field:receipt_date": 1.0,
+    "field:subtotal_cents": 1.0,
+    "field:tax_cents": 1.0,
+    "field:tip_cents": 1.0,
+    "field:total_cents": 1.0,
+    "field:card_last4": 1.0,
+    "honest_nulls": 1.0
+  },
+  "mean_field_accuracy": 1.0,
+  "cost_total_usd": "0.082633",
+  "cost_per_receipt_usd": "0.002754433333333333333333333333",
+  "latency_p50_ms": 2312.735201965552,
+  "latency_p95_ms": 3045.2827059780248,
+  "reconciliation": {
+    "on_true_fields": {
+      "matched": {
+        "expected": 21,
+        "predicted": 21,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "amount_mismatch": {
+        "expected": 3,
+        "predicted": 3,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "date_drift": {
+        "expected": 2,
+        "predicted": 2,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "missing_in_bank": {
+        "expected": 3,
+        "predicted": 3,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "duplicate_receipt": {
+        "expected": 1,
+        "predicted": 1,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "duplicate_charge": {
+        "expected": 2,
+        "predicted": 2,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "unreceipted_charge": {
+        "expected": 3,
+        "predicted": 3,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "out_of_scope": {
+        "expected": 8,
+        "predicted": 8,
+        "precision": 1.0,
+        "recall": 1.0
+      }
+    },
+    "on_extracted_fields": {
+      "matched": {
+        "expected": 21,
+        "predicted": 21,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "amount_mismatch": {
+        "expected": 3,
+        "predicted": 3,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "date_drift": {
+        "expected": 2,
+        "predicted": 2,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "missing_in_bank": {
+        "expected": 3,
+        "predicted": 3,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "duplicate_receipt": {
+        "expected": 1,
+        "predicted": 1,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "duplicate_charge": {
+        "expected": 2,
+        "predicted": 2,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "unreceipted_charge": {
+        "expected": 3,
+        "predicted": 3,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "out_of_scope": {
+        "expected": 8,
+        "predicted": 8,
+        "precision": 1.0,
+        "recall": 1.0
+      }
+    }
+  }
+}
