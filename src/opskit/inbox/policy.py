@@ -158,6 +158,7 @@ def build_draft_inputs(
 
 # --- recipients ---------------------------------------------------------------------------
 
+ADDRESS_MAX = 254  # RFC 5321's longest address; drafts.to_addr holds 320
 ADDRESS = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 
 
@@ -178,7 +179,11 @@ def reply_envelope(
 ) -> Envelope:
     """Replies go only to the validated From address; a differing Reply-To is flagged, unused."""
     addresses = [addr for _, addr in getaddresses([from_header]) if addr]
-    if len(addresses) != 1 or not ADDRESS.fullmatch(addresses[0]):
+    if (
+        len(addresses) != 1
+        or len(addresses[0]) > ADDRESS_MAX
+        or not ADDRESS.fullmatch(addresses[0])
+    ):
         raise RecipientError("the From header must hold exactly one valid address")
     to = addresses[0].lower()
     reply_to = parseaddr(reply_to_header or "")[1].lower()

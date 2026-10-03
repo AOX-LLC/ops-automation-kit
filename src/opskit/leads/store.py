@@ -11,6 +11,7 @@ from sqlalchemy import func, literal_column, select
 from sqlalchemy.dialects.postgresql import insert
 
 from opskit.db.engine import SessionFactory
+from opskit.db.fit import fit_list
 from opskit.db.tables import crm_account_sources as sources_table
 from opskit.db.tables import crm_accounts as accounts
 from opskit.db.tables import leads_research as research
@@ -19,7 +20,9 @@ from opskit.leads.models import FIELDS, FieldValue, Finding, ResearchOutcome
 NO_WEBSITE_REASON = "no website given"
 # What leads_0003 lets a research row hold; the model's cites and a corpus can be longer.
 FINDINGS_MAX = 256
+FINDINGS_BYTES = 60000  # leads_0003: 65536
 PAGES_MAX = 64
+PAGES_BYTES = 16000  # leads_0003: 16384
 
 # The accounts columns research fills in. `domain` is the upsert key, so it is not one of them.
 ACCOUNT_FIELDS = tuple(name for name in FIELDS if name != "domain")
@@ -87,8 +90,12 @@ async def save_research(
             for name, value in outcome.fields.items()
         },
         # The database caps both lists; the model's cites and a corpus can be longer.
-        "findings": [finding.model_dump() for finding in outcome.findings[:FINDINGS_MAX]],
-        "pages": outcome.pages[:PAGES_MAX],
+        "findings": fit_list(
+            (finding.model_dump() for finding in outcome.findings),
+            budget=FINDINGS_BYTES,
+            max_items=FINDINGS_MAX,
+        ),
+        "pages": fit_list(outcome.pages, budget=PAGES_BYTES, max_items=PAGES_MAX),
         "raw_cites": outcome.raw_cites,
         "valid_cites": outcome.valid_cites,
         "replay_key": outcome.replay_key,

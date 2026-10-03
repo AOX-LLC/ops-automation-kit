@@ -21,6 +21,8 @@ from opskit.leads.robots import RobotsCache
 
 MAX_DOC_CHARS = 20_000
 CUT_MARGIN = 256
+# A page reached through redirects keeps its final URL in the stored research; longer is refused.
+MAX_PAGE_URL_CHARS = 2048
 PAGE_PATHS = (
     "/",
     "/about",
@@ -276,6 +278,9 @@ class WebRetriever:
                 continue
             if not 200 <= page.status < 300:
                 result.notes.append(f"{path}: status {page.status}")
+                continue
+            if len(page.url) > MAX_PAGE_URL_CHARS:
+                result.notes.append(f"{path}: redirected to a URL too long to keep")
                 continue
             if page.url in seen:
                 result.notes.append(f"{path}: same page as an earlier path")

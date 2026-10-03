@@ -337,11 +337,35 @@ async def test_fetch_reads_plain_text_and_headers_only() -> None:
     assert "script" not in msg.model_dump_json()
 
 
-def test_stored_model_lists_are_cut_to_what_the_database_accepts() -> None:
-    from opskit.inbox.service import STORED_ITEM_CHARS_MAX, STORED_ITEMS_MAX, _stored_list
+def test_stored_model_lists_fit_the_database_by_bytes_not_just_items() -> None:
+    from opskit.db.fit import json_bytes
+    from opskit.db.migrations.versions import inbox_0003_bounds as migration
+    from opskit.inbox import service
 
-    long_list = [f"fact {i} " + "x" * 1000 for i in range(STORED_ITEMS_MAX + 20)]
-    cut = _stored_list(long_list)
-    assert len(cut) == STORED_ITEMS_MAX
-    assert all(len(item) == STORED_ITEM_CHARS_MAX for item in cut)
-    assert _stored_list(["short"]) == ["short"]
+    # The worst the model can send: control characters print as 6 bytes, quotes as 2.
+    nasty = ['"' * 300 + "\x01" * 200] * 80
+    for budget, column, key in (
+        (service.STORED_FACTS_BYTES, "facts_used", None),
+        (service.STORED_GROUNDING_LIST_BYTES, "grounding", "unsupported_facts"),
+    ):
+        cut = service._stored_list(nasty, budget=budget)
+        assert 0 < len(cut) <= service.STORED_ITEMS_MAX
+        cap = migration.DRAFTS[column]["max_bytes"]
+        stored = cut if key is None else {name: cut for name in ("a", "b", "c")}
+        assert json_bytes(stored) <= cap, column
+    assert service._stored_list(["short"], budget=service.STORED_FACTS_BYTES) == ["short"]
+    assert migration.DRAFTS["body"]["max"] == service.DRAFT_BODY_MAX
+
+
+async def test_a_draft_longer_than_the_database_holds_is_a_failed_draft() -> None:
+    from opskit.inbox.service import DRAFT_BODY_MAX
+
+    models = FakeModels(DraftReply(body="x" * (DRAFT_BODY_MAX + 1)))
+    outcome = await draft_reply(models, CTX, _message(), _outcome(), PROFILE)  # type: ignore[arg-type]
+    assert outcome.status == "failed"
+    assert outcome.failure_reason == "too_long"
+    assert outcome.body == ""
+    assert outcome.to == "cass@mail.example"
+    at_the_limit = FakeModels(DraftReply(body="x" * DRAFT_BODY_MAX))
+    kept = await draft_reply(at_the_limit, CTX, _message(), _outcome(), PROFILE)  # type: ignore[arg-type]
+    assert kept.failure_reason != "too_long"
