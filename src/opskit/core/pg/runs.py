@@ -37,6 +37,9 @@ class PgRunStore:
     async def start(
         self, *, workflow: str, n8n_workflow_id: str | None, n8n_execution_id: str | None
     ) -> RunContext:
+        # An empty id means none: stored as '' two runs would share the UNIQUE execution id.
+        n8n_workflow_id = n8n_workflow_id or None
+        n8n_execution_id = n8n_execution_id or None
         statement = (
             insert(runs)
             .values(

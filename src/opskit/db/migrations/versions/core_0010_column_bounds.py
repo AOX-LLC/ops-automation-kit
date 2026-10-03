@@ -327,7 +327,8 @@ def upgrade() -> None:
     op.execute("LOCK TABLE core.approvals IN EXCLUSIVE MODE")
     op.execute(FUNCTIONS)
     for table, _, spec, key in CORE_BOUNDS:
-        op.execute(b.report_sql(table, spec, key))
+        # sample_files is keyed by a file name, which is the client's.
+        op.execute(b.report_sql(table, spec, key, hash_key=table == "core.sample_files"))
     op.execute(CANCEL_LIVE_OUTSIDE_BOUNDS.format(spec=b.literal(APPROVALS)))
     for table, name, spec, _ in CORE_BOUNDS:
         op.execute(b.attach_sql(table, name, spec))

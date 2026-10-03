@@ -443,3 +443,35 @@ def test_an_approvals_lifetime_is_still_capped_and_positive() -> None:
         "raise exception 'inserted ok'; end $$"
     )
     assert "at most 7 days" in infinite.stderr
+
+
+# --- the upgrade report keeps client keys out ----------------------------------------------
+
+
+def test_the_report_shows_a_digest_not_a_clients_key() -> None:
+    """Tables keyed by an email's Message-ID or a file name report a short digest of the key."""
+    message_id = f"client-{uuid4()}@secret-host.example"
+    plant = (
+        "alter table inbox.messages disable trigger messages_bounds; "
+        "insert into inbox.messages (message_id, mailpit_id, from_header, subject, body_text) "
+        f"values ('{message_id}', 'mp-report', 'a@mail.example', 's', repeat('x', 1100000)); "
+        "alter table inbox.messages enable always trigger messages_bounds"
+    )
+    try:
+        assert psql(plant).returncode == 0
+        spec = '{"body_text": {"kind": "text", "max": 1048576}}'
+        hashed = psql(
+            f"select * from core.bounds_violations('inbox.messages', '{spec}'::jsonb, "
+            "array['message_id'], true)"
+        ).stdout
+        lines = [line for line in hashed.splitlines() if "body_text" in line]
+        assert lines, hashed
+        assert message_id not in hashed and "secret-host" not in hashed
+        assert all(len(line.split(" | ")[0]) == 12 for line in lines)
+        plain = psql(
+            f"select * from core.bounds_violations('inbox.messages', '{spec}'::jsonb, "
+            "array['message_id'])"
+        ).stdout
+        assert message_id in plain  # the default still names the row, for tests and operators
+    finally:
+        psql(f"delete from inbox.messages where message_id = '{message_id}'")
