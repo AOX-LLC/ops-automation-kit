@@ -126,7 +126,7 @@ Two independent layers. Either one flags the email.
   - The pending badge.
   - Buttons: "Approve and send" and "Reject (stays unsent)".
   - Quarantined messages never appear here, because no draft is created for them.
-- **Logo:** the AOX logo top left, from the design system's Logos group, as the roadmap note asks. This is small and optional.
+- **Logo:** an optional, configurable logo top left on the approver page. This is small and optional.
 
 ## 2. Leads
 
