@@ -139,3 +139,14 @@ async def test_a_blocked_decision_is_cached_too() -> None:
 async def test_rules_follow_rfc_9309(text: str, path: str, allowed: bool) -> None:
     decision = await RobotsCache(FakeFetcher(text=text)).decision(HOST)
     assert decision.allows(f"https://{HOST}{path}") is allowed
+
+
+async def test_a_hostile_file_full_of_wildcards_is_matched_in_linear_time() -> None:
+    import time
+
+    rule = "/" + "*a" * 250 + "b"  # 250 wildcards, within the rule-length cap
+    text = f"User-agent: *\nDisallow: {rule}\nDisallow: /{'*' * 400}x$\n"
+    decision = await RobotsCache(FakeFetcher(text=text)).decision(HOST)
+    started = time.monotonic()
+    assert decision.allows(f"https://{HOST}/{'a' * 60}")
+    assert time.monotonic() - started < 0.5

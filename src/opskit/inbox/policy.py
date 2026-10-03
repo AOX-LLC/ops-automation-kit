@@ -9,6 +9,7 @@ a reply goes to.
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 from email.utils import getaddresses, parseaddr
@@ -224,6 +225,14 @@ COMMITMENT_PHRASES: tuple[str, ...] = (
 )
 
 
+def _plain(text: str) -> str:
+    """The text as a reader sees it: invisible format characters (zero-width, soft hyphen,
+    bidi marks) removed and full-width or ligature forms folded to plain letters, so a word
+    can't be hidden from the checks by what the eye doesn't see."""
+    visible = "".join(c for c in text if unicodedata.category(c) != "Cf")
+    return unicodedata.normalize("NFKC", HIDDEN_CHARS.sub("", visible))
+
+
 def _norm(text: str) -> str:
     return " ".join(text.lower().replace("\u2019", "'").split())
 
@@ -246,7 +255,7 @@ class _Matcher(Protocol):
 
 class _FreeOffer:
     def search(self, text: str) -> object | None:
-        return _FREE_WORD.search(_FREE_IDIOMS.sub(" ", _norm(text)))
+        return _FREE_WORD.search(_FREE_IDIOMS.sub(" ", _norm(_plain(text))))
 
 
 _PHRASE_PATTERNS: dict[str, _Matcher] = {"free": _FreeOffer()}
@@ -263,7 +272,7 @@ def _phrase_pattern(phrase: str) -> _Matcher:
 def _contexts_for(phrase: str, text: str) -> list[str]:
     """The sentence around each use of a commitment phrase, normalised."""
     pattern = _phrase_pattern(phrase)
-    sentences = re.split(r"(?<=[.!?])\s+|\n+", text)
+    sentences = re.split(r"(?<=[.!?])\s+|\n+", _plain(text))
     return [_norm(s) for s in sentences if pattern.search(s)]
 
 

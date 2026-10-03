@@ -18,7 +18,6 @@ life of the cache, and the cache is made once per run.
 from __future__ import annotations
 
 import asyncio
-import re
 from dataclasses import dataclass
 from typing import Protocol
 from urllib.parse import urlsplit
@@ -32,13 +31,34 @@ class Fetcher(Protocol):
     async def fetch(self, url: str, *, site: str | None = None) -> FetchResult: ...
 
 
-def _rule_regex(pattern: str) -> re.Pattern[str]:
-    """A robots path pattern: a prefix match where `*` is any run of characters and a trailing
-    `$` anchors the end."""
+MAX_RULE_CHARS = 512  # a longer rule is ignored; no real site needs one
+
+
+def _matches(pattern: str, text: str) -> bool:
+    """Prefix match of a robots path pattern: `*` is any run of characters, a trailing `$`
+    anchors the end. Linear in practice (it remembers only the last `*`), so a hostile
+    robots.txt full of wildcards can't make the matcher backtrack catastrophically."""
     anchored = pattern.endswith("$")
     body = pattern[:-1] if anchored else pattern
-    regex = ".*".join(re.escape(part) for part in body.split("*"))
-    return re.compile(regex + ("$" if anchored else ""))
+    p = t = 0
+    star = mark = -1
+    while t < len(text):
+        if p < len(body) and body[p] == "*":
+            star, mark = p, t
+            p += 1
+        elif p < len(body) and body[p] == text[t]:
+            p += 1
+            t += 1
+        elif p == len(body) and not anchored:
+            return True  # the whole pattern matched a prefix
+        elif star != -1:
+            mark += 1  # let the last `*` swallow one more character and try again
+            t, p = mark, star + 1
+        else:
+            return False
+    while p < len(body) and body[p] == "*":
+        p += 1
+    return p == len(body)
 
 
 class Rules:
@@ -46,7 +66,7 @@ class Rules:
     matching rule wins, and Allow wins a tie. No match means allowed."""
 
     def __init__(self, text: str) -> None:
-        groups: dict[str, list[tuple[bool, re.Pattern[str], int]]] = {}
+        groups: dict[str, list[tuple[bool, str, int]]] = {}
         agents: list[str] = []
         in_rules = False
         for raw in text.splitlines():
@@ -63,16 +83,16 @@ class Rules:
                     groups.setdefault(agent, [])
             elif key in ("allow", "disallow") and agents:
                 in_rules = True
-                if value:  # an empty Disallow allows everything: it adds no rule
-                    rule = (key == "allow", _rule_regex(value), len(value))
+                if value and len(value) <= MAX_RULE_CHARS:  # empty Disallow = no rule
+                    rule = (key == "allow", value, len(value))
                     for agent in agents:
                         groups[agent].append(rule)
         self._rules = groups.get(AGENT_TOKEN.lower(), groups.get("*", []))
 
     def allows(self, path_and_query: str) -> bool:
         best: tuple[int, bool] | None = None
-        for allow, regex, length in self._rules:
-            if regex.match(path_and_query) and (
+        for allow, pattern, length in self._rules:
+            if _matches(pattern, path_and_query) and (
                 best is None or length > best[0] or (length == best[0] and allow)
             ):
                 best = (length, allow)

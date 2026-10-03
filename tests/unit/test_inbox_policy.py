@@ -232,6 +232,10 @@ def test_the_bare_word_free_is_not_a_commitment(body: str) -> None:
         "We can do that FREE.",
         "Shipping is free to all existing customers.",
         "The second visit is free to you.",
+        "The visit is fr\u200bee of charge.",
+        "The visit is \uff46\uff52\uff45\uff45.",
+        "We offer a F\u00adREE inspection.",
+        "We will issue a ref\u200bund.",
     ],
 )
 def test_phrases_that_offer_something_free_are_commitments(body: str) -> None:
