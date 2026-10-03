@@ -67,8 +67,8 @@ wheels = [
 
 [[package]]
 name = "aox-agent-core"
-version = "0.1.0a2"
-source = { git = "https://github.com/AOX-LLC/agent-core?rev=v0.1.0a2#37944bef3ae1f571e8fffca8969c8d4a56d422b3" }
+version = "0.1.0a3"
+source = { git = "https://github.com/AOX-LLC/agent-core?rev=v0.1.0a3#e5368dc6bc25ad927fb341ccd616454859406d84" }
 dependencies = [
     { name = "anthropic" },
     { name = "opentelemetry-api" },
@@ -565,7 +565,7 @@ samples = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.14" },
-    { name = "aox-agent-core", git = "https://github.com/AOX-LLC/agent-core?rev=v0.1.0a2" },
+    { name = "aox-agent-core", git = "https://github.com/AOX-LLC/agent-core?rev=v0.1.0a3" },
     { name = "bcrypt", specifier = ">=4.2" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", specifier = ">=0.28" },
