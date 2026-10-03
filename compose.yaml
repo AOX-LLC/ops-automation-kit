@@ -42,6 +42,8 @@ services:
     healthcheck: { disable: true }
     volumes:
       - kit-secrets:/secrets
+    mem_limit: 64m
+    pids_limit: 32
     restart: "no"
     network_mode: none
 
@@ -89,6 +91,8 @@ services:
         target: /run/kit-secrets
         read_only: true
         volume: { subpath: migrate }
+    mem_limit: 256m
+    pids_limit: 64
     restart: "no"
     networks: [kit]
 
@@ -101,10 +105,10 @@ services:
     command: ["chown", "-R", "10002:10002", "/data"]
     healthcheck: { disable: true }
     read_only: true
-    mem_limit: 64m
-    pids_limit: 32
     volumes:
       - mailpit-data:/data
+    mem_limit: 64m
+    pids_limit: 32
     restart: "no"
     network_mode: none
 
@@ -140,6 +144,8 @@ services:
       migrate: { condition: service_completed_successfully }
       mailpit: { condition: service_healthy }
     command: ["python", "-m", "opskit.seed"]
+    environment:
+      AGENT_CORE_CONFIG: /app/config/agent-core.toml
     healthcheck: { disable: true }
     read_only: true
     volumes:
@@ -149,6 +155,8 @@ services:
         target: /run/kit-secrets
         read_only: true
         volume: { subpath: api }
+    mem_limit: 256m
+    pids_limit: 64
     restart: "no"
     networks: [kit]
 
@@ -172,6 +180,8 @@ services:
         target: /run/kit-secrets
         read_only: true
         volume: { subpath: n8n }
+    mem_limit: 768m
+    pids_limit: 128
     restart: "no"
     networks: [kit]
 
@@ -192,12 +202,18 @@ services:
       N8N_SECURE_COOKIE: "false"
       EXECUTIONS_DATA_PRUNE: "true"
       EXECUTIONS_DATA_MAX_AGE: "168"
+      # Workflows may read and write files only under the exports folder.
+      N8N_RESTRICT_FILE_ACCESS_TO: /home/node/exports
     entrypoint: ["/bin/sh", "/kit/entrypoint-with-secrets.sh"]
     command: ["start"]
     tmpfs: [/tmp]
     volumes:
       - n8n-data:/home/node/.n8n
       - ./docker/n8n/entrypoint-with-secrets.sh:/kit/entrypoint-with-secrets.sh:ro
+      # The reconciliation spreadsheet lands here, where the viewer can open it. The n8n
+      # container runs as uid 1000, so ./exports must exist and be writable by that uid on
+      # the host before the stack starts (the workflow creates the file, not the folder).
+      - ./exports:/home/node/exports
       - type: volume
         source: kit-secrets
         target: /run/kit-secrets
@@ -217,7 +233,8 @@ services:
 
   api:
     <<: [*api-image, *hardened]
-    # Only the api reads .env: MOCK_MODE and, in live mode, the viewer's own key.
+    # Only the api reads .env: AGENT_CORE_MODE (replay by default) and, for live or record
+    # mode, the viewer's own key.
     env_file:
       - path: .env
         required: false
@@ -226,10 +243,13 @@ services:
       seed: { condition: service_completed_successfully }
     environment:
       OPSKIT_N8N_PUBLIC_URL: http://localhost:${KIT_N8N_PORT:-4300}
+      AGENT_CORE_CONFIG: /app/config/agent-core.toml
     read_only: true
     tmpfs: [/tmp]
     volumes:
       - ./samples:/data/samples:ro
+      # Cassettes (replay) live in /app/fixtures/cassettes. The mount stays read-only:
+      # recording new cassettes is done from the host (`uv run`), not inside this container.
       - ./fixtures:/app/fixtures:ro
       - type: volume
         source: kit-secrets
@@ -256,6 +276,8 @@ services:
         target: /run/kit-secrets
         read_only: true
         volume: { subpath: login }
+    mem_limit: 64m
+    pids_limit: 32
 
 networks:
   kit: {}
