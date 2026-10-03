@@ -157,8 +157,7 @@ async def triage(request: Request, body: MessageRequest) -> TriageOutcome:
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY, f"triage failed: {type(exc).__name__}"
         ) from exc
-    await store.save_triage(factory, body.run_id, outcome)
-    return outcome
+    return await store.save_triage(factory, body.run_id, outcome)
 
 
 @router.post("/drafts", status_code=status.HTTP_201_CREATED)
@@ -209,6 +208,8 @@ async def request_draft_approval(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "unknown draft")
     if draft.status != "draft":
         raise HTTPException(status.HTTP_409_CONFLICT, f"draft is {draft.status}, not awaiting")
+    if await store.is_quarantined(factory, draft.message_id):
+        raise HTTPException(status.HTTP_409_CONFLICT, "the message is held for review")
     ctx = await _run_context(request, body.run_id)
     core = _core(request)
     approval = await core.approvals.submit(

@@ -9,7 +9,7 @@ from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import func, select, update
+from sqlalchemy import case, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from opskit.db.engine import SessionFactory
@@ -17,25 +17,12 @@ from opskit.db.tables import inbox_drafts as drafts
 from opskit.db.tables import inbox_messages as messages
 from opskit.db.tables import inbox_triage as triage_table
 from opskit.inbox.mail import InboundMessage
+from opskit.inbox.policy import Route
 from opskit.inbox.service import (
     DraftOutcome,
     InjectionReason,
     TriageOutcome,
     reply_to_differs,
-)
-
-_TRIAGE_REPLACEABLE = (
-    "run_id",
-    "category",
-    "priority",
-    "needs_reply",
-    "escalate",
-    "route",
-    "quarantined",
-    "injection_reasons",
-    "replay_key",
-    "cost_usd",
-    "latency_ms",
 )
 
 
@@ -147,7 +134,14 @@ async def known_message_ids(session_factory: SessionFactory) -> set[str]:
 
 async def save_triage(
     session_factory: SessionFactory, run_id: UUID, outcome: TriageOutcome
-) -> None:
+) -> TriageOutcome:
+    """Store a message's triage once and return what is stored.
+
+    Two runs can triage the same message at once, and a live model can disagree with
+    itself. The first result stands, except that a hold always wins: if either result
+    quarantined the message it stays quarantined, so a later, calmer answer can never
+    release a message the earlier one held.
+    """
     values: dict[str, Any] = {
         "message_id": outcome.message_id,
         "run_id": run_id,
@@ -163,13 +157,37 @@ async def save_triage(
         "latency_ms": outcome.latency_ms,
     }
     statement = insert(triage_table).values(values)
+    stored, incoming = triage_table.c, statement.excluded
     statement = statement.on_conflict_do_update(
-        index_elements=[triage_table.c.message_id],
-        set_={name: statement.excluded[name] for name in _TRIAGE_REPLACEABLE}
-        | {"triaged_at": func.now()},
+        index_elements=[stored.message_id],
+        set_={
+            "quarantined": or_(stored.quarantined, incoming.quarantined),
+            "route": case(
+                (or_(stored.quarantined, incoming.quarantined), Route.QUARANTINE.value),
+                else_=stored.route,
+            ),
+            "injection_reasons": case(
+                (stored.quarantined, stored.injection_reasons),
+                else_=incoming.injection_reasons,
+            ),
+        },
     )
     async with session_factory() as session, session.begin():
         await session.execute(statement)
+    saved = await load_triage(session_factory, outcome.message_id)
+    if saved is None:
+        raise RuntimeError(f"triage for {outcome.message_id} vanished after it was written")
+    return saved
+
+
+async def is_quarantined(session_factory: SessionFactory, message_id: str) -> bool:
+    async with session_factory() as session:
+        held = (
+            await session.execute(
+                select(triage_table.c.quarantined).where(triage_table.c.message_id == message_id)
+            )
+        ).scalar_one_or_none()
+    return bool(held)
 
 
 def _triage_of(row: Any, msg: InboundMessage) -> TriageOutcome:

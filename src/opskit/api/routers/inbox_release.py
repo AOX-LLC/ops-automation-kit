@@ -24,6 +24,7 @@ from opskit.core.errors import (
     ApprovalPayloadMismatchError,
 )
 from opskit.core.ports import N8N_SERVICE, AuditEvent, Core
+from opskit.db.engine import SessionFactory
 from opskit.inbox import store
 from opskit.receipts.store import session_factory_of
 
@@ -44,11 +45,15 @@ def _core(request: Request) -> Core:
     return core
 
 
-async def _draft_or_404(request: Request, draft_id: UUID) -> store.StoredDraft:
+def _session_factory(request: Request) -> SessionFactory:
     session_factory = session_factory_of(request.app)
     if session_factory is None:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "database unavailable")
-    draft = await store.get_draft(session_factory, draft_id)
+    return session_factory
+
+
+async def _draft_or_404(request: Request, draft_id: UUID) -> store.StoredDraft:
+    draft = await store.get_draft(_session_factory(request), draft_id)
     if draft is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such draft")
     return draft
@@ -59,6 +64,9 @@ async def release(request: Request, draft_id: UUID) -> Envelope:
     draft = await _draft_or_404(request, draft_id)
     if draft.status != "pending" or draft.approval_id is None:
         raise HTTPException(status.HTTP_409_CONFLICT, f"draft is {draft.status}")
+    # A hold that landed after the draft was made (two runs triaging at once) still wins.
+    if await store.is_quarantined(_session_factory(request), draft.message_id):
+        raise HTTPException(status.HTTP_409_CONFLICT, "the message is held for review")
     try:
         await _core(request).approvals.consume(
             draft.approval_id,
@@ -74,8 +82,7 @@ async def release(request: Request, draft_id: UUID) -> Envelope:
         ) from exc
     except (ApprovalNotGrantedError, ApprovalAlreadyResolvedError, ApprovalExpiredError) as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "the draft is not approved to send") from exc
-    session_factory = session_factory_of(request.app)
-    assert session_factory is not None
+    session_factory = _session_factory(request)
     await store.set_draft_status(
         session_factory, draft_id, from_statuses=("pending",), to_status="approved"
     )
@@ -85,8 +92,7 @@ async def release(request: Request, draft_id: UUID) -> Envelope:
 @router.post("/{draft_id}/sent", status_code=status.HTTP_204_NO_CONTENT)
 async def mark_sent(request: Request, draft_id: UUID) -> Response:
     draft = await _draft_or_404(request, draft_id)
-    session_factory = session_factory_of(request.app)
-    assert session_factory is not None
+    session_factory = _session_factory(request)
     if not await store.set_draft_status(
         session_factory, draft_id, from_statuses=("approved",), to_status="sent", sent=True
     ):
@@ -127,8 +133,7 @@ async def close(request: Request, draft_id: UUID) -> Response:
             raise HTTPException(
                 status.HTTP_409_CONFLICT, f"the approval is {approval.status.value}; not closing"
             )
-    session_factory = session_factory_of(request.app)
-    assert session_factory is not None
+    session_factory = _session_factory(request)
     await store.set_draft_status(
         session_factory, draft_id, from_statuses=("draft", "pending"), to_status=outcome
     )

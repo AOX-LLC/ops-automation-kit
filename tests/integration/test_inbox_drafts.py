@@ -14,7 +14,7 @@ from email.parser import BytesParser
 import httpx
 import pytest
 
-from tests.integration.conftest import REPO_ROOT, ApproverClient, audit_count, psql
+from tests.integration.conftest import REPO_ROOT, ApproverClient, audit_count, compose, psql
 
 pytestmark = pytest.mark.integration
 
@@ -44,6 +44,39 @@ def _wait(predicate: Callable[[], bool], what: str, timeout: float = 90) -> None
             return
         time.sleep(2)
     pytest.fail(f"timed out waiting for {what}")
+
+
+# Re-store a message's triage through the real store, as a second, overlapping run would.
+_RETRIAGE = """
+import asyncio, sys
+from uuid import UUID
+from opskit.config import Settings
+from opskit.db.engine import make_engine, make_session_factory
+from opskit.inbox import store
+
+async def main(message_id, quarantined):
+    engine = make_engine(Settings())
+    factory = make_session_factory(engine)
+    current = await store.load_triage(factory, message_id)
+    run_id = UUID(sys.argv[3])
+    other = current.model_copy(update={
+        "quarantined": quarantined,
+        "route": "quarantine" if quarantined else "draft",
+        "injection_reasons": [] if not quarantined else current.injection_reasons,
+    })
+    await store.save_triage(factory, run_id, other)
+    await engine.dispose()
+
+asyncio.run(main(sys.argv[1], sys.argv[2] == "held"))
+"""
+
+
+def _retriage(message_id: str, outcome: str) -> None:
+    run_id = _sql(f"select run_id from inbox.triage where message_id = '{message_id}'")
+    result = compose(
+        "exec", "-T", "api", "python", "-c", _RETRIAGE, message_id, outcome, run_id, check=False
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def _take_pending_draft() -> tuple[str, str, str]:
@@ -140,6 +173,25 @@ def test_held_injection_emails_get_no_draft(service: httpx.Client, file: str) ->
     )
     assert response.status_code == 409
     assert _sql(f"select count(*) from inbox.drafts where message_id = '{message_id}'") == "0"
+
+
+def test_a_calmer_second_triage_never_releases_a_held_message() -> None:
+    message_id = _message_id("m26.eml")
+    _retriage(message_id, "clear")
+    row = _sql(f"select quarantined, route from inbox.triage where message_id = '{message_id}'")
+    assert row == "t|quarantine"
+
+
+def test_a_hold_that_lands_after_drafting_still_blocks_sending(approver: ApproverClient) -> None:
+    draft_id, approval_id, to = _take_pending_draft()
+    message_id = _sql(f"select message_id from inbox.drafts where id = '{draft_id}'")
+    before = _replies_to(to)
+    _retriage(message_id, "held")
+    assert approver.decide(approval_id, "approve", csrf=approver.page_csrf()).status_code == 303
+
+    time.sleep(8)
+    assert _draft_status(draft_id) == "pending"
+    assert _replies_to(to) == before
 
 
 def test_reply_to_is_flagged_and_never_used(approver: ApproverClient) -> None:
