@@ -101,3 +101,41 @@ async def test_a_blocked_decision_is_cached_too() -> None:
     assert not (await cache.decision(HOST)).allows(f"https://{HOST}/")
     assert not (await cache.decision(HOST)).allows(f"https://{HOST}/about")
     assert len(fetcher.urls) == 1
+
+
+# --- RFC 9309 matching ------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "path", "allowed"),
+    [
+        ("User-agent: *\nDisallow: /*", "/about", False),  # a wildcard-only rule blocks it all
+        ("User-agent: *\nDisallow: /*.pdf$", "/files/a.pdf", False),
+        ("User-agent: *\nDisallow: /*.pdf$", "/files/a.pdf?x=1", True),  # `$` anchors the end
+        ("User-agent: *\nDisallow: /private/*/keys", "/private/a/keys", False),
+        ("User-agent: *\nAllow: /\nDisallow: /about", "/about", False),  # longest match wins
+        ("User-agent: *\nDisallow: /about\nAllow: /about/team", "/about/team", True),
+        ("User-agent: *\nDisallow: /about\nAllow: /about", "/about", True),  # a tie allows
+        ("User-agent: *\nDisallow:\n", "/about", True),  # an empty Disallow allows everything
+        ("User-agent: *\nDisallow: /a # not /b", "/b", True),  # comments are dropped
+        ("USER-AGENT: *\nDISALLOW: /about", "/about", False),  # field names ignore case
+        ("User-agent: *\nDisallow: /about", "/About", True),  # paths do not
+        ("User-agent: *\nDisallow: /search?q=", "/search?q=cats", False),  # the query counts
+        (f"User-agent: *\nDisallow: /\n\nUser-agent: {AGENT_TOKEN}\nAllow: /", "/about", True),
+        (
+            f"User-agent: *\nAllow: /\n\nUser-agent: {AGENT_TOKEN}\nDisallow: /about",
+            "/about",
+            False,
+        ),
+        ("User-agent: other-bot\nDisallow: /", "/about", True),  # another bot's group
+        (f"User-agent: a-bot\nUser-agent: {AGENT_TOKEN}\nDisallow: /about", "/about", False),
+        (
+            f"User-agent: {AGENT_TOKEN}\nDisallow: /a\nUser-agent: {AGENT_TOKEN}\nDisallow: /b",
+            "/b",
+            False,
+        ),
+    ],
+)
+async def test_rules_follow_rfc_9309(text: str, path: str, allowed: bool) -> None:
+    decision = await RobotsCache(FakeFetcher(text=text)).decision(HOST)
+    assert decision.allows(f"https://{HOST}{path}") is allowed
