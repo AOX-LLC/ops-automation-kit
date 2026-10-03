@@ -330,3 +330,100 @@ def test_delivery_is_stamped_by_the_database_and_cannot_be_cleared(queued_resume
     )
     assert cleared.returncode != 0
     assert "stays delivered" in cleared.stderr
+
+
+# --- F7: the guard stamps every time -------------------------------------------------------
+
+LONG_AGO = "'2000-01-01'"
+
+
+def near_now(column: str, approval_id: str) -> str:
+    return psql(
+        f"select abs(extract(epoch from {column}) - extract(epoch from now())) < 120 "
+        f"from core.approvals where id = '{approval_id}'"
+    ).stdout.strip()
+
+
+def test_resolved_at_is_the_databases_whatever_the_approver_sends(
+    make_approval: MakeApproval,
+) -> None:
+    approval_id = make_approval()["approval_id"]
+    result = as_approver(
+        f"update core.approvals set status = 'approved', decision = 'approve', "
+        f"resolved_by = 'a.person', resolved_at = {LONG_AGO} where id = '{approval_id}'"
+    )
+    assert result.returncode == 0, result.stderr
+    assert near_now("resolved_at", approval_id) == "t"
+
+
+def test_a_decision_with_no_resolved_at_is_stamped_too(make_approval: MakeApproval) -> None:
+    approval_id = make_approval()["approval_id"]
+    result = as_approver(
+        "update core.approvals set status = 'rejected', decision = 'reject', "
+        f"resolved_by = 'a.person', resolved_at = null where id = '{approval_id}'"
+    )
+    assert result.returncode == 0, result.stderr
+    assert near_now("resolved_at", approval_id) == "t"
+
+
+def test_closed_at_on_a_cancellation_is_the_databases(make_approval: MakeApproval) -> None:
+    approval_id = make_approval()["approval_id"]
+    result = as_requester(
+        f"update core.approvals set status = 'cancelled', closed_at = {LONG_AGO} "
+        f"where id = '{approval_id}'"
+    )
+    assert result.returncode == 0, result.stderr
+    assert near_now("closed_at", approval_id) == "t"
+
+
+def test_consumed_at_is_the_databases(queued_resume: str) -> None:
+    result = as_requester(
+        f"update core.approvals set status = 'consumed', consumed_at = {LONG_AGO} "
+        f"where id = '{queued_resume}'"
+    )
+    assert result.returncode == 0, result.stderr
+    assert near_now("consumed_at", queued_resume) == "t"
+
+
+def test_closed_at_on_an_expiry_is_the_rows_own_expires_at(make_approval: MakeApproval) -> None:
+    approval_id = make_approval()["approval_id"]
+    # Ageing needs the owner (the guard fixes expires_at); the expiry itself must come from the
+    # requester role, so these are two sessions and the api's 60 s sweep may expire the row in
+    # between. That is fine: it stores the same value, and the assertion is on the stored row.
+    ageing = (
+        "alter table core.approvals disable trigger approvals_guard; "
+        "update core.approvals set expires_at = now() - interval '1 hour', "
+        f"created_at = now() - interval '2 hours' where id = '{approval_id}'; "
+        "alter table core.approvals enable always trigger approvals_guard"
+    )
+    assert psql(ageing).returncode == 0
+    as_requester(
+        f"update core.approvals set status = 'expired', closed_at = now() "
+        f"where id = '{approval_id}'"
+    )
+    stored = psql(
+        f"select status, closed_at = expires_at from core.approvals where id = '{approval_id}'"
+    )
+    assert stored.stdout.strip() == "expired|t"
+
+
+def test_an_approvals_lifetime_is_still_capped_and_positive() -> None:
+    for lifetime in (
+        "interval '7 days' + interval '1 second'",
+        "interval '0'",
+        "interval '-1 hour'",
+    ):
+        sql = (
+            "do $$ begin insert into core.approvals (action, summary, payload, payload_sha256, "
+            "requested_by, required_role, created_at, expires_at) values ('kit_smoke.echo', 's', "
+            f"'{{}}', repeat('0', 64), 'service.n8n', 'approver', now(), now() + {lifetime}); "
+            "raise exception 'inserted ok'; end $$"
+        )
+        assert "at most 7 days" in as_requester(sql).stderr
+    infinite = as_requester(
+        "do $$ begin insert into core.approvals (action, summary, payload, payload_sha256, "
+        "requested_by, required_role, created_at, expires_at) values ('kit_smoke.echo', 's', "
+        "'{}', repeat('0', 64), 'service.n8n', 'approver', now(), 'infinity'); "
+        "raise exception 'inserted ok'; end $$"
+    )
+    assert "at most 7 days" in infinite.stderr

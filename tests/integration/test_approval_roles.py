@@ -481,11 +481,28 @@ def test_the_seven_day_cap_holds_to_the_minute_in_any_session_time_zone(zone: st
     assert "at most 7 days" in _insert_with_lifetime(zone, 0)
 
 
+def _stamped_by_insert(zone: str, lifetime_s: int, created_offset_s: int) -> str:
+    """What the guard stored for a row sent with a chosen `created_at`; nothing is kept."""
+    sql = (
+        f"set time zone '{zone}'; "
+        "do $$ declare r core.approvals; begin "
+        "insert into core.approvals (action, summary, payload, payload_sha256, "
+        "requested_by, required_role, created_at, expires_at) values ('kit_smoke.echo', 's', "
+        f"'{{}}', repeat('0', 64), 'service.n8n', 'approver', "
+        f"now() + {created_offset_s} * interval '1 second', "
+        f"now() + {created_offset_s + lifetime_s} * interval '1 second') returning * into r; "
+        "raise exception 'stamped: % %', "
+        "abs(extract(epoch from r.created_at) - extract(epoch from statement_timestamp())) < 5, "
+        "round(extract(epoch from r.expires_at) - extract(epoch from r.created_at)); end $$"
+    )
+    return psql(sql, role="opskit_app").stderr
+
+
 @pytest.mark.parametrize("zone", ["+14", "-12"])
-def test_a_backdated_or_future_created_at_is_refused_in_any_time_zone(zone: str) -> None:
-    assert "inserted ok" in _insert_with_lifetime(zone, 3600, created_offset_s=-240)
-    assert "at most 7 days" in _insert_with_lifetime(zone, 3600, created_offset_s=-420)
-    assert "at most 7 days" in _insert_with_lifetime(zone, 3600, created_offset_s=420)
+@pytest.mark.parametrize("offset_s", [-86400 * 365, -420, 0, 420, 86400 * 365])
+def test_created_at_is_the_databases_whatever_the_caller_sends(zone: str, offset_s: int) -> None:
+    """A backdated or future `created_at` is replaced, and the caller's lifetime is kept."""
+    assert "stamped: t 3600" in _stamped_by_insert(zone, 3600, offset_s)
 
 
 # --- rows the requester role may and may not plant ------------------------------------------
