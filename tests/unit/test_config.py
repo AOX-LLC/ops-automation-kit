@@ -98,3 +98,18 @@ def test_the_logo_alt_text_is_escaped_in_the_page() -> None:
     html = env.get_template("base.html").render(request=request, logged_in=False)
     assert "<script>x</script>" not in html
     assert "&#34;&gt;&lt;script&gt;" in html
+
+
+@pytest.mark.parametrize("hours", ["0", "-1", "721"])
+def test_session_hours_stay_inside_what_the_database_accepts(
+    monkeypatch: pytest.MonkeyPatch, hours: str
+) -> None:
+    monkeypatch.setenv("OPSKIT_APPROVER_SESSION_HOURS", hours)
+    with pytest.raises(ValidationError, match="approver_session_hours"):
+        Settings()
+
+
+def test_session_hours_default_and_upper_bound(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert Settings().approver_session_hours == 8
+    monkeypatch.setenv("OPSKIT_APPROVER_SESSION_HOURS", "720")
+    assert Settings().approver_session_hours == 720

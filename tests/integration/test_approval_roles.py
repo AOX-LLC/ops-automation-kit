@@ -155,7 +155,6 @@ def test_the_approver_role_cannot_approve_its_own_request(make_approval: MakeApp
     [
         (NEW_APPROVED_ROW, "permission denied"),
         ("select * from core.runs limit 1", "permission denied"),
-        ("select * from core.approver_sessions limit 1", "permission denied"),
         ("update core.approvals set payload = '{}' where false", "permission denied"),
         ("update core.approvals set consumed_at = now() where false", "permission denied"),
         ("delete from core.approvals where false", "permission denied"),

@@ -57,7 +57,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         engine = make_engine(settings)
         session_factory = make_session_factory(engine)
         approver_engine = make_approver_engine(settings)
-        core = build_core(settings, session_factory, make_session_factory(approver_engine))
+        approver_factory = make_session_factory(approver_engine)
+        core = build_core(settings, session_factory, approver_factory)
         sender = N8nResumeSender(settings)
         app.state.settings = settings
         app.state.engine = engine
@@ -72,8 +73,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             settings.read_secret("approver_session_secret"),
             max_age_s=settings.approver_session_hours * 3600,
         )
+        # Sessions live on the approver role's connection: the requester role cannot read them.
         app.state.session_store = SessionStore(
-            session_factory, lifetime=timedelta(hours=settings.approver_session_hours)
+            approver_factory, lifetime=timedelta(hours=settings.approver_session_hours)
         )
         app.state.login_throttle = LoginThrottle()
         workers = [
