@@ -43,7 +43,7 @@ from aox_agent_core.errors import (
     NotTheRequesterError,
 )
 from pydantic import JsonValue
-from sqlalchemy import and_, func, insert, or_, select, update
+from sqlalchemy import and_, func, insert, null, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opskit.core.pg.audit import append_in
@@ -241,7 +241,7 @@ class PgApprovalQueue:
                 expires_at=now + timedelta(seconds=ttl_seconds),
                 delegates=delegate_ids,
                 resume_url=resume_url,
-                run_context=context.as_json() if context is not None else None,
+                run_context=context.as_json() if context is not None else null(),
             )
             .returning(*REQUEST_COLUMNS)
         )

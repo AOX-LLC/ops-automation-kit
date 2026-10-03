@@ -253,6 +253,7 @@ PRELUDE = textwrap.dedent(
             queue = PgApprovalQueue(
                 make_session_factory(engine),
                 policy=RoleApproverPolicy(roles_by_action=ROLES_BY_ACTION),
+                listed_actions=ROLES_BY_ACTION,
             )
             return await main(queue)
         finally:
@@ -477,3 +478,43 @@ def test_a_backdated_or_future_created_at_is_refused_in_any_time_zone(zone: str)
     assert "inserted ok" in _insert_with_lifetime(zone, 3600, created_offset_s=-240)
     assert "at most 7 days" in _insert_with_lifetime(zone, 3600, created_offset_s=-420)
     assert "at most 7 days" in _insert_with_lifetime(zone, 3600, created_offset_s=420)
+
+
+# --- rows the requester role may and may not plant ------------------------------------------
+
+PLANT = (
+    "insert into core.approvals (action, summary, payload, payload_sha256, requested_by, "
+    "required_role, expires_at{extra_cols}) values ('{action}', '{summary}', '{{}}', "
+    "repeat('0', 64), 'service.n8n', 'approver', now() + interval '1 hour'{extra_vals}) "
+    "returning id"
+)
+
+
+def test_a_row_that_would_break_the_approver_listing_cannot_be_stored() -> None:
+    for summary in ("", "x" * 501):
+        sql = PLANT.format(action="kit_smoke.echo", summary=summary, extra_cols="", extra_vals="")
+        result = psql(sql, role="opskit_app")
+        assert result.returncode != 0 and "shape the application refuses" in result.stderr
+    bad_action = PLANT.format(action="Not An Action", summary="s", extra_cols="", extra_vals="")
+    assert psql(bad_action, role="opskit_app").returncode != 0
+    with_reason = PLANT.format(
+        action="kit_smoke.echo", summary="s", extra_cols=", reason", extra_vals=", 'preset'"
+    )
+    assert "no reason yet" in psql(with_reason, role="opskit_app").stderr
+
+
+def test_an_unlisted_action_never_reaches_the_queue_and_is_refused_with_a_403_and_an_audit(
+    approver: ApproverClient,
+) -> None:
+    planted = psql(
+        PLANT.format(action="test.unlisted", summary="s", extra_cols="", extra_vals=""),
+        role="opskit_app",
+    )
+    assert planted.returncode == 0, planted.stderr
+    approval_id = planted.stdout.split()[0]
+    assert approval_id not in approver.client.get("/approver/").text
+    response = approver.decide(approval_id, "approve", csrf=approver.page_csrf())
+    assert response.status_code == 403
+    assert audit_count("approval.denied", approval_id) == 1
+    status = psql(f"select status from core.approvals where id = '{approval_id}'").stdout.strip()
+    assert status == "pending"

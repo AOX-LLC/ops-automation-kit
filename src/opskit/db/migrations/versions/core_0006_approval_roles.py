@@ -139,7 +139,8 @@ def upgrade() -> None:
                    OR EXISTS (SELECT 1 FROM jsonb_array_elements(NEW.delegates) AS d(v)
                               WHERE jsonb_typeof(d.v) <> 'string'
                                  OR (d.v #>> '{{}}') !~ '^[A-Za-z0-9][A-Za-z0-9._:/-]{{0,199}}$')
-                   OR (NEW.run_context IS NOT NULL AND jsonb_typeof(NEW.run_context) <> 'object')
+                   OR (NEW.run_context IS NOT NULL
+                       AND jsonb_typeof(NEW.run_context) NOT IN ('object', 'null'))
                 THEN
                     RAISE EXCEPTION 'the approval has a field in a shape the application refuses';
                 END IF;
