@@ -87,20 +87,24 @@ class Reconciliation(BaseModel):
 class _Candidate:
     receipt: ReceiptFacts
     line: BankLine
+    line_index: int
     exact: bool
     similarity: float
     lag_days: int
 
-    def sort_key(self) -> tuple[int, float, int, int, str, str]:
+    def sort_key(self) -> tuple[int, float, int, int, str, date, int]:
         # Exact amount first, then merchant similarity, then the smallest lag. Lag is
         # compared by absolute value so a posting the day before ranks like one the day after.
+        # Remaining ties go to the first-posted line, then the earlier statement position;
+        # never to the reference string, which says nothing about when a charge happened.
         return (
             0 if self.exact else 1,
             -self.similarity,
             abs(self.lag_days),
             self.lag_days,
             self.receipt.file,
-            self.line.reference,
+            self.line.posted_date,
+            self.line_index,
         )
 
 
@@ -159,7 +163,7 @@ def _lag_days(receipt: ReceiptFacts, line: BankLine) -> int | None:
     return (line.posted_date - receipt.receipt_date).days
 
 
-def _candidate(receipt: ReceiptFacts, line: BankLine) -> _Candidate | None:
+def _candidate(receipt: ReceiptFacts, line: BankLine, line_index: int) -> _Candidate | None:
     """Rule 2: exact amount, or within 20 % with a merchant match, inside the posting window."""
     lag = _lag_days(receipt, line)
     if receipt.total_cents is None or lag is None or not _sign_agrees(receipt, line):
@@ -172,20 +176,28 @@ def _candidate(receipt: ReceiptFacts, line: BankLine) -> _Candidate | None:
     close = abs(bank_abs - receipt_abs) * 100 <= AMOUNT_TOLERANCE_PERCENT * receipt_abs
     if not exact and not (close and similarity > 0):
         return None
-    return _Candidate(receipt, line, exact, similarity, lag)
+    return _Candidate(receipt, line, line_index, exact, similarity, lag)
 
 
-def _assign(receipts: Sequence[ReceiptFacts], lines: Sequence[BankLine]) -> list[_Candidate]:
-    """Rule 3: greedy, best first, every receipt and bank line used at most once."""
-    candidates = [c for r in receipts for line in lines if (c := _candidate(r, line))]
+def _assign(
+    receipts: Sequence[ReceiptFacts], lines: Sequence[tuple[int, BankLine]]
+) -> list[_Candidate]:
+    """Rule 3: greedy, best first, every receipt and bank line used at most once.
+
+    Lines are identified by their index in the statement, never by reference, so a
+    repeated reference cannot merge two charges. When candidates tie on everything
+    that matters, the first-posted line wins the receipt (then the earlier statement
+    position); later identical lines are left for rule 6.
+    """
+    candidates = [c for r in receipts for index, line in lines if (c := _candidate(r, line, index))]
     used_receipts: set[str] = set()
-    used_lines: set[str] = set()
+    used_lines: set[int] = set()
     chosen: list[_Candidate] = []
     for cand in sorted(candidates, key=_Candidate.sort_key):
-        if cand.receipt.file in used_receipts or cand.line.reference in used_lines:
+        if cand.receipt.file in used_receipts or cand.line_index in used_lines:
             continue
         used_receipts.add(cand.receipt.file)
-        used_lines.add(cand.line.reference)
+        used_lines.add(cand.line_index)
         chosen.append(cand)
     return chosen
 
@@ -239,16 +251,23 @@ def _normalised_descriptor(line: BankLine) -> str:
 
 
 def _earlier_twin(line: BankLine, matched_lines: Sequence[BankLine]) -> BankLine | None:
-    """Rule 6 (duplicate charge): same descriptor and amount, 0-7 days earlier."""
-    for earlier in matched_lines:
-        age = (line.posted_date - earlier.posted_date).days
-        if (
-            0 <= age <= DUPLICATE_CHARGE_WINDOW_DAYS
-            and earlier.amount_cents == line.amount_cents
-            and _normalised_descriptor(earlier) == _normalised_descriptor(line)
-        ):
-            return earlier
-    return None
+    """Rule 6 (duplicate charge): same descriptor and amount as a matched line 0-7 days earlier.
+
+    Evaluated after assignment against every matched line, so it does not depend on
+    statement order or reference strings. Among identical charges the first-posted line
+    wins the receipt (rule 3 tie-break), so later identical lines within 7 days
+    (age = unused.posted - matched.posted, 0 <= age <= 7) are duplicates. A line posted
+    before the matched line, or more than 7 days after it, is unreceipted. When several
+    matched lines qualify, the earliest-posted one is named.
+    """
+    qualifying = [
+        earlier
+        for earlier in matched_lines
+        if 0 <= (line.posted_date - earlier.posted_date).days <= DUPLICATE_CHARGE_WINDOW_DAYS
+        and earlier.amount_cents == line.amount_cents
+        and _normalised_descriptor(earlier) == _normalised_descriptor(line)
+    ]
+    return min(qualifying, key=lambda e: (e.posted_date, e.reference), default=None)
 
 
 def _receipt_fields(receipt: ReceiptFacts) -> dict[str, object]:
@@ -317,19 +336,15 @@ def reconcile(receipts: Sequence[ReceiptFacts], bank: Sequence[BankLine]) -> Rec
     candidates_in = [r for r in ordered if not r.needs_review]
     originals, duplicate_files = _split_duplicate_receipts(candidates_in)
 
-    in_scope = [line for line in bank if not is_out_of_scope(line)]
-    pairs = {c.line.reference: c for c in _assign(originals, in_scope)}
+    in_scope = [(i, line) for i, line in enumerate(bank) if not is_out_of_scope(line)]
+    pairs = {c.line_index: c for c in _assign(originals, in_scope)}
     matched_receipts = {c.receipt.file for c in pairs.values()}
+    matched_lines = [bank[index] for index in sorted(pairs)]
 
     rows: list[ReconciliationRow] = []
-    matched_lines: list[BankLine] = []
-    for line in bank:
-        pair = pairs.get(line.reference)
-        if pair is not None:
-            rows.append(_paired_row(pair))
-            matched_lines.append(line)
-        else:
-            rows.append(_bank_only_row(line, matched_lines))
+    for index, line in enumerate(bank):
+        pair = pairs.get(index)
+        rows.append(_paired_row(pair) if pair is not None else _bank_only_row(line, matched_lines))
 
     review_files = {r.file for r in reviewing}
     for receipt in ordered:

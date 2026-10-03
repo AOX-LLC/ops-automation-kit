@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import json
 from datetime import date, timedelta
 from pathlib import Path
@@ -10,6 +11,7 @@ from opskit.receipts.bank import BankLine, parse_statement
 from opskit.receipts.reconcile import (
     ReceiptFacts,
     Reconciliation,
+    ReconciliationRow,
     merchant_similarity,
     merchant_tokens,
     reconcile,
@@ -174,6 +176,94 @@ class TestRules:
         bank = [_line("STM-1"), _line("STM-2", desc="OTHER SHOP", days=1)]
         assert _statuses(reconcile([_receipt()], bank)) == ["matched", "unreceipted_charge"]
 
+    def test_numeric_reference_order_does_not_pick_the_original(self) -> None:
+        bank = [_line("TX-9"), _line("TX-10")]
+        rows = reconcile([_receipt()], bank).rows
+        assert [(r.bank_reference, r.status) for r in rows] == [
+            ("TX-9", "matched"),
+            ("TX-10", "duplicate_charge"),
+        ]
+
+    def test_newest_first_statement_still_names_the_first_posted_as_original(self) -> None:
+        bank = [_line("STM-2", days=2), _line("STM-1", days=0)]
+        rows = reconcile([_receipt()], bank).rows
+        assert [(r.bank_reference, r.status) for r in rows] == [
+            ("STM-2", "duplicate_charge"),
+            ("STM-1", "matched"),
+        ]
+        assert rows[0].match_reason == "same descriptor and amount as STM-1"
+
+    def test_twin_exactly_seven_days_later_is_duplicate(self) -> None:
+        bank = [_line("STM-1"), _line("STM-2", days=7)]
+        assert _statuses(reconcile([_receipt()], bank)) == ["matched", "duplicate_charge"]
+
+    def test_twin_eight_days_later_is_unreceipted_in_any_order(self) -> None:
+        for bank in (
+            [_line("STM-1"), _line("STM-2", days=8)],
+            [_line("STM-2", days=8), _line("STM-1")],
+        ):
+            rows = reconcile([_receipt()], bank).rows
+            assert {r.bank_reference: r.status for r in rows} == {
+                "STM-1": "matched",
+                "STM-2": "unreceipted_charge",
+            }
+
+    def test_first_posted_line_wins_and_twin_posted_before_a_better_match_is_unreceipted(
+        self,
+    ) -> None:
+        # Both lines fit the receipt; day 0 has the smaller lag so it takes the receipt.
+        # The line posted a day earlier is not 0-7 days after it, so it is not a duplicate.
+        bank = [_line("STM-1", days=-1), _line("STM-2", days=0)]
+        rows = reconcile([_receipt()], bank).rows
+        assert [(r.bank_reference, r.status) for r in rows] == [
+            ("STM-1", "unreceipted_charge"),
+            ("STM-2", "matched"),
+        ]
+
+    def test_first_posted_wins_when_lags_tie(self) -> None:
+        # Lag -1 and +1 rank equally by absolute value; the first-posted (-1) wins the receipt.
+        bank = [_line("STM-2", days=1), _line("STM-1", days=-1)]
+        rows = reconcile([_receipt()], bank).rows
+        assert [(r.bank_reference, r.status) for r in rows] == [
+            ("STM-2", "duplicate_charge"),
+            ("STM-1", "matched"),
+        ]
+
+    def test_repeat_is_duplicate_of_a_matched_line_that_comes_later_in_the_file(self) -> None:
+        bank = [_line("STM-3", days=3), _line("STM-1", days=0), _line("STM-2", days=1)]
+        assert _statuses(reconcile([_receipt()], bank)) == [
+            "duplicate_charge",
+            "matched",
+            "duplicate_charge",
+        ]
+
+    def test_repeated_reference_does_not_drop_a_charge(self) -> None:
+        bank = [
+            _line("X", desc="CORNER CAFE", cents=-1250),
+            _line("X", desc="HARDWARE", cents=-999),
+        ]
+        receipts = [_receipt("cafe.png", "Corner Cafe", cents=1250)]
+        rows = reconcile(receipts, bank).rows
+        assert [(r.bank_description, r.status) for r in rows] == [
+            ("CORNER CAFE", "matched"),
+            ("HARDWARE", "unreceipted_charge"),
+        ]
+
+    def test_repeated_reference_with_two_receipts_matches_each_charge(self) -> None:
+        bank = [
+            _line("X", desc="CORNER CAFE", cents=-1250),
+            _line("X", desc="HARDWARE", cents=-999),
+        ]
+        receipts = [
+            _receipt("cafe.png", "Corner Cafe", cents=1250),
+            _receipt("hw.png", "Hardware", cents=999),
+        ]
+        rows = reconcile(receipts, bank).rows
+        assert [(r.bank_description, r.receipt, r.status) for r in rows] == [
+            ("CORNER CAFE", "cafe.png", "matched"),
+            ("HARDWARE", "hw.png", "matched"),
+        ]
+
     @pytest.mark.parametrize(
         "description",
         ["ACH CREDIT ACME", "ONLINE TRANSFER TO SAV 4471", "MOBILE DEPOSIT", "TRANSFER FROM SAV"],
@@ -272,6 +362,55 @@ class TestDeterminism:
         ):
             assert reconcile(shuffled, bank) == baseline
 
+    def test_bank_order_does_not_matter(self) -> None:
+        receipts, bank = _facts_from_key(), parse_statement(STATEMENT)
+        baseline = _without_references(reconcile(receipts, bank))
+        for shuffled in (
+            bank[::-1],
+            bank[11:] + bank[:11],
+            bank[1::2] + bank[::2],
+            bank[2::3] + bank[1::3] + bank[::3],
+        ):
+            assert _without_references(reconcile(receipts, shuffled)) == baseline
+
+    def test_bank_order_does_not_matter_for_repeated_charges(self) -> None:
+        bank = [
+            _line("TX-9", days=0),
+            _line("TX-10", days=2),
+            _line("TX-11", days=8),
+            _line("TX-12", days=9, desc="OTHER SHOP"),
+        ]
+        baseline = _by_reference(reconcile([_receipt()], bank))
+        assert {ref: row.status for ref, row in baseline.items()} == {
+            "TX-9": "matched",
+            "TX-10": "duplicate_charge",
+            "TX-11": "unreceipted_charge",
+            "TX-12": "unreceipted_charge",
+        }
+        for ordering in itertools.permutations(bank):
+            assert _by_reference(reconcile([_receipt()], list(ordering))) == baseline
+
+    def test_output_keeps_statement_order(self) -> None:
+        bank = [_line("STM-2", days=2), _line("STM-1", days=0)]
+        rows = reconcile([_receipt(), _receipt("b.png", "Other", cents=500)], bank).rows
+        assert [r.bank_reference for r in rows[:2]] == ["STM-2", "STM-1"]
+        assert rows[2].bank_reference is None and rows[2].receipt == "b.png"
+
+
+def _without_references(result: Reconciliation) -> list[str]:
+    """Rows minus reference-bearing fields, sorted.
+
+    Same-day identical charges differ only by reference, so which one holds the receipt
+    follows statement position; every other field and every status is order-free.
+    """
+    skip = {"bank_reference", "match_reason"}
+    dumped = (row.model_dump(mode="json", exclude=skip) for row in result.rows)
+    return sorted(json.dumps(row, sort_keys=True) for row in dumped)
+
+
+def _by_reference(result: Reconciliation) -> dict[str | None, ReconciliationRow]:
+    return {row.bank_reference or f"receipt:{row.receipt}": row for row in result.rows}
+
 
 class TestParseStatement:
     def test_parses_committed_statement(self) -> None:
@@ -302,6 +441,14 @@ class TestParseStatement:
     def test_fractional_cents_rejected(self, tmp_path: Path) -> None:
         path = self._write(tmp_path, "2026-08-01,X,1.005,0,R1\n")
         with pytest.raises(ValueError, match="whole number of cents"):
+            parse_statement(path)
+
+    def test_duplicate_reference_names_the_line(self, tmp_path: Path) -> None:
+        path = self._write(
+            tmp_path,
+            "2026-08-01,CORNER CAFE,-12.50,0,X\n2026-08-02,HARDWARE,-9.99,0,X\n",
+        )
+        with pytest.raises(ValueError, match=r"line 3: duplicate reference X"):
             parse_statement(path)
 
     def test_missing_column_rejected(self, tmp_path: Path) -> None:

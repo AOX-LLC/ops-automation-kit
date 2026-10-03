@@ -26,7 +26,18 @@ def parse_statement(path: Path) -> list[BankLine]:
         missing = [name for name in REQUIRED_COLUMNS if name not in (reader.fieldnames or [])]
         if missing:
             raise ValueError(f"{path.name}: missing column(s) {', '.join(missing)}")
-        return [_parse_row(row, reader.line_num) for row in reader]
+        lines = [(_parse_row(row, reader.line_num), reader.line_num) for row in reader]
+    _reject_duplicate_references(lines)
+    return [line for line, _ in lines]
+
+
+def _reject_duplicate_references(lines: list[tuple[BankLine, int]]) -> None:
+    """Each statement line needs its own reference; a repeat would merge two charges."""
+    seen: set[str] = set()
+    for line, line_number in lines:
+        if line.reference in seen:
+            raise ValueError(f"line {line_number}: duplicate reference {line.reference}")
+        seen.add(line.reference)
 
 
 def _parse_row(row: dict[str, str | None], line_number: int) -> BankLine:

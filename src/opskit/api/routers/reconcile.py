@@ -31,7 +31,8 @@ def facts_from_outcome(outcome: ExtractionOutcome) -> ReceiptFacts:
     fields = outcome.fields
     receipt_date = _parse_date(fields.receipt_date) if fields else None
     return ReceiptFacts(
-        file=Path(outcome.path).name,
+        # The public path, not the bare name: the same name can come from two folders.
+        file=outcome.path,
         vendor=fields.vendor_name if fields else None,
         receipt_date=receipt_date,
         total_cents=fields.total_cents if fields else None,
