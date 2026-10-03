@@ -48,7 +48,7 @@ APPROVAL_BASE = {
     "action": q("kit_smoke.echo"),
     "summary": q("s"),
     "payload": "'{}'::jsonb",
-    "payload_sha256": "repeat('0', 64)",
+    "payload_sha256": "repeat(md5(random()::text), 2)",
     "requested_by": q("service.n8n"),
     "required_role": q("approver"),
     "created_at": "now()",

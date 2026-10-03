@@ -35,7 +35,8 @@ APPROVE = (
 STATUS_ONLY = "update core.approvals set status = 'approved' where id = '{id}'"
 NEW_APPROVED_ROW = (
     "insert into core.approvals (action, summary, payload, payload_sha256, requested_by, "
-    "required_role, expires_at, status) values ('kit_smoke.echo', 's', '{}', repeat('0', 64), "
+    "required_role, expires_at, status) values ('kit_smoke.echo', 's', '{}', "
+    "repeat(md5(random()::text), 2), "
     "'service.n8n', 'approver', now() + interval '1 hour', 'approved')"
 )
 
@@ -226,7 +227,7 @@ PRELUDE = textwrap.dedent(
     """
     import asyncio, json
     from datetime import UTC, datetime, timedelta
-    from uuid import UUID
+    from uuid import UUID, uuid4
     from aox_agent_core.approvals import RoleApproverPolicy
     from opskit.config import Settings
     from opskit.core.pg.approvals import PgApprovalQueue
@@ -239,9 +240,9 @@ PRELUDE = textwrap.dedent(
 
     async def submit(queue, *, ttl_seconds=600, delegates=()):
         return await queue.submit(
-            action="kit_smoke.echo", summary="itest", payload={"n": 1},
+            action="kit_smoke.echo", summary="itest", payload={"n": 1, "nonce": uuid4().hex},
             requested_by=N8N_SERVICE, required_role="approver",
-            ttl_seconds=ttl_seconds, delegates=delegates,
+            ttl_seconds=ttl_seconds, delegates=delegates, include_payload=True,
         )
 
     async def attempt(call):
@@ -303,7 +304,7 @@ def test_only_the_requester_or_a_delegate_may_consume(
         """
         async def main(queue):
             request = await submit(queue, delegates=["service.delegate"])
-            return {"id": str(request.id)}
+            return {"id": str(request.id), "nonce": request.payload["nonce"]}
         """
     )
     approval_id = made["id"]
@@ -312,7 +313,7 @@ def test_only_the_requester_or_a_delegate_may_consume(
     out = in_api(
         f"""
         async def main(queue):
-            args = dict(action="kit_smoke.echo", payload={{"n": 1}})
+            args = dict(action="kit_smoke.echo", payload={{"n": 1, "nonce": "{made["nonce"]}"}})
             id = UUID("{approval_id}")
             stranger = await attempt(queue.consume(id, principal=OTHER, **args))
             approver_like = await attempt(queue.consume(
@@ -465,7 +466,7 @@ def _insert_with_lifetime(zone: str, lifetime_s: int, created_offset_s: int = 0)
         f"set time zone '{zone}'; "
         "do $$ begin insert into core.approvals (action, summary, payload, payload_sha256, "
         "requested_by, required_role, created_at, expires_at) values ('kit_smoke.echo', 's', "
-        f"'{{}}', repeat('0', 64), 'service.n8n', 'approver', "
+        f"'{{}}', repeat(md5(random()::text), 2), 'service.n8n', 'approver', "
         f"now() + {created_offset_s} * interval '1 second', "
         f"now() + {created_offset_s + lifetime_s} * interval '1 second'); "
         "raise exception 'inserted ok'; end $$"
@@ -488,7 +489,7 @@ def _stamped_by_insert(zone: str, lifetime_s: int, created_offset_s: int) -> str
         "do $$ declare r core.approvals; begin "
         "insert into core.approvals (action, summary, payload, payload_sha256, "
         "requested_by, required_role, created_at, expires_at) values ('kit_smoke.echo', 's', "
-        f"'{{}}', repeat('0', 64), 'service.n8n', 'approver', "
+        f"'{{}}', repeat(md5(random()::text), 2), 'service.n8n', 'approver', "
         f"now() + {created_offset_s} * interval '1 second', "
         f"now() + {created_offset_s + lifetime_s} * interval '1 second') returning * into r; "
         "raise exception 'stamped: % %', "
@@ -510,7 +511,8 @@ def test_created_at_is_the_databases_whatever_the_caller_sends(zone: str, offset
 PLANT = (
     "insert into core.approvals (action, summary, payload, payload_sha256, requested_by, "
     "required_role, expires_at{extra_cols}) values ('{action}', '{summary}', '{{}}', "
-    "repeat('0', 64), 'service.n8n', 'approver', now() + interval '1 hour'{extra_vals}) "
+    "repeat(md5(random()::text), 2), 'service.n8n', 'approver', "
+    "now() + interval '1 hour'{extra_vals}) "
     "returning id"
 )
 
@@ -547,7 +549,7 @@ def test_a_row_the_application_could_not_read_back_cannot_be_stored(
         "action": "'kit_smoke.echo'",
         "summary": "'s'",
         "payload": "'{}'::jsonb",
-        "payload_sha256": "repeat('0', 64)",
+        "payload_sha256": "repeat(md5(random()::text), 2)",
         "requested_by": "'service.n8n'",
         "required_role": "'approver'",
         "expires_at": "now() + interval '1 hour'",

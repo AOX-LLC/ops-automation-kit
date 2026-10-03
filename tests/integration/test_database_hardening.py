@@ -432,14 +432,15 @@ def test_an_approvals_lifetime_is_still_capped_and_positive() -> None:
         sql = (
             "do $$ begin insert into core.approvals (action, summary, payload, payload_sha256, "
             "requested_by, required_role, created_at, expires_at) values ('kit_smoke.echo', 's', "
-            f"'{{}}', repeat('0', 64), 'service.n8n', 'approver', now(), now() + {lifetime}); "
+            f"'{{}}', repeat(md5(random()::text), 2), 'service.n8n', 'approver', now(), "
+            f"now() + {lifetime}); "
             "raise exception 'inserted ok'; end $$"
         )
         assert "at most 7 days" in as_requester(sql).stderr
     infinite = as_requester(
         "do $$ begin insert into core.approvals (action, summary, payload, payload_sha256, "
         "requested_by, required_role, created_at, expires_at) values ('kit_smoke.echo', 's', "
-        "'{}', repeat('0', 64), 'service.n8n', 'approver', now(), 'infinity'); "
+        "'{}', repeat(md5(random()::text), 2), 'service.n8n', 'approver', now(), 'infinity'); "
         "raise exception 'inserted ok'; end $$"
     )
     assert "at most 7 days" in infinite.stderr

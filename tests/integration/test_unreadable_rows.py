@@ -24,7 +24,7 @@ from tests.integration.test_approval_roles import in_api
 pytestmark = pytest.mark.integration
 
 GUARDS = ("approvals_bounds", "approvals_guard")
-ZERO_HASH = "repeat('0', 64)"
+ZERO_HASH = "repeat(md5(random()::text), 2)"
 
 
 def _plant_sql(approval_id: str, **columns: str) -> str:
@@ -118,7 +118,8 @@ def test_a_secret_shaped_context_name_gets_through_the_bounds_and_the_sweep_cope
     inserted = psql(
         "insert into core.approvals (id, action, summary, payload, payload_sha256, requested_by, "
         "required_role, created_at, expires_at, run_context) values "
-        f"('{approval_id}', 'kit_smoke.echo', 's', '{{}}', repeat('0', 64), 'service.n8n', "
+        f"('{approval_id}', 'kit_smoke.echo', 's', '{{}}', repeat(md5(random()::text), 2), "
+        "'service.n8n', "
         "'approver', now(), now() + interval '1 second', "
         """'{"run_id": "r1", "external_ids": {"api_key": "abc"}}')""",
         role="opskit_app",
