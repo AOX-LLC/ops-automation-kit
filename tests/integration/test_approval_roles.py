@@ -409,15 +409,19 @@ def test_expire_due_stores_expired_with_closed_at_and_audits_each() -> None:
         """
     )
     assert out["still"] == "pending"
-    # The api's own 60 s sweep may have expired it first; either way it was stored once.
-    assert out["swept"] >= 0  # `still` above shows a skewed caller clock expired nothing early
+    # The api's own 60 s sweep may have expired it first, so `swept` can be 0 or 1 and says
+    # nothing; what matters is the stored row below, whoever stored it.
     assert out["read"] == ["expired", True]
     assert out["stored"] == ["expired", True]
     stored = psql(
-        f"select status, closed_at is not null from core.approvals where id = '{out['lapsing']}'"
+        f"select status, closed_at = expires_at from core.approvals where id = '{out['lapsing']}'"
     )
     assert stored.stdout.strip() == "expired|t"
     assert audit_count("approval.expired", out["lapsing"]) == 1
+    assert (
+        psql(f"select status from core.approvals where id = '{out['later']}'").stdout.strip()
+        == "pending"
+    )
     actor = psql(
         "select actor_id from core.audit_log where action = 'approval.expired' "
         f"and subject_id = '{out['lapsing']}'"
