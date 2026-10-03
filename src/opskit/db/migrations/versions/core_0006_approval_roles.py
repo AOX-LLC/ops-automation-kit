@@ -150,7 +150,7 @@ def upgrade() -> None:
                                  OR (d.v #>> '{{}}') !~ '^[A-Za-z0-9][A-Za-z0-9._:-]{{0,127}}$')
                    OR (NEW.run_context IS NOT NULL AND (
                           jsonb_typeof(NEW.run_context) <> 'object'
-                          OR jsonb_typeof(NEW.run_context -> 'run_id') <> 'string'
+                          OR jsonb_typeof(NEW.run_context -> 'run_id') IS DISTINCT FROM 'string'
                           OR (NEW.run_context ->> 'run_id')
                              !~ '^[A-Za-z0-9][A-Za-z0-9._:/-]{{0,199}}$'
                           OR (NEW.run_context - 'run_id' - 'external_ids') <> '{{}}'::jsonb))
