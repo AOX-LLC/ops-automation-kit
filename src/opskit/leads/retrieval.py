@@ -188,12 +188,14 @@ class WebRetriever:
             if decision.blocked:
                 result.notes.append(f"robots: {decision.reason}")
                 result.unresolved_reason = "blocked by robots.txt"
-                return Retrieval(unresolved_reason=result.unresolved_reason, notes=result.notes)
+                return result
             if not decision.allows(url):
                 result.notes.append(f"robots: {path} disallowed")
                 continue
             try:
-                page = await self._fetcher.fetch(url)
+                page = await self._fetcher.fetch(
+                    url, allow=decision.allows
+                )  # also on redirect hops
             except FetchRefused as exc:
                 result.notes.append(f"{path}: refused ({exc})")
                 continue

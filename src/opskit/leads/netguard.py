@@ -26,7 +26,7 @@ import ssl
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
-from urllib.parse import urljoin, urlsplit, urlunsplit
+from urllib.parse import quote, urljoin, urlsplit, urlunsplit
 
 import httpx
 
@@ -38,6 +38,7 @@ TOTAL_TIMEOUT_S = 10.0
 MAX_REDIRECTS = 3
 ALLOWED_TYPES = ("text/html", "text/plain")
 CGNAT = ipaddress.ip_network("100.64.0.0/10")
+_URL_SAFE = "/%:@!$&'()*+,;=~"  # kept as is when percent-encoding a path or query
 
 type Address = ipaddress.IPv4Address | ipaddress.IPv6Address
 type Resolver = Callable[[str, int], Awaitable[Sequence[str]]]
@@ -134,14 +135,20 @@ class GuardedFetcher:
             raise FetchRefused(f"{host} resolves to a non-public address")
         return str(parsed[0])
 
-    async def fetch(self, url: str, *, site: str | None = None) -> FetchResult:
+    async def fetch(
+        self, url: str, *, site: str | None = None, allow: Callable[[str], bool] | None = None
+    ) -> FetchResult:
         """GET one page under every guard; follows at most MAX_REDIRECTS on the same site.
 
-        A non-2xx answer comes back with its status and empty text; only a 2xx body is read."""
+        A non-2xx answer comes back with its status and empty text; only a 2xx body is read.
+        `allow` is asked about every hop, redirects included, before it is requested; a hop it
+        refuses raises FetchRefused."""
         deadline = time.monotonic() + self._policy.total_timeout_s
         current = url
         home = site or _site(urlsplit(url).hostname or "")
         for _ in range(MAX_REDIRECTS + 1):
+            if allow is not None and not allow(current):
+                raise FetchRefused(f"{current} is not allowed")
             response_url, status, headers, body = await self._fetch_once(current, deadline, home)
             if status in (301, 302, 303, 307, 308) and "location" in headers:
                 current = urljoin(response_url, headers["location"])
@@ -175,9 +182,20 @@ class GuardedFetcher:
         port = parts.port or 443
         if port not in self._policy.ports:
             raise FetchRefused(f"port {port} is not allowed")
-        ip = await self._vetted_ip(host, port)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise FetchRefused("total time limit reached")
+        try:
+            async with asyncio.timeout(remaining):  # a slow resolver counts against the deadline
+                ip = await self._vetted_ip(host, port)
+        except TimeoutError as exc:
+            raise FetchRefused("total time limit reached resolving the host") from exc
+        # Percent-encode the path and query once, so what we request and what we report back
+        # (the cited source URL) can't carry a quote, angle bracket or control character.
+        path = quote(parts.path or "/", safe=_URL_SAFE)
+        query = quote(parts.query, safe=_URL_SAFE + "?")
         netloc = f"[{ip}]" if ":" in ip else ip
-        target = urlunsplit(("https", f"{netloc}:{port}", parts.path or "/", parts.query, ""))
+        target = urlunsplit(("https", f"{netloc}:{port}", path, query, ""))
         request = self._client.build_request(
             "GET",
             target,
@@ -205,7 +223,7 @@ class GuardedFetcher:
         except httpx.TransportError as exc:  # connect/read failures, timeouts, TLS, protocol
             raise FetchRefused(f"connection to {host} failed: {type(exc).__name__}") from exc
         public_url = urlunsplit(
-            ("https", host if port == 443 else f"{host}:{port}", parts.path or "/", parts.query, "")
+            ("https", host if port == 443 else f"{host}:{port}", path, query, "")
         )
         headers = {k.lower(): v for k, v in response.headers.items()}
         return public_url, response.status_code, headers, body

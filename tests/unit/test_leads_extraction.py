@@ -219,7 +219,7 @@ class FakeWeb:
     def __init__(self, pages: dict[str, int | str], robots: str | int = 404) -> None:
         self.pages, self.robots, self.urls = pages, robots, []
 
-    async def fetch(self, url: str, *, site: str | None = None) -> FetchResult:
+    async def fetch(self, url: str, *, site: str | None = None, allow: Any = None) -> FetchResult:
         self.urls.append(url)
         path = "/" + url.split("/", 3)[3]
         answer: int | str = self.robots if path == "/robots.txt" else self.pages.get(path, 404)
@@ -271,10 +271,12 @@ async def test_web_without_a_website_makes_no_request() -> None:
 
 async def test_web_reports_a_refused_page_and_carries_on() -> None:
     class Flaky(FakeWeb):
-        async def fetch(self, url: str, *, site: str | None = None) -> FetchResult:
+        async def fetch(
+            self, url: str, *, site: str | None = None, allow: Any = None
+        ) -> FetchResult:
             if url.endswith("/about"):
                 raise FetchRefused("page exceeded the size cap mid-download")
-            return await super().fetch(url, site=site)
+            return await super().fetch(url, site=site, allow=allow)
 
     got = await _web(Flaky({"/": "<p>home</p>"})).fetch(Company("Acme", "X", "acme.example"))
     assert len(got.documents) == 1
