@@ -61,3 +61,18 @@ def test_the_logo_must_be_a_path_on_this_site(monkeypatch: pytest.MonkeyPatch, u
 def test_an_empty_logo_setting_turns_the_logo_off(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPSKIT_BRAND_LOGO_URL", "")
     assert Settings().brand_logo_url is None
+
+
+def test_the_default_logo_is_the_aox_mark_and_the_file_ships() -> None:
+    from pathlib import Path
+
+    from opskit.config import Settings
+
+    url = Settings().brand_logo_url
+    assert url == "/static/brand/aox-logo-black.png"
+    shipped = (
+        Path(__file__).resolve().parents[2] / "src/opskit/api/static" / url.removeprefix("/static/")
+    )
+    assert shipped.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+    template = (shipped.parents[2] / "templates" / "base.html").read_text()
+    assert 'alt="AOX"' in template and "brand-divider" in template

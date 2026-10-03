@@ -48,7 +48,7 @@ class Settings(BaseSettings):
 
     approver_session_hours: int = 8
     # Shown beside "Approvals"; empty disables. Must be same-origin (the CSP blocks others).
-    brand_logo_url: str | None = "/static/brand/logo.svg"
+    brand_logo_url: str | None = "/static/brand/aox-logo-black.png"
 
     @field_validator("brand_logo_url")
     @classmethod
