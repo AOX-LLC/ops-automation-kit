@@ -14,7 +14,14 @@ from email.parser import BytesParser
 import httpx
 import pytest
 
-from tests.integration.conftest import REPO_ROOT, ApproverClient, audit_count, compose, psql
+from tests.integration.conftest import (
+    N8N_PORT,
+    REPO_ROOT,
+    ApproverClient,
+    audit_count,
+    compose,
+    psql,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -222,6 +229,31 @@ def test_reply_to_is_flagged_and_never_used(approver: ApproverClient) -> None:
         page = approver.client.get(f"/approver/approvals/{approval_id}").text
         assert "Reply-To differs from From" in page
         assert f"<strong>{reply_to}" not in page.lower()
+
+
+def test_a_lookalike_approval_is_not_shown_as_the_reply(
+    approver: ApproverClient, service: httpx.Client
+) -> None:
+    draft_id = _sql("select id from inbox.drafts where approval_id is not null limit 1")
+    if not draft_id:
+        pytest.skip("no draft approval exists")
+    n8n = f"http://localhost:{N8N_PORT}"
+    run = service.post(
+        "/v1/runs", json={"workflow": "inbox", "n8n_execution_id": "itest-lookalike"}
+    )
+    created = service.post(
+        "/v1/approvals",
+        json={
+            "run_id": run.json()["run_id"],
+            "kind": "inbox.send_reply",
+            "subject": {"draft_id": draft_id, "to": "someone@else.example", "body": "Pay here."},
+            "resume_url": f"{n8n}/webhook-waiting/123456789?signature={'ab' * 32}",
+            "expires_in_s": 600,
+        },
+    )
+    assert created.status_code == 201, created.text
+    page = approver.client.get(f"/approver/approvals/{created.json()['approval_id']}").text
+    assert "Approve and send" not in page
 
 
 def test_service_token_cannot_open_a_draft_approval(api_url: str, service_token: str) -> None:

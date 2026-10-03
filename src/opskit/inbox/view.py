@@ -41,15 +41,20 @@ def _text(payload: Mapping[str, Any], key: str) -> str:
 
 
 async def load_inbox_reply_view(
-    session_factory: SessionFactory, payload: Mapping[str, Any]
+    session_factory: SessionFactory, approval_id: UUID, payload: Mapping[str, Any]
 ) -> InboxReplyView | None:
-    """The view for an approval's payload, or None if its draft or message is missing."""
+    """The view for an approval's payload, or None if its draft or message is missing.
+
+    Only the approval the draft itself points at gets this view. Any other approval that
+    names the draft (one made through the generic route, say) is shown as plain JSON, so it
+    can never pose as "the reply, exactly as it will be sent".
+    """
     try:
         draft_id = UUID(_text(payload, "draft_id"))
     except ValueError:
         return None
     draft = await store.get_draft(session_factory, draft_id)
-    if draft is None:
+    if draft is None or draft.approval_id != approval_id:
         return None
     message = await store.load_message(session_factory, draft.message_id)
     triage = await store.load_triage(session_factory, draft.message_id)

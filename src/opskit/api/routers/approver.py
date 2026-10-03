@@ -94,7 +94,7 @@ async def _inbox_view(
     factory = session_factory_of(request.app)
     if approval.action != INBOX_REPLY_ACTION or factory is None:
         return None
-    return await load_inbox_reply_view(factory, payload)
+    return await load_inbox_reply_view(factory, approval.id, payload)
 
 
 @router.get("/login", response_class=HTMLResponse)
