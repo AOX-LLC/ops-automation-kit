@@ -221,7 +221,15 @@ async def draft_reply(
             subject=envelope.subject,
             differs=envelope.reply_to_differs,
         )
-        return too_long.model_copy(update={"in_reply_to": envelope.in_reply_to})
+        return too_long.model_copy(
+            update={
+                "in_reply_to": envelope.in_reply_to,
+                # The model call ran and was paid for; keep its trace on the row.
+                "replay_key": result.replay_key or None,
+                "cost_usd": _cost_string(result.cost_usd),
+                "latency_ms": round(result.latency_ms),
+            }
+        )
     report = policy.check_grounding(
         draft, profile=profile, email_text=msg.body_text, allowed_addresses=[envelope.to]
     )

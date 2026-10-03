@@ -351,7 +351,14 @@ def test_stored_model_lists_fit_the_database_by_bytes_not_just_items() -> None:
         cut = service._stored_list(nasty, budget=budget)
         assert 0 < len(cut) <= service.STORED_ITEMS_MAX
         cap = migration.DRAFTS[column]["max_bytes"]
-        stored = cut if key is None else {name: cut for name in ("a", "b", "c")}
+        stored = (
+            cut
+            if key is None
+            else {
+                name: cut
+                for name in ("unsupported_facts", "unsupported_facts_used", "commitment_flags")
+            }
+        )
         assert json_bytes(stored) <= cap, column
     assert service._stored_list(["short"], budget=service.STORED_FACTS_BYTES) == ["short"]
     assert migration.DRAFTS["body"]["max"] == service.DRAFT_BODY_MAX
@@ -369,3 +376,5 @@ async def test_a_draft_longer_than_the_database_holds_is_a_failed_draft() -> Non
     at_the_limit = FakeModels(DraftReply(body="x" * DRAFT_BODY_MAX))
     kept = await draft_reply(at_the_limit, CTX, _message(), _outcome(), PROFILE)  # type: ignore[arg-type]
     assert kept.failure_reason != "too_long"
+    assert len(kept.body) == DRAFT_BODY_MAX
+    assert outcome.replay_key and outcome.cost_usd == "0.000500"  # the paid call stays traceable
