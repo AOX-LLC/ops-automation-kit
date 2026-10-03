@@ -699,8 +699,9 @@ class PgApprovalQueue:
         if limit < 1:
             raise ValueError("limit must be at least 1")
         total = 0
+        failed_here: set[UUID] = set()  # a failure counts once per call, not once per pass
         while True:
-            given_up = self._given_up_on()
+            given_up = [*self._given_up_on(), *failed_here]
             query = (
                 select(approvals.c.id)
                 .where(
@@ -715,7 +716,10 @@ class PgApprovalQueue:
             async with self._session_factory() as session:
                 due = list((await session.execute(query)).scalars())
             for request_id in due:
-                total += await self._expire_one(request_id, principal.id)
+                closed = await self._expire_one(request_id, principal.id)
+                if closed == 0 and request_id in self._sweep_failures:
+                    failed_here.add(request_id)
+                total += closed
             if len(due) < limit:
                 return total
 
