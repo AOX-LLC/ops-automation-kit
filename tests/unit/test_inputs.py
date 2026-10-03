@@ -123,7 +123,7 @@ def test_leads_pending_pagination(settings: Settings) -> None:
     assert [i["company_name"] for i in _walk(client, "/v1/leads/pending")] == ["A", "B", "C"]
     whole = client.get("/v1/leads/pending", headers=AUTH).json()
     assert whole["next_cursor"] is None
-    assert whole["items"][0] == {"company_name": "A", "city_hint": "X"}
+    assert whole["items"][0] == {"company_name": "A", "city_hint": "X", "website": None}
 
 
 @pytest.mark.parametrize("path", ["/v1/receipts/pending", "/v1/leads/pending"])
@@ -168,3 +168,24 @@ def test_receipt_hash_cache_is_bounded(tmp_path: Path, monkeypatch: pytest.Monke
         path.write_bytes(name.encode())
         inputs._file_sha256(path)
     assert len(inputs._hash_cache) == 2
+
+
+def _companies(tmp_path: Path, text: str) -> list[inputs.LeadItem]:
+    path = tmp_path / "companies.csv"
+    path.write_text(text, encoding="utf-8")
+    return inputs.read_companies(path)
+
+
+def test_read_companies_keeps_a_website(tmp_path: Path) -> None:
+    items = _companies(tmp_path, "company_name,city_hint,website\nA,X,a.example\n")
+    assert items[0].website == "a.example"
+
+
+def test_read_companies_blank_website_is_null(tmp_path: Path) -> None:
+    items = _companies(tmp_path, "company_name,city_hint,website\nA,X,\nB,Y,  \n")
+    assert [i.website for i in items] == [None, None]
+
+
+def test_read_companies_accepts_the_two_column_file(tmp_path: Path) -> None:
+    items = _companies(tmp_path, "company_name,city_hint\nA,X\n")
+    assert items == [inputs.LeadItem(company_name="A", city_hint="X", website=None)]

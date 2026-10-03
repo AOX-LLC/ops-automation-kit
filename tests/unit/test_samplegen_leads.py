@@ -54,6 +54,7 @@ def test_twenty_companies_in_input_and_key(key: dict[str, Any]) -> None:
     with (REPO_ROOT / "samples/leads/companies.csv").open(encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
     assert len(rows) == 20
+    assert list(rows[0]) == ["company_name", "city_hint", "website"]
     assert [row["company_name"] for row in rows] == sorted(row["company_name"] for row in rows)
     assert {row["company_name"] for row in rows} == set(key)
 
@@ -100,3 +101,16 @@ def test_no_answer_key_names_leak_into_samples() -> None:
             if path.is_file():
                 text = path.read_text(encoding="utf-8")
                 assert not [m for m in ANSWER_KEY_MARKERS if m in text], path
+
+
+def test_website_column_matches_the_key_outcome(key: dict[str, Any]) -> None:
+    with (REPO_ROOT / "samples/leads/companies.csv").open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    blank = {row["company_name"] for row in rows if not row["website"]}
+    assert len(blank) == 3
+    for row in rows:
+        if row["website"]:
+            assert row["website"].endswith(".example")
+            assert (REPO_ROOT / "samples/leads/corpus" / row["website"]).is_dir()
+    for name, record in key.items():
+        assert record["outcome"] == ("no website given" if name in blank else "researched")

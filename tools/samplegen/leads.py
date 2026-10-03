@@ -165,9 +165,17 @@ def csv_text(header: tuple[str, ...], rows: Sequence[tuple[str, ...]]) -> str:
     return buffer.getvalue()
 
 
+def _website(spec: Spec, slug: str) -> str:
+    """The company's bare domain when at least one document is served from its own site."""
+    domain = spec.companies[slug]["domain"]
+    return domain if any(doc.host == domain for doc in spec.docs) else ""
+
+
 def companies_csv(spec: Spec) -> str:
-    rows = sorted((c["name"], c["city_hint"]) for c in spec.companies.values())
-    return csv_text(("company_name", "city_hint"), rows)
+    rows = sorted(
+        (c["name"], c["city_hint"], _website(spec, slug)) for slug, c in spec.companies.items()
+    )
+    return csv_text(("company_name", "city_hint", "website"), rows)
 
 
 def accounts_csv(spec: Spec) -> str:
@@ -208,6 +216,7 @@ def _company_record(spec: Spec, slug: str) -> dict[str, Any]:
     return {
         "city_hint": company["city_hint"],
         "crm_action": _crm_action(spec, slug),
+        "outcome": "researched" if _website(spec, slug) else "no website given",
         "fields": {name: _field_record(spec, slug, name) for name in RESEARCHED_FIELDS},
         "notes": company.get("notes", ""),
     }
