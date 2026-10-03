@@ -191,7 +191,10 @@ def leads_target(client: AgentClient, spend: Spend) -> Callable[[EvalCase], Any]
         outcome = await research_company(client, ctx, retriever, company)
         cost = Decimal(outcome.cost_usd)
         spend.total += cost
-        output = outcome.model_dump(mode="json") | {"called_model": outcome.replay_key is not None}
+        # The replay key is a content hash, not needed to score, and secret scanners flag it.
+        output = outcome.model_dump(mode="json", exclude={"replay_key"}) | {
+            "called_model": outcome.replay_key is not None
+        }
         return TargetOutput(output=output, cost_usd=cost)
 
     return target

@@ -89,6 +89,16 @@ def test_a_band_must_be_a_band_and_in_the_quote() -> None:
     assert check(LeadExtraction(employee_band=[longer])).fields["employee_band"] is None
 
 
+def test_a_band_written_with_its_unit_is_stored_as_the_bare_band() -> None:
+    unit = cite("11-50 employees", "Team: 11" + EN_DASH + "50 employees")
+    out = check(LeadExtraction(employee_band=[unit]))
+    assert out.fields["employee_band"].value == "11-50"
+    assert out.findings == []
+    # the unit does not rescue a band the quote does not state
+    wrong = check(LeadExtraction(employee_band=[cite("51-200 employees", "Team: 11-50 employees")]))
+    assert wrong.fields["employee_band"] is None
+
+
 def test_the_domain_must_be_the_website_we_were_given() -> None:
     doc = Document(URL, "Visit rival.example or acme.example", own=True)
     wrong = verify(ACME, LeadExtraction(domain=[cite("rival.example", "rival.example")]), [doc])

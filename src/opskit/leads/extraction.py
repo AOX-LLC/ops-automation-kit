@@ -38,6 +38,7 @@ from opskit.leads.retrieval import Company, Document, Retriever, normalize, norm
 MAX_QUOTE_CHARS = 400
 MAX_PROMPT_CHARS = 60_000
 BAND = re.compile(r"^\d{1,6}(?:-\d{1,6}|\+)$")
+_BAND_UNIT = re.compile(r"\s+(?:employees?|staff|people|team members)$")
 
 
 class Cite(BaseModel):
@@ -165,11 +166,16 @@ def _check_cite(
         return None, Finding(
             field=name, kind="citation_rejected", detail="listing quote does not name the company"
         )
-    reason = _value_supported(name, normalize(cite.value), quote_n, domain)
+    value_n = normalize(cite.value)
+    if name == "employee_band":
+        value_n = _BAND_UNIT.sub("", value_n)
+    reason = _value_supported(name, value_n, quote_n, domain)
     if reason is not None:
         kind = "domain_mismatch" if name == "domain" else "unsupported_value"
         return None, Finding(field=name, kind=kind, detail=reason)
     stored: str | int = int(cite.value) if name == "founded_year" else cite.value.strip()
+    if name == "employee_band":  # "51-200 employees" is the band 51-200
+        stored = _BAND_UNIT.sub("", normalize(cite.value))
     return FieldValue(value=stored, source_url=cite.source_url, quote=cite.quote.strip()), None
 
 
