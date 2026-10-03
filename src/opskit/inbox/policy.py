@@ -13,7 +13,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from email.utils import getaddresses, parseaddr
 from enum import StrEnum
-from typing import Literal
+from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -228,19 +228,31 @@ def _norm(text: str) -> str:
     return " ".join(text.lower().replace("\u2019", "'").split())
 
 
-# "free" is a commitment only in a phrase that offers something at no cost: "free of charge",
-# "for free", "free inspection", "cancellation is free". The bare word is not ("feel free to
-# call", "toll-free number"), so it gets its own pattern instead of the generic one.
-_FREE_OFFER = re.compile(
-    r"(?<![\w-])free[\s-]+(?!to\b)[a-z]+"  # free of charge, free inspection, free cancellation
-    r"|\bfor[\s-]+free\b"
-    r"|\b(?:is|are|be|was|were|it's|that's|totally|completely)\s+free\b(?!\s+to\b)",
-    re.I,
+# "free" is a commitment wherever it appears (free of charge, for free, free inspection,
+# "cost-free", "it comes free", "Free!"), except in idioms that promise nothing: "feel free",
+# "toll-free", and "free to <verb>" said of a person ("you are free to reschedule"). A
+# deny-list, so a phrasing nobody listed is flagged rather than waved through.
+_FREE_IDIOMS = re.compile(
+    r"\bfeel(?:s|ing)?\s+free\b"
+    r"|\btoll[\s-]?free\b"
+    r"|\b(?:you|you're|you are|we|we're|they|they're|i'm)\s+(?:\w+\s+)?free\s+to\b"
 )
-_PHRASE_PATTERNS: dict[str, re.Pattern[str]] = {"free": _FREE_OFFER}
+_FREE_WORD = re.compile(r"(?<!\w)free\b")
 
 
-def _phrase_pattern(phrase: str) -> re.Pattern[str]:
+class _Matcher(Protocol):
+    def search(self, text: str) -> object | None: ...
+
+
+class _FreeOffer:
+    def search(self, text: str) -> object | None:
+        return _FREE_WORD.search(_FREE_IDIOMS.sub(" ", _norm(text)))
+
+
+_PHRASE_PATTERNS: dict[str, _Matcher] = {"free": _FreeOffer()}
+
+
+def _phrase_pattern(phrase: str) -> _Matcher:
     """The phrase and its inflections: refund, refunds, refunded, refunding."""
     custom = _PHRASE_PATTERNS.get(phrase)
     if custom is not None:
