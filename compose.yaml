@@ -98,6 +98,23 @@ services:
 
   # The Mailpit image has no shell, so the already-built api image fixes ownership of the
   # volume root (created root-owned) for Mailpit's non-root user, then exits.
+  # n8n (uid 1000) writes the reconciliation spreadsheet to ./exports. On hosts where the
+  # folder is created by Docker (root) or another uid, it would not be writable, so this
+  # one-shot creates it if needed and hands it to n8n.
+  exports-init:
+    <<: [*api-image, *hardened]
+    user: "0:0"
+    cap_add: [CHOWN]
+    command: ["python", "-c", "import os; os.makedirs('/exports', exist_ok=True); os.chown('/exports', 1000, 1000); os.chmod('/exports', 0o755)"]
+    healthcheck: { disable: true }
+    read_only: true
+    volumes:
+      - ./exports:/exports
+    restart: "no"
+    network_mode: none
+    mem_limit: 64m
+    pids_limit: 32
+
   mailpit-init:
     <<: [*api-image, *hardened]
     user: "0:0"
@@ -190,6 +207,7 @@ services:
     <<: *hardened
     depends_on:
       n8n-import: { condition: service_completed_successfully }
+      exports-init: { condition: service_completed_successfully }
     environment:
       <<: *n8n-env
       N8N_INSTANCE_OWNER_MANAGED_BY_ENV: "true"
