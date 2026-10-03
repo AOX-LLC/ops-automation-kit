@@ -11,6 +11,9 @@ branch_labels = None
 depends_on = None
 
 
+APP_ROLE = "opskit_app"
+
+
 def upgrade() -> None:
     op.execute("ALTER TABLE crm.accounts ADD COLUMN founded_year integer")
     # Keep the newest source per (account, field). The migration runs as the owner, which
@@ -30,8 +33,12 @@ def upgrade() -> None:
         ALTER TABLE crm.account_sources
             ADD CONSTRAINT account_sources_account_field_key UNIQUE (account_id, field)
     """)
+    # A source row's account and field are its identity; only what it cites may be updated.
+    op.execute(f"REVOKE UPDATE ON crm.account_sources FROM {APP_ROLE}")
+    op.execute(f"GRANT UPDATE (source_ref, excerpt, found_at) ON crm.account_sources TO {APP_ROLE}")
 
 
 def downgrade() -> None:
+    op.execute(f"GRANT UPDATE ON crm.account_sources TO {APP_ROLE}")
     op.execute("ALTER TABLE crm.account_sources DROP CONSTRAINT account_sources_account_field_key")
     op.execute("ALTER TABLE crm.accounts DROP COLUMN founded_year")

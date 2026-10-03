@@ -200,6 +200,21 @@ def test_app_role_cannot_delete_sources_or_research(sql: str) -> None:
     assert "permission denied" in result.stderr
 
 
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "begin; update crm.account_sources set account_id = account_id; rollback;",
+        "begin; update crm.account_sources set field = field; rollback;",
+        "begin; update leads.research set company_name = company_name; rollback;",
+        "begin; update leads.research set run_id = run_id; rollback;",
+    ],
+)
+def test_app_role_cannot_change_what_identifies_a_source_or_research_row(sql: str) -> None:
+    result = psql(sql, role="opskit_app")
+    assert result.returncode != 0
+    assert "permission denied" in result.stderr
+
+
 def test_research_is_overwritten_when_the_same_company_is_rerun(run_id: str, domain: str) -> None:
     outcome = _outcome(domain)
     first, second = _drive(

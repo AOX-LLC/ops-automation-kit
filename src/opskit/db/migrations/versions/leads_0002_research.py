@@ -39,7 +39,15 @@ def upgrade() -> None:
             UNIQUE (run_id, company_name, city_hint)
         )
     """)
-    op.execute(f"GRANT SELECT, INSERT, UPDATE ON leads.research TO {APP_ROLE}")
+    # The key (run, company, city) and the creation time never change; a re-run overwrites
+    # only the result columns.
+    op.execute(f"GRANT SELECT, INSERT ON leads.research TO {APP_ROLE}")
+    op.execute(f"REVOKE UPDATE ON leads.research FROM {APP_ROLE}")
+    op.execute(
+        "GRANT UPDATE (website, domain, status, reason, fields, findings, pages, raw_cites, "
+        f"valid_cites, replay_key, cost_usd, latency_ms, crm_action, account_id) "
+        f"ON leads.research TO {APP_ROLE}"
+    )
 
 
 def downgrade() -> None:
