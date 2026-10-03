@@ -145,6 +145,9 @@ _UNIFY_DASH = {
 }
 
 
+_REDACTED = "[contact details removed]"
+
+
 def visible(text: str) -> str:
     """The text as a reader sees it: invisible format characters removed, NFKC folded, and
     typographic dashes and spaces made plain."""
@@ -152,12 +155,27 @@ def visible(text: str) -> str:
     return unicodedata.normalize("NFKC", shown).translate(_UNIFY_DASH)
 
 
+# A bare seven-digit number, 555-0142 or 555 0142. It is a phone number unless it reads as a
+# range: "501-1000 employees" counts upward and its second half has no leading zero. A
+# phone's line number often starts with 0 or does not climb ("555-0142", "555-0100").
+_LOCAL_NUMBER = re.compile(r"(?<![\d$])(\d{3})[\s.-](\d{4})(?!\d)")
+
+
+def _is_local_number(match: re.Match[str]) -> bool:
+    first, second = match.groups()
+    return second.startswith("0") or int(second) <= int(first) or first == "555"
+
+
 def has_contact_details(text: str) -> bool:
-    return CONTACT_DETAILS.search(visible(text)) is not None
+    seen = visible(text)
+    if CONTACT_DETAILS.search(seen):
+        return True
+    return any(_is_local_number(m) for m in _LOCAL_NUMBER.finditer(seen))
 
 
 def redact_contact_details(text: str) -> str:
-    return CONTACT_DETAILS.sub("[contact details removed]", visible(text))
+    seen = CONTACT_DETAILS.sub(_REDACTED, visible(text))
+    return _LOCAL_NUMBER.sub(lambda m: _REDACTED if _is_local_number(m) else m.group(0), seen)
 
 
 def normalize(text: str) -> str:

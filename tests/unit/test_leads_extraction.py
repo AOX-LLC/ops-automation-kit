@@ -466,6 +466,11 @@ async def test_the_recorded_aeroflow_band_with_its_unit_is_kept_as_the_bare_band
 CONTACT_QUOTES = [
     "Springfield office, contact Jane Doe at jane@acme.example",
     "Springfield office, call 555-0142",
+    "Springfield office, 555-0142",
+    "Springfield office, 555 0142",
+    "Springfield office, 555.0142",
+    "Springfield office, 555\u20130100",
+    "Springfield office, 555-1234",
     "Springfield office, call (555) 010-0142",
     "Springfield office, phone +1 555 010 0142",
     "Springfield office, reach jane at acme dot com",
@@ -594,3 +599,12 @@ def test_what_is_stored_is_what_was_checked_without_hidden_characters() -> None:
     got = verify(ACME, LeadExtraction(hq_city=[cite(f"Spring{zw}field", quote)]), [doc])
     field = got.fields["hq_city"]
     assert field.quote == "offices are in Springfield" and field.value == "Springfield"
+
+
+def test_redaction_removes_local_numbers_but_keeps_headcount_bands() -> None:
+    from opskit.leads.retrieval import redact_contact_details
+
+    text = "Team: 501-1000 employees. Reach us on 555 0142 or 555.0100. Founded 2002-2010."
+    cleaned = redact_contact_details(text)
+    assert "501-1000 employees" in cleaned and "2002-2010" in cleaned
+    assert "555 0142" not in cleaned and "555.0100" not in cleaned
