@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 from typing import Any
 
-import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -79,13 +78,11 @@ def settings(tmp_path: Path) -> Settings:
     )
 
 
-def _client(settings: Settings, mailpit: httpx.MockTransport | None = None) -> TestClient:
+def _client(settings: Settings) -> TestClient:
     app = FastAPI()
     app.include_router(inputs.router)
     app.state.service_token = TOKEN
     app.state.settings = settings
-    if mailpit is not None:
-        app.state.http_client = httpx.AsyncClient(transport=mailpit)
     return TestClient(app)
 
 
@@ -135,49 +132,6 @@ def test_bad_cursor_and_limit(settings: Settings, path: str) -> None:
     assert client.get(path, params={"cursor": "!!!"}, headers=AUTH).status_code == 400
     assert client.get(path, params={"limit": 0}, headers=AUTH).status_code == 422
     assert client.get(path, params={"limit": 101}, headers=AUTH).status_code == 422
-
-
-def _mailpit(total: int = 2, fail: bool = False) -> httpx.MockTransport:
-    def handler(request: httpx.Request) -> httpx.Response:
-        if fail:
-            return httpx.Response(500)
-        start = int(request.url.params["start"])
-        limit = int(request.url.params["limit"])
-        messages = [
-            {
-                "ID": f"id{n}",
-                "MessageID": f"m{n}@x.example",
-                "From": {"Name": "A", "Address": "a@x.example"},
-                "Subject": f"s{n}",
-                "Created": "2026-08-01T10:00:00Z",
-            }
-            for n in range(start, min(start + limit, total))
-        ]
-        return httpx.Response(
-            200, json={"total": total, "messages_count": total, "messages": messages}
-        )
-
-    return httpx.MockTransport(handler)
-
-
-def test_inbox_pending_maps_and_paginates(settings: Settings) -> None:
-    items = _walk(_client(settings, _mailpit()), "/v1/inbox/pending")
-
-    assert [i["mailpit_id"] for i in items] == ["id0", "id1"]
-    assert items[0] == {
-        "mailpit_id": "id0",
-        "message_id": "m0@x.example",
-        "from": "a@x.example",
-        "subject": "s0",
-        "received_at": "2026-08-01T10:00:00Z",
-    }
-
-
-def test_inbox_pending_mailpit_error_is_502(settings: Settings) -> None:
-    response = _client(settings, _mailpit(fail=True)).get("/v1/inbox/pending", headers=AUTH)
-
-    assert response.status_code == 502
-    assert response.json() == {"detail": "mailpit unavailable"}
 
 
 def test_receipt_hash_is_cached_until_the_file_changes(

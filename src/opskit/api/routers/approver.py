@@ -22,7 +22,10 @@ from opskit.core.errors import (
     ApprovalExpiredError,
     ApprovalNotFoundError,
 )
-from opskit.core.ports import APPROVER, AuditEvent, Core, Decision
+from opskit.core.ports import APPROVER, ApprovalRequest, AuditEvent, Core, Decision
+from opskit.inbox.store import SEND_REPLY_ACTION
+from opskit.inbox.view import InboxReplyView, load_inbox_reply_view
+from opskit.receipts.store import session_factory_of
 
 router = APIRouter(prefix="/approver", include_in_schema=False)
 templates = Jinja2Templates(directory=Path(__file__).parents[1] / "templates")
@@ -82,6 +85,16 @@ def _with_cookie(request: Request, response: Response, session: ApproverSession)
 def _core(request: Request) -> Core:
     core: Core = request.app.state.core
     return core
+
+
+async def _inbox_view(
+    request: Request, approval: ApprovalRequest, payload: dict[str, object]
+) -> InboxReplyView | None:
+    """The dedicated reply view for an inbox draft; other actions keep the generic JSON."""
+    factory = session_factory_of(request.app)
+    if approval.action != SEND_REPLY_ACTION or factory is None:
+        return None
+    return await load_inbox_reply_view(factory, approval.id, payload)
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -179,6 +192,7 @@ async def detail(request: Request, approval_id: UUID) -> Response:
             "csrf_token": session.csrf_token,
             "approval": approval,
             "subject_json": json.dumps(payload, indent=2, sort_keys=True),
+            "inbox_view": await _inbox_view(request, approval, payload),
             "error": None,
         },
     )
@@ -215,6 +229,7 @@ async def decide(
                 "csrf_token": session.csrf_token,
                 "approval": approval,
                 "subject_json": json.dumps(payload, indent=2, sort_keys=True),
+                "inbox_view": await _inbox_view(request, approval, payload),
                 "error": message,
             },
             status_code=status.HTTP_409_CONFLICT,

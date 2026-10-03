@@ -198,7 +198,7 @@ Money is stored as integer cents. Dates the business sees use `date`; event time
 | --- | --- | --- |
 | `receipts` | `documents` (sha256 unique, path, media_type), `extractions` (document_id, vendor, receipt_date, subtotal/tax/total_cents, card_last4, confidence jsonb, model_call_id), `bank_transactions` (statement file, row_no, posted_date, description, amount_cents), `matches` (document_id?, bank_txn_id?, status, delta_cents, delta_days, rule), `exports` (path, created_at) | 2 |
 | `leads` | `batches` (source file, status), `batch_items` (batch_id, company_name, city_hint), `findings` (item_id, field, value, source_ref, excerpt, conflict bool) | 3 |
-| `inbox` | `messages` (Message-ID unique, mailpit_id, from, subject, received_at), `triage` (message_id, category, priority, needs_reply, rationale), `drafts` (message_id, body, approval_id, sent_at) | 3 |
+| `inbox` | created in Phase 3 by `inbox_0002`: `messages` (message_id PK, mailpit_id, from_header, reply_to_header, subject, received_at, body_text), `triage` (message_id PK/FK, run_id, category, priority, needs_reply, escalate, route, quarantined, injection_reasons jsonb, cost, latency), `drafts` (id, message_id unique FK, run_id, approval_id, to_addr, subject, in_reply_to, body, facts_used, grounding jsonb, reply_to_differs, status, failure_reason, sent_at); see A11 | 3 |
 
 ## A5. Workflows as code: export, import, first boot
 
@@ -242,6 +242,8 @@ Money is stored as integer cents. Dates the business sees use `date`; event time
   | `inbox00000000001` | Inbox triage with approvals (skeleton) | no | Schedule (5 min) → `GET /v1/inbox/pending` → Split Out → NoOp "Phase 3: triage, Switch on label, Wait, Send Email" |
 
   The three `pending` endpoints only list inputs: files found, companies in the CSV, Mailpit messages not yet triaged. They show that the mounts and Mailpit access work. No workflow logic.
+
+  Later phases replace the skeletons: receipts (A10) and the inbox (A11) are now published, and the inbox adds `inboxReply000001`, a published sub-workflow. n8n refuses to run an unpublished sub-workflow through Execute Workflow, so it must be in the import's published set.
 
 ## A6. How an n8n execution waits on a human approval and resumes
 
@@ -378,6 +380,120 @@ Every 15 minutes / Webhook
 ```
 
 The stack mounts `./exports` into n8n, and n8n may read and write files only there, so `exports/` must exist and be writable by uid 1000 before the stack starts.
+
+## A11. Inbox
+
+New mail in Mailpit is triaged; replies are drafted only for categories the kit answers, and every reply waits for a person on the approver page. Nothing is sent without an approval, and what is sent is exactly what was approved.
+
+### Workflow node chain
+
+`n8n/workflows/03-inbox.json` (`inbox00000000001`), started every 5 minutes or by the header-authenticated `inbox-run` webhook:
+
+```
+Every 5 minutes / Webhook
+  -> Start run (POST /v1/runs)
+  -> List new mail (GET /v1/inbox/pending)
+  -> Anything new?  -- no -> Finish run (nothing new)
+  -> One item per message (Split Out)
+  -> Triage (POST /v1/inbox/triage, one per message)
+       -> Route (Switch on route)
+            draft      -> Create draft (POST /v1/inbox/drafts) -> Draft created?
+                            -> Start reply approval (Execute Workflow, one execution per draft, not waited on)
+            quarantine -> Held for review (no-op)
+            no_reply   -> No reply needed (no-op)
+       -> Collect triage (Aggregate)
+            -> Summary (GET /v1/inbox/summary) -> Send summary email (to the owner) -> Finish run
+```
+
+Triage and Create draft continue on error. A message whose call fails (a model error, or a draft that an overlapping run already made) drops out of this run, and the run still finishes and sends its summary. A message that was never triaged is listed again on the next run.
+
+`n8n/workflows/04-inbox-reply-approval.json` (`inboxReply000001`) handles one draft. Each draft runs in its own execution, so each one waits on its own signed resume URL (A6):
+
+```
+Draft to approve (Execute Workflow Trigger: draft_id)
+  -> Request approval (POST /v1/inbox/drafts/{id}/approval, with the resume URL)
+  -> Wait for decision (resume by webhook, 72 h limit)
+  -> Check recorded decision (GET /v1/approvals/{approval_id})
+  -> Approved?  -- yes -> Release (POST /v1/inbox/drafts/{id}/release)
+                          -> Send reply (SMTP to Mailpit, To/Subject/body from the release response)
+                          -> Mark sent (POST /v1/inbox/drafts/{id}/sent)
+                -- no  -> Close draft (POST /v1/inbox/drafts/{id}/close)
+```
+
+The decision is read back from the helper, never taken from the resume call's body.
+
+### Triage and routing
+
+- The helper reads plain-text bodies and headers from Mailpit (`MailSource`). The kit's own outgoing mail (`@kit.example`) is excluded.
+- Two independent injection checks run on every message:
+  - **Deterministic pre-scan** (`opskit.inbox.injection`, no model) over the From header (display name included), subject and body: hidden text (three or more zero-width or bidi control characters), "ignore previous instructions" phrasing, role changes, fake system markers, prompt fence tags (`</email>`, `<profile>`), data-export requests and credential requests.
+  - **The model's flag:** the triage call (small tier, `inbox.triage` v1) returns `injection_suspected` with a quote as evidence. The quote is kept only if it really occurs in the email.
+- The system prompts state that email content is data to classify or answer, never instructions to follow. `<email>` and `<profile>` tags in the sender, subject or body are rewritten to `[email]` and `[profile]` before they reach a prompt, so an email can't close its own fence.
+- **Route** (`policy.route`):
+  - `quarantine` if either check flags the message;
+  - otherwise `draft` if the model says it needs a reply and the category is one the kit answers (sales inquiry, support, billing, scheduling, complaint);
+  - otherwise `no_reply`.
+
+### Quarantine (v1)
+
+- A held message is stored with `quarantined = true` and the reasons. It stays in Mailpit untouched.
+- `POST /v1/inbox/drafts` returns 409 for it, so no workflow edit can turn it into a draft.
+- The run's summary email lists each held message with its sender, subject, category, evidence quote and Message-ID, and says how a person handles it:
+  - **to release it,** reply from your own mail client;
+  - **to dismiss it,** take no action.
+- There is no release endpoint in v1. A held message is never drafted automatically.
+
+### Drafting
+
+- **Context.** The drafting call (mid tier, `inbox.draft` v1) receives only the one email (sender, subject, body clipped to 8,000 characters), its triage category and the business profile (`samples/inbox/business_profile.md`). It never receives other emails, CRM data or earlier drafts.
+  - `policy.build_draft_inputs()` is the only way to build its inputs and accepts nothing else.
+  - Unit tests pin the input keys, the prompt's placeholders and the call's arguments (no attachments), and check that another email's text never reaches the call.
+- **Recipient.** The model writes only the body. The helper builds the envelope (`policy.reply_envelope`):
+  - To is the single address parsed from From. An empty, malformed or multi-address From stores the draft as `failed` (`invalid_sender`).
+  - Reply-To is never used. When it differs from From, the draft records `reply_to_differs` and the approver page shows "Reply-To differs from From. Replies go to the From address only."
+  - The subject becomes `Re: <subject>` (never doubled). The original Message-ID is stored as `in_reply_to` and covered by the approval, but n8n's Send Email node can't set custom headers, so v1 replies don't thread in the customer's mail client.
+- **Grounding** (`policy.check_grounding`, no model):
+  - Every fact-shaped token in the body (money, phone, email address, URL, time, percentage, duration) must appear in the profile as a whole token: `$1` is not in `$149`, and `2 hours` is not in `12 hours`. The reply's own To address is allowed.
+  - The customer's email can ground only their own details: a phone number, an amount, a time, a percentage or a duration. URLs and email addresses must come from the profile, because the sender is unauthenticated and can't vouch for a link it supplies.
+  - Every quote the model lists in `facts_used` must appear in the profile, matched the same way.
+  - A failure on either check stores the draft as `failed` (`ungrounded`). It never reaches a person.
+- **Commitment phrases.** Refund, guarantee, discount, same-day, free, waive, credit, compensation, complimentary, "on us", "no charge" and "money back", in any inflection ("refunds", "refunded"), are flagged unless the profile makes the same commitment.
+  - The test is per clause: every content word of the clause around the phrase must appear in one profile sentence that uses the phrase.
+  - The clause and the sentence must agree on negation, so "Staff do not promise refunds by email" never grounds "we promise refunds by email".
+  - Idioms that promise nothing ("feel free", "toll-free") are ignored.
+  - A flagged draft still goes to the approver, with the flags listed in a warning above the body.
+  - The eval counts every flag as a grounding failure.
+
+### Approval and sending
+
+- Approval action `inbox.send_reply`, TTL 72 hours. The approval payload is `store.approval_payload(draft)`: draft_id, to, subject, in_reply_to and body. agent-core binds the approval to the payload's hash.
+- The approver page shows the envelope and body, and offers **Approve and send** or **Reject (stays unsent)**. There is no edit: a reply that needs changes is rejected and written by hand.
+- **Release** rebuilds the payload from the stored draft and calls `consume()`, which is single use and checks the hash first. If the draft changed after approval, the hash no longer matches: the release is refused (409), `approval.consume_denied` is audited, and nothing is sent. A second release of the same approval is also refused.
+- **Close** takes no body; the outcome comes from the recorded approval. A rejected approval closes the draft as `rejected`. A pending approval past its expiry is expired first and closes the draft as `expired`. A draft with no approval, or with a live or approved one, gets 409.
+- Draft statuses: `draft` → `pending` (approval requested) → `approved` (released) → `sent`, or `rejected`, `expired` or `failed`. Every move is a conditional update, so two callers cannot both win the same move.
+- The app role may update only `status`, `approval_id` and `sent_at` on `inbox.drafts`, and only the hold columns (`quarantined`, `route`, `injection_reasons`) on `inbox.triage`. A stored draft's recipient and body can't be rewritten through the app's connection, and the approval hash would catch it anyway.
+
+### Known limits (v1)
+
+All of these fail closed: nothing is sent, and a person can still answer from their own mail client.
+
+- A crash between `consume()` and the status update leaves the draft `pending` with its approval used up. Release and close then both answer 409, and the draft stays as it is.
+- An approval granted after its expiry, or a resume call that arrives before anyone decided, ends the draft's execution at Close (409). A later decision resumes nothing.
+- Retention: `inbox.messages` keeps every fetched body, and the app role cannot delete rows. n8n keeps successful executions, which include reply bodies and quarantine evidence. With real mail, set a retention period for both.
+
+### Evals
+
+`python -m opskit.evals.inbox` scores the 28 sample emails against `evals/answer_keys/inbox/triage.json`:
+
+- triage category, per category;
+- injection flagged: all three injection emails must be quarantined (`--require-injection-recall`);
+- draft policy;
+- grounding;
+- must-include facts;
+- recipient;
+- cost and latency per email.
+
+CI runs it in replay with a triage floor of 0.85. Scorecards: `evals/scorecards/inbox-live.*` (the recording run) and `inbox-replay.*`.
 
 ## Health endpoints
 

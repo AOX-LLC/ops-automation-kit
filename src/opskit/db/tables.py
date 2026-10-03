@@ -6,6 +6,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Column,
     DateTime,
     ForeignKey,
@@ -190,4 +191,64 @@ receipt_reconciliations = Table(
     Column("summary", JSONB, nullable=False),
     _created_at(),
     schema="receipts",
+)
+
+inbox_messages = Table(
+    "messages",
+    metadata,
+    Column("message_id", Text, primary_key=True),
+    Column("mailpit_id", Text, nullable=False),
+    Column("from_header", Text, nullable=False),
+    Column("reply_to_header", Text),
+    Column("to_addr", Text),
+    Column("subject", Text, nullable=False),
+    Column("received_at", DateTime(timezone=True)),
+    Column("body_text", Text, nullable=False),
+    _created_at("fetched_at"),
+    schema="inbox",
+)
+
+inbox_triage = Table(
+    "triage",
+    metadata,
+    Column("message_id", Text, ForeignKey("inbox.messages.message_id"), primary_key=True),
+    Column("run_id", UUID(as_uuid=True), ForeignKey("core.runs.id"), nullable=False),
+    Column("category", Text, nullable=False),
+    Column("priority", Text, nullable=False),
+    Column("needs_reply", Boolean, nullable=False),
+    Column("escalate", Boolean, nullable=False),
+    Column("route", Text, nullable=False),
+    Column("quarantined", Boolean, nullable=False),
+    Column("injection_reasons", JSONB, nullable=False, server_default="[]"),
+    Column("replay_key", String(64)),
+    Column("cost_usd", Numeric(10, 6), nullable=False, server_default="0"),
+    Column("latency_ms", Integer),
+    _created_at("triaged_at"),
+    schema="inbox",
+)
+
+inbox_drafts = Table(
+    "drafts",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()),
+    Column(
+        "message_id", Text, ForeignKey("inbox.messages.message_id"), nullable=False, unique=True
+    ),
+    Column("run_id", UUID(as_uuid=True), ForeignKey("core.runs.id"), nullable=False),
+    Column("approval_id", UUID(as_uuid=True), ForeignKey("core.approvals.id")),
+    Column("to_addr", Text, nullable=False),
+    Column("subject", Text, nullable=False),
+    Column("in_reply_to", Text),
+    Column("body", Text, nullable=False),
+    Column("facts_used", JSONB, nullable=False, server_default="[]"),
+    Column("grounding", JSONB, nullable=False, server_default="{}"),
+    Column("reply_to_differs", Boolean, nullable=False, server_default="false"),
+    Column("status", Text, nullable=False),
+    Column("failure_reason", Text),
+    Column("replay_key", String(64)),
+    Column("cost_usd", Numeric(10, 6), nullable=False, server_default="0"),
+    Column("latency_ms", Integer),
+    _created_at(),
+    Column("sent_at", DateTime(timezone=True)),
+    schema="inbox",
 )

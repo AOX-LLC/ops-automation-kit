@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Self
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
 
@@ -41,6 +41,15 @@ class Settings(BaseSettings):
     dropbox_dir: Path = Path("/data/dropbox")
 
     approver_session_hours: int = 8
+    # Shown beside "Approvals"; empty disables. Must be same-origin (the CSP blocks others).
+    brand_logo_url: str | None = "/static/brand/logo.svg"
+
+    @field_validator("brand_logo_url")
+    @classmethod
+    def _logo_is_same_origin(cls, value: str | None) -> str | None:
+        if value and (not value.startswith("/") or value.startswith("//")):
+            raise ValueError("OPSKIT_BRAND_LOGO_URL must be a path on this site, like /static/...")
+        return value or None
 
     @model_validator(mode="after")
     def _live_mode_needs_a_key(self) -> Self:

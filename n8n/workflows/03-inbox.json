@@ -1,34 +1,171 @@
 {
   "active": false,
   "connections": {
+    "Anything new?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "One item per message",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Finish run (nothing new)",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Collect triage": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Summary",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Create draft": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Draft created?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Draft created?": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Start reply approval",
+            "type": "main"
+          }
+        ],
+        []
+      ]
+    },
     "Every 5 minutes": {
       "main": [
         [
           {
             "index": 0,
-            "node": "List pending inputs",
+            "node": "Start run",
             "type": "main"
           }
         ]
       ]
     },
-    "List pending inputs": {
+    "List new mail": {
       "main": [
         [
           {
             "index": 0,
-            "node": "One item per input",
+            "node": "Anything new?",
             "type": "main"
           }
         ]
       ]
     },
-    "One item per input": {
+    "One item per message": {
       "main": [
         [
           {
             "index": 0,
-            "node": "Next phase starts here",
+            "node": "Triage",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Route": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Create draft",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Held for review",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "No reply needed",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Send summary email": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Finish run",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Start run": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "List new mail",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Summary": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send summary email",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Triage": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Route",
+            "type": "main"
+          },
+          {
+            "index": 0,
+            "node": "Collect triage",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Start run",
             "type": "main"
           }
         ]
@@ -36,19 +173,19 @@
     }
   },
   "id": "inbox00000000001",
-  "name": "Inbox triage with approvals (skeleton)",
+  "name": "Inbox triage with approvals",
   "nodes": [
     {
       "id": "inbox-note-01",
       "name": "Note 01",
       "parameters": {
-        "content": "## Inbox (Phase 3)\nLists inbound mail from Mailpit. Phase 3 adds triage and drafting in the helper, a Switch on the triage label, the Wait node for approval and Send Email for approved replies.",
-        "height": 160,
-        "width": 520
+        "content": "## Inbox triage with approvals\nn8n orchestrates; the helper API does the work. It triages each new message and drafts replies, and every reply waits for a human before anything is sent. There are no Code nodes: the logic lives in the helper.\n\nA message that looks like it is instructing an assistant is quarantined: it is listed in the summary email and never gets a draft. Each draft starts its own execution of \"Inbox reply approval\", so each one waits on its own signed resume URL.\n\nA message whose triage or draft call fails drops out of this run and the run still finishes; an untriaged message is picked up again next time.",
+        "height": 220,
+        "width": 620
       },
       "position": [
         -60,
-        -240
+        -300
       ],
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1
@@ -76,12 +213,64 @@
     {
       "credentials": {
         "httpHeaderAuth": {
+          "id": "kitWebhookAuth01",
+          "name": "Kit webhooks (caller token)"
+        }
+      },
+      "id": "inbox-webhook-01",
+      "name": "Webhook",
+      "parameters": {
+        "authentication": "headerAuth",
+        "httpMethod": "POST",
+        "options": {},
+        "path": "inbox-run",
+        "responseMode": "onReceived"
+      },
+      "position": [
+        0,
+        200
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "c4e8a1d2-6b3f-4a79-8e15-2d7f9b0c3a03"
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "inbox-run-01",
+      "name": "Start run",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ JSON.stringify({ workflow: \"inbox\", n8n_workflow_id: $workflow.id, n8n_execution_id: String($execution.id) }) }}",
+        "method": "POST",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "http://api:8000/v1/runs"
+      },
+      "position": [
+        240,
+        100
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
           "id": "kitApiAuth000001",
           "name": "Helper API (service token)"
         }
       },
       "id": "inbox-pending-01",
-      "name": "List pending inputs",
+      "name": "List new mail",
       "parameters": {
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
@@ -89,39 +278,442 @@
         "options": {
           "timeout": 10000
         },
-        "url": "http://api:8000/v1/inbox/pending"
+        "url": "http://api:8000/v1/inbox/pending?limit=50"
       },
       "position": [
-        220,
-        0
+        460,
+        100
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "inbox-if-new-01",
+      "name": "Anything new?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "inbox-cond-new-01",
+              "leftValue": "={{ $json.items.length }}",
+              "operator": {
+                "operation": "gt",
+                "type": "number"
+              },
+              "rightValue": 0
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          }
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "position": [
+        680,
+        100
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "inbox-finish-empty-01",
+      "name": "Finish run (nothing new)",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ { \"status\": \"succeeded\" } }}",
+        "method": "POST",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "=http://api:8000/v1/runs/{{ $('Start run').first().json.run_id }}/finish"
+      },
+      "position": [
+        900,
+        300
       ],
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2
     },
     {
       "id": "inbox-split-01",
-      "name": "One item per input",
+      "name": "One item per message",
       "parameters": {
         "fieldToSplitOut": "items",
         "options": {}
       },
       "position": [
-        440,
+        900,
         0
       ],
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1
     },
     {
-      "id": "inbox-next-01",
-      "name": "Next phase starts here",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "inbox-triage-01",
+      "name": "Triage",
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ { \"run_id\": $('Start run').first().json.run_id, \"message_id\": $json.message_id } }}",
+        "method": "POST",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchInterval": 500,
+              "batchSize": 2
+            }
+          },
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "http://api:8000/v1/inbox/triage"
+      },
+      "position": [
+        1120,
+        0
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "inbox-switch-01",
+      "name": "Route",
+      "parameters": {
+        "options": {},
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "inbox-route-draft-01",
+                    "leftValue": "={{ $json.route }}",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "draft"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              },
+              "outputKey": "draft",
+              "renameOutput": true
+            },
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "inbox-route-quarantine-01",
+                    "leftValue": "={{ $json.route }}",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "quarantine"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              },
+              "outputKey": "quarantine",
+              "renameOutput": true
+            },
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "inbox-route-noreply-01",
+                    "leftValue": "={{ $json.route }}",
+                    "operator": {
+                      "operation": "equals",
+                      "type": "string"
+                    },
+                    "rightValue": "no_reply"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                }
+              },
+              "outputKey": "no_reply",
+              "renameOutput": true
+            }
+          ]
+        }
+      },
+      "position": [
+        1340,
+        -60
+      ],
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "inbox-draft-01",
+      "name": "Create draft",
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ { \"run_id\": $('Start run').first().json.run_id, \"message_id\": $json.message_id } }}",
+        "method": "POST",
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "http://api:8000/v1/inbox/drafts"
+      },
+      "position": [
+        1560,
+        -200
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "inbox-if-draft-01",
+      "name": "Draft created?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "inbox-cond-draft-01",
+              "leftValue": "={{ $json.status }}",
+              "operator": {
+                "operation": "equals",
+                "type": "string"
+              },
+              "rightValue": "draft"
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          }
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "position": [
+        1780,
+        -200
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "id": "inbox-exec-01",
+      "name": "Start reply approval",
+      "parameters": {
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": false
+        },
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "inboxReply000001"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "id": "draft_id",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "id": "run_id",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            }
+          ],
+          "value": {
+            "draft_id": "={{ $json.draft_id }}",
+            "run_id": "={{ $('Start run').first().json.run_id }}"
+          }
+        }
+      },
+      "position": [
+        2000,
+        -260
+      ],
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2
+    },
+    {
+      "id": "inbox-noop-held-01",
+      "name": "Held for review",
       "parameters": {},
       "position": [
-        660,
+        1560,
         0
       ],
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1
+    },
+    {
+      "id": "inbox-noop-none-01",
+      "name": "No reply needed",
+      "parameters": {},
+      "position": [
+        1560,
+        160
+      ],
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1
+    },
+    {
+      "id": "inbox-collect-01",
+      "name": "Collect triage",
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "position": [
+        1560,
+        360
+      ],
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "inbox-summary-01",
+      "name": "Summary",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "method": "GET",
+        "options": {
+          "timeout": 10000
+        },
+        "url": "=http://api:8000/v1/inbox/summary?run_id={{ $('Start run').first().json.run_id }}"
+      },
+      "position": [
+        1780,
+        360
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "credentials": {
+        "smtp": {
+          "id": "kitMailpitSmtp01",
+          "name": "Mailpit SMTP (local, captures all mail)"
+        }
+      },
+      "id": "inbox-email-01",
+      "name": "Send summary email",
+      "parameters": {
+        "emailFormat": "text",
+        "fromEmail": "inbox@kit.example",
+        "options": {},
+        "subject": "=Inbox: {{ Object.values($json.counts).reduce((a, b) => a + b, 0) }} new, {{ $json.quarantined.length }} held for review",
+        "text": "={{ 'Triaged ' + Object.values($json.counts).reduce((a, b) => a + b, 0) + ' new message(s).\\n\\n' + 'By category:\\n' + Object.entries($json.counts).map(([k, v]) => '- ' + k + ': ' + v).join('\\n') + '\\n\\nDrafts waiting for approval: ' + (($json.drafts.draft || 0) + ($json.drafts.pending || 0)) + (($json.drafts.failed || 0) > 0 ? '\\nDrafts that could not be created: ' + $json.drafts.failed : '') + '\\n\\nHeld for review (' + $json.quarantined.length + '):\\n' + ($json.quarantined.length === 0 ? '- none' : $json.quarantined.map(q => '- ' + q.from + ': ' + q.subject + ' (' + q.category + ') — ' + q.evidence + ' [' + q.message_id + ']').join('\\n')) + '\\n\\nHeld messages may contain instructions aimed at an assistant. The kit never drafts a reply to them. To release one, reply from your own mail client; to dismiss it, take no action. Drafted replies are sent only after someone approves them on the approver page.' }}",
+        "toEmail": "owner@kit.example"
+      },
+      "position": [
+        2000,
+        360
+      ],
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "inbox-finish-01",
+      "name": "Finish run",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ { \"status\": \"succeeded\" } }}",
+        "method": "POST",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "=http://api:8000/v1/runs/{{ $('Start run').first().json.run_id }}/finish"
+      },
+      "position": [
+        2220,
+        360
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
     }
   ],
   "settings": {

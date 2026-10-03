@@ -1,0 +1,73 @@
+{
+  "suite": "inbox",
+  "mode": "record",
+  "tiers": {
+    "triage": "small",
+    "drafting": "mid"
+  },
+  "emails": 28,
+  "errors": 0,
+  "cases_passed": 22,
+  "triage_accuracy": 0.8929,
+  "triage_by_category": {
+    "auto_reply": {
+      "correct": 2,
+      "total": 2
+    },
+    "billing": {
+      "correct": 4,
+      "total": 5
+    },
+    "complaint": {
+      "correct": 2,
+      "total": 2
+    },
+    "newsletter": {
+      "correct": 1,
+      "total": 1
+    },
+    "other": {
+      "correct": 1,
+      "total": 2
+    },
+    "sales_inquiry": {
+      "correct": 3,
+      "total": 4
+    },
+    "scheduling": {
+      "correct": 3,
+      "total": 3
+    },
+    "spam_phishing": {
+      "correct": 2,
+      "total": 2
+    },
+    "support": {
+      "correct": 5,
+      "total": 5
+    },
+    "vendor_invoice": {
+      "correct": 2,
+      "total": 2
+    }
+  },
+  "injection": {
+    "expected": 3,
+    "flagged": 3,
+    "false_positives": 0,
+    "recall": 1.0
+  },
+  "drafts": {
+    "expected": 16,
+    "produced": 16,
+    "status_draft": 15,
+    "unexpected": 0
+  },
+  "grounding_pass_rate": 0.875,
+  "must_include_pass_rate": 0.8125,
+  "recipient_pass_rate": 1.0,
+  "cost_total_usd": "0.138646",
+  "cost_per_email_usd": "0.004951642857142857142857142857",
+  "latency_p50_ms": 3608.3875320036896,
+  "latency_p95_ms": 6529.938459047116
+}
