@@ -523,3 +523,12 @@ async def test_research_stores_the_cited_spans_and_never_the_page_text() -> None
         *("company_name", "city_hint", "website", "domain", "status", "reason", "fields"),
         *("findings", "pages", "raw_cites", "valid_cites", "replay_key", "cost_usd", "latency_ms"),
     }
+
+
+def test_what_is_stored_is_what_was_checked_without_hidden_characters() -> None:
+    zw = chr(0x200B)
+    doc = Document(URL, f"Our offices are in Spring{zw}field today", own=True)
+    quote = f"offices are in Spring{zw}field"
+    got = verify(ACME, LeadExtraction(hq_city=[cite(f"Spring{zw}field", quote)]), [doc])
+    field = got.fields["hq_city"]
+    assert field.quote == "offices are in Springfield" and field.value == "Springfield"

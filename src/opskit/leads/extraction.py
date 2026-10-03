@@ -222,8 +222,11 @@ def _check_cite(
     elif name == "domain":
         stored = domain
     elif name in ("industry", "hq_city", "description"):
-        stored = cite.value.strip()
-    return FieldValue(value=stored, source_url=cite.source_url, quote=cite.quote.strip()), None
+        stored = _visible(cite.value).strip()
+    # Store exactly what was checked: the quote as a reader sees it, without hidden characters.
+    return FieldValue(
+        value=stored, source_url=cite.source_url, quote=_visible(cite.quote).strip()
+    ), None
 
 
 def verify(company: Company, extraction: LeadExtraction, documents: Sequence[Document]) -> Verified:
