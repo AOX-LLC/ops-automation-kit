@@ -164,6 +164,9 @@ class PgAuditLog:
 
     async def verify(self, *, expected_head: AuditHead | None = None) -> AuditHead:
         previous = AuditHead(seq=0, record_hash=GENESIS_HASH)
+        empty_head = expected_head is not None and expected_head.seq == 0
+        if empty_head and expected_head.record_hash != GENESIS_HASH:  # type: ignore[union-attr]
+            raise AuditIntegrityError("an empty expected head must carry the genesis hash")
         seen_expected = expected_head is None or expected_head.seq == 0
         async for record in self.iter_records():
             if record.seq != previous.seq + 1:

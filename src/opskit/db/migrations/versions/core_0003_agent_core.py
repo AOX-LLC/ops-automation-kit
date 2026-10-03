@@ -63,12 +63,14 @@ def upgrade() -> None:
         UPDATE core.approvals SET decision = 'approve' WHERE status = 'approved';
         UPDATE core.approvals SET decision = 'reject' WHERE status = 'rejected';
         UPDATE core.approvals SET resolved_at = NULL, resolved_by = NULL WHERE status = 'expired';
+        -- agent-core's reason field holds at most 500 characters; Phase 1 allowed 2000.
+        UPDATE core.approvals SET reason = left(reason, 500) WHERE length(reason) > 500;
         ALTER TABLE core.approvals ADD CONSTRAINT approvals_status_check CHECK (
             status IN ('pending', 'approved', 'rejected', 'consumed', 'expired', 'cancelled'));
         -- The decision each status implies, and resolved_* set exactly with a decision.
         ALTER TABLE core.approvals ADD CONSTRAINT approvals_decision_matches_status CHECK (
-            (status IN ('approved', 'consumed') AND decision = 'approve')
-            OR (status = 'rejected' AND decision = 'reject')
+            (status IN ('approved', 'consumed') AND decision IS NOT DISTINCT FROM 'approve')
+            OR (status = 'rejected' AND decision IS NOT DISTINCT FROM 'reject')
             OR (status IN ('pending', 'expired', 'cancelled') AND decision IS NULL));
         ALTER TABLE core.approvals ADD CONSTRAINT approvals_resolved_with_decision CHECK (
             (decision IS NULL) = (resolved_at IS NULL)

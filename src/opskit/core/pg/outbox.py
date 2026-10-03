@@ -40,7 +40,7 @@ type ResumeSender = Callable[[str, dict[str, Any]], Awaitable[int]]
 class Claim:
     outbox_id: int
     approval_id: UUID
-    run_id: UUID
+    run_id: UUID | None
     resume_url: str
     payload: dict[str, Any]
     attempts: int
@@ -144,7 +144,11 @@ async def _audit(session: Any, claim: Claim, action: str, details: dict[str, Any
             action=action,
             actor_id="system",
             subject_id=str(claim.approval_id),
-            payload={"subject_type": "approval", "run_id": str(claim.run_id), **details},
+            payload={
+                "subject_type": "approval",
+                **({"run_id": str(claim.run_id)} if claim.run_id else {}),
+                **details,
+            },
         ),
     )
 
