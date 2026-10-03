@@ -80,6 +80,11 @@ REQUEST_COLUMNS = [
     approvals.c.delegates,
 ]
 EXPIRE_BATCH_MAX = 500
+# A request the sweep failed to close this many times in a row is left alone until restart; one
+# failure may be a dropped connection or a deadlock, so a single one is not enough.
+SWEEP_ATTEMPTS_MAX = 3
+# Bounds the in-process note of which unreadable rows were already recorded.
+RECORDED_MAX = 10_000
 log = logging.getLogger(__name__)
 
 
@@ -115,7 +120,6 @@ def _readable(row: Any) -> ApprovalRequest | None:
     try:
         return _request(row)
     except _UNPARSABLE:
-        log.error("approval %s is malformed and is left out of the listing", row.id)
         return None
 
 
@@ -255,9 +259,12 @@ class PgApprovalQueue:
         self._approver_session_factory = approver_session_factory
         self._policy = policy
         self._listed_actions = sorted(listed_actions)
-        # Rows the sweep could not close; skipped until the process restarts, so one bad row
-        # cannot hold up the others or be retried every minute.
-        self._unsweepable: set[UUID] = set()
+        # Consecutive failures to close a request; at SWEEP_ATTEMPTS_MAX it is skipped until the
+        # process restarts, so one bad row cannot hold up the others or be retried every minute.
+        self._sweep_failures: dict[UUID, int] = {}
+        # Unreadable rows already written to the audit log by this process, so a page view does
+        # not take the audit chain's lock, or log, again for each one.
+        self._recorded: set[UUID] = set()
 
     @contextlib.asynccontextmanager
     async def _reading(self, reader: str) -> AsyncIterator[None]:
@@ -270,6 +277,9 @@ class PgApprovalQueue:
             raise ApprovalUnreadableError(exc.request_id) from exc
 
     async def _record_unreadable(self, request_id: UUID, reader: str) -> None:
+        if request_id in self._recorded:
+            return
+        log.error("approval %s cannot be parsed; read by %s and left alone", request_id, reader)
         try:
             async with self._session_factory.begin() as session:
                 await append_once_in(
@@ -281,6 +291,9 @@ class PgApprovalQueue:
                         payload={"subject_type": "approval", "reader": reader},
                     ),
                 )
+            if len(self._recorded) >= RECORDED_MAX:
+                self._recorded.clear()
+            self._recorded.add(request_id)
         except Exception:
             # Recording is best effort: failing to write the note must not turn a refused read
             # into a crash.
@@ -678,21 +691,23 @@ class PgApprovalQueue:
         """Store EXPIRED on pending requests past their lifetime; returns how many.
 
         Works in batches of `limit`, one transaction per request, so a request that cannot be
-        closed is logged and skipped (until the process restarts) instead of rolling back, and
-        blocking, every other request in its batch. A request counts as due only if the
-        database's clock agrees, so a skewed caller clock expires nothing early.
+        closed is logged, and skipped after SWEEP_ATTEMPTS_MAX failures until the process
+        restarts, instead of rolling back, and blocking, every other request in its batch. A
+        request counts as due only if the database's clock agrees, so a skewed caller clock
+        expires nothing early.
         """
         if limit < 1:
             raise ValueError("limit must be at least 1")
         total = 0
         while True:
+            given_up = self._given_up_on()
             query = (
                 select(approvals.c.id)
                 .where(
                     approvals.c.status == ApprovalStatus.PENDING.value,
                     approvals.c.expires_at <= (now or datetime.now(UTC)),
                     approvals.c.expires_at <= func.statement_timestamp(),
-                    approvals.c.id.not_in(self._unsweepable) if self._unsweepable else true(),
+                    approvals.c.id.not_in(given_up) if given_up else true(),
                 )
                 .order_by(approvals.c.expires_at, approvals.c.id)
                 .limit(limit)
@@ -704,14 +719,25 @@ class PgApprovalQueue:
             if len(due) < limit:
                 return total
 
+    def _given_up_on(self) -> list[UUID]:
+        return [rid for rid, count in self._sweep_failures.items() if count >= SWEEP_ATTEMPTS_MAX]
+
     async def _expire_one(self, request_id: UUID, actor_id: str) -> int:
         try:
             async with self._session_factory.begin() as session:
-                return await self._store_expired(session, approvals.c.id == request_id, actor_id)
+                closed = await self._store_expired(session, approvals.c.id == request_id, actor_id)
         except Exception:
-            log.exception("approval %s could not be expired; the sweep skips it", request_id)
-            self._unsweepable.add(request_id)
+            count = self._sweep_failures.get(request_id, 0) + 1
+            self._sweep_failures[request_id] = count
+            log.exception(
+                "approval %s could not be expired (attempt %d of %d)",
+                request_id,
+                count,
+                SWEEP_ATTEMPTS_MAX,
+            )
             return 0
+        self._sweep_failures.pop(request_id, None)
+        return closed
 
     async def _store_expired(self, session: AsyncSession, condition: Any, actor_id: str) -> int:
         """Store EXPIRED on pending rows matching `condition` that the database also finds due.
