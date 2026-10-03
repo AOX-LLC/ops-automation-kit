@@ -155,6 +155,14 @@ def test_unlisted_commitments_are_flagged(body: str) -> None:
     assert _grounding(body).commitment_flags
 
 
+def test_idioms_that_promise_nothing_are_not_commitments() -> None:
+    assert _grounding("Please feel free to send the unit list over.").commitment_flags == ()
+
+
+def test_free_of_charge_is_still_a_commitment() -> None:
+    assert _grounding("Feel free to book; the visit is free of charge.").commitment_flags
+
+
 def test_the_customers_own_phone_number_is_allowed() -> None:
     email = "Please call me on 555-0188 after noon."
     assert _grounding("We will call you on 555-0188.", email_text=email).grounded

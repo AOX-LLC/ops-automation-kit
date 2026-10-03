@@ -7,7 +7,7 @@
   },
   "emails": 28,
   "errors": 0,
-  "cases_passed": 22,
+  "cases_passed": 23,
   "triage_accuracy": 0.8929,
   "triage_by_category": {
     "auto_reply": {
@@ -63,7 +63,7 @@
     "status_draft": 15,
     "unexpected": 0
   },
-  "grounding_pass_rate": 0.875,
+  "grounding_pass_rate": 0.9375,
   "must_include_pass_rate": 0.8125,
   "recipient_pass_rate": 1.0,
   "cost_total_usd": "0.138646",

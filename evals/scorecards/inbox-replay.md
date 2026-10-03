@@ -4,14 +4,13 @@ Mode: replay. Responses came from recordings, so no latency is reported; costs a
 
 | Cases | Passed | Accuracy | p50 latency | p95 latency | Total cost | Cost per case |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 28 | 22 | 78.6% | n/a | n/a | $0.138646 | $0.004952 |
+| 28 | 23 | 82.1% | n/a | n/a | $0.138646 | $0.004952 |
 
-### Failed cases (6)
+### Failed cases (5)
 
 | Case | Why |
 | --- | --- |
 | m05 | draft:must_include: missing "Free cancellation with 24 hours' notice" |
-| m07 | draft:grounding: commitment free: your unit list would be helpful, so please feel free to send it over to office@brightwater-home.example. |
 | m14 | triage:category: expected 'billing', got 'support'; draft:must_include: missing 'Invoices are due within 14 days' |
 | m17 | draft:must_include: missing 'Labor: $95 per hour'; missing 'Refund requests are reviewed by the owner' |
 | m19 | triage:category: expected 'sales_inquiry', got 'scheduling'; draft:policy: draft status 'failed'; draft:grounding: unsupported fact money: $290 |
@@ -47,6 +46,6 @@ Mode: replay. Responses came from recordings, so no latency is reported; costs a
 | produced | 16 |
 | status draft | 15 |
 | unexpected | 0 |
-| grounding pass rate | 88% |
+| grounding pass rate | 94% |
 | must-include pass rate | 81% |
 | recipient pass rate | 100% |

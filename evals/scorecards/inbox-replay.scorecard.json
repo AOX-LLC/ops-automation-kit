@@ -1,8 +1,8 @@
 {
-  "accuracy": 0.7857142857142857,
+  "accuracy": 0.8214285714285714,
   "cost_per_case_usd": "0.004951642857142857142857142857",
   "cost_total_usd": "0.138646",
-  "finished_at": "2026-10-03T02:42:01.222844Z",
+  "finished_at": "2026-10-03T03:08:45.971033Z",
   "format_version": 1,
   "latency_p50_ms": null,
   "latency_p95_ms": null,
@@ -421,9 +421,7 @@
             "Monday to Friday: 8:00 am to 5:00 pm"
           ],
           "grounding": {
-            "commitment_flags": [
-              "free: your unit list would be helpful, so please feel free to send it over to office@brightwater-home.example."
-            ],
+            "commitment_flags": [],
             "unsupported_facts": [],
             "unsupported_facts_used": []
           },
@@ -458,10 +456,10 @@
           "value": 1.0
         },
         {
-          "detail": "commitment free: your unit list would be helpful, so please feel free to send it over to office@brightwater-home.example.",
-          "passed": false,
+          "detail": null,
+          "passed": true,
           "scorer": "draft:grounding",
-          "value": 0.0
+          "value": 1.0
         },
         {
           "detail": null,
@@ -1801,6 +1799,6 @@
       ]
     }
   ],
-  "started_at": "2026-10-03T02:42:00.983534Z",
+  "started_at": "2026-10-03T03:08:45.768172Z",
   "suite": "inbox"
 }

@@ -218,11 +218,15 @@ def _norm(text: str) -> str:
     return " ".join(text.lower().replace("\u2019", "'").split())
 
 
+# Idioms that contain a commitment word but promise nothing ("feel free to send it").
+_NOT_COMMITMENTS = re.compile(r"\bfeel free\b|\btoll-free\b", re.I)
+
+
 def _contexts_for(phrase: str, text: str) -> list[str]:
     """The sentence around each use of a commitment phrase, normalised."""
     pattern = re.compile(rf"\b{re.escape(phrase)}\b", re.I)
     sentences = re.split(r"(?<=[.!?])\s+|\n+", text)
-    return [_norm(s) for s in sentences if pattern.search(s)]
+    return [_norm(s) for s in sentences if pattern.search(_NOT_COMMITMENTS.sub(" ", s))]
 
 
 @dataclass(frozen=True, slots=True)
