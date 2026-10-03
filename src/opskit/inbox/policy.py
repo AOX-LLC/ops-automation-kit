@@ -9,11 +9,12 @@ a reply goes to.
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 from email.utils import getaddresses, parseaddr
 from enum import StrEnum
-from typing import Literal
+from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -224,24 +225,55 @@ COMMITMENT_PHRASES: tuple[str, ...] = (
 )
 
 
+def _plain(text: str) -> str:
+    """The text as a reader sees it: invisible format characters (zero-width, soft hyphen,
+    bidi marks) removed and full-width or ligature forms folded to plain letters, so a word
+    can't be hidden from the checks by what the eye doesn't see."""
+    visible = "".join(c for c in text if unicodedata.category(c) != "Cf")
+    return unicodedata.normalize("NFKC", HIDDEN_CHARS.sub("", visible))
+
+
 def _norm(text: str) -> str:
-    return " ".join(text.lower().replace("\u2019", "'").split())
+    return " ".join(_plain(text).lower().replace("\u2019", "'").split())
 
 
-# Idioms that contain a commitment word but promise nothing ("feel free to send it").
-_NOT_COMMITMENTS = re.compile(r"\bfeel free\b|\btoll-free\b", re.I)
+# "free" is a commitment wherever it appears (free of charge, for free, free inspection,
+# "cost-free", "it comes free", "Free!"), except in idioms that promise nothing: "feel free",
+# "toll-free", and "free to <verb>" said of a person ("you are free to reschedule"). A
+# deny-list, so a phrasing nobody listed is flagged rather than waved through.
+_FREE_IDIOMS = re.compile(
+    r"\bfeel(?:s|ing)?\s+free\b"
+    r"|\btoll[\s-]?free\b"
+    r"|\b(?:you|you're|you are|we|we're|they|they're|i'm)\s+(?:\w+\s+)?free\s+to\b"
+)
+_FREE_WORD = re.compile(r"(?<!\w)free\b")
 
 
-def _phrase_pattern(phrase: str) -> re.Pattern[str]:
+class _Matcher(Protocol):
+    def search(self, text: str) -> object | None: ...
+
+
+class _FreeOffer:
+    def search(self, text: str) -> object | None:
+        return _FREE_WORD.search(_FREE_IDIOMS.sub(" ", _norm(_plain(text))))
+
+
+_PHRASE_PATTERNS: dict[str, _Matcher] = {"free": _FreeOffer()}
+
+
+def _phrase_pattern(phrase: str) -> _Matcher:
     """The phrase and its inflections: refund, refunds, refunded, refunding."""
+    custom = _PHRASE_PATTERNS.get(phrase)
+    if custom is not None:
+        return custom
     return re.compile(rf"\b{re.escape(phrase)}(?:s|es|d|ed|ing)?\b", re.I)
 
 
 def _contexts_for(phrase: str, text: str) -> list[str]:
     """The sentence around each use of a commitment phrase, normalised."""
     pattern = _phrase_pattern(phrase)
-    sentences = re.split(r"(?<=[.!?])\s+|\n+", text)
-    return [_norm(s) for s in sentences if pattern.search(_NOT_COMMITMENTS.sub(" ", s))]
+    sentences = re.split(r"(?<=[.!?])\s+|\n+", _plain(text))
+    return [_norm(s) for s in sentences if pattern.search(s)]
 
 
 @dataclass(frozen=True, slots=True)
@@ -273,12 +305,13 @@ def check_grounding(
 ) -> GroundingReport:
     """Every fact-shaped token in the reply must appear in the profile (or, for the
     customer's own details, in their email); commitment phrases must be the profile's own."""
+    body = _plain(draft.body)  # checked as a reader sees it, not as it is encoded
     profile_n = _norm(profile)
     email_n = _norm(email_text)
     allowed = {a.lower() for a in allowed_addresses}
     unsupported: list[str] = []
     for kind, pattern in FACT_PATTERNS.items():
-        for match in pattern.finditer(draft.body):
+        for match in pattern.finditer(body):
             token = _norm(match.group(0)).rstrip(".,;:)")
             if kind == "email" and token in allowed:
                 continue
@@ -290,7 +323,7 @@ def check_grounding(
     used = tuple(q for q in draft.facts_used if not _mentions(_norm(q), profile_n))
     flags: list[str] = []
     for phrase in COMMITMENT_PHRASES:
-        for context in _contexts_for(phrase, draft.body):
+        for context in _contexts_for(phrase, body):
             if not _profile_states(phrase, context, profile):
                 flags.append(f"{phrase}: {context[:120]}")
     return GroundingReport(

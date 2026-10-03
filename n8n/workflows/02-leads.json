@@ -1,23 +1,63 @@
 {
   "active": false,
   "connections": {
-    "List pending inputs": {
+    "Any companies?": {
       "main": [
         [
           {
             "index": 0,
-            "node": "One item per input",
+            "node": "One item per company",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "Finish run (no companies)",
             "type": "main"
           }
         ]
       ]
     },
-    "One item per input": {
+    "Collect results": {
       "main": [
         [
           {
             "index": 0,
-            "node": "Next phase starts here",
+            "node": "Summary",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "List companies": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Any companies?",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "One item per company": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Research",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Research": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Collect results",
             "type": "main"
           }
         ]
@@ -28,7 +68,51 @@
         [
           {
             "index": 0,
-            "node": "List pending inputs",
+            "node": "Start run",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Send summary email": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Finish run",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Start run": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "List companies",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Summary": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Send summary email",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Start run",
             "type": "main"
           }
         ]
@@ -36,19 +120,19 @@
     }
   },
   "id": "leads00000000001",
-  "name": "Companies → enriched CRM records (skeleton)",
+  "name": "Companies to enriched CRM records",
   "nodes": [
     {
       "id": "leads-note-01",
       "name": "Note 01",
       "parameters": {
-        "content": "## Leads (Phase 3)\nLists the companies to research. Phase 3 adds research over the local corpus in the helper and writes CRM records with sources.",
-        "height": 160,
-        "width": 520
+        "content": "## Companies to enriched CRM records\nn8n orchestrates; the helper API does the work. It researches each company on the list, checks every quote it relies on against the page it came from, and writes only what it can source into the local CRM table, one source row per field. There are no Code nodes: the logic lives in the helper.\n\nA company with no website column value is reported as \"no website given\" and is not researched. A field with no verified source stays empty, and two sources that disagree are listed rather than picked between.\n\nA company whose research fails drops out of this run and the run still finishes; running the workflow again researches it and updates records rather than duplicating them.",
+        "height": 240,
+        "width": 620
       },
       "position": [
         -60,
-        -240
+        -320
       ],
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1
@@ -67,12 +151,64 @@
     {
       "credentials": {
         "httpHeaderAuth": {
+          "id": "kitWebhookAuth01",
+          "name": "Kit webhooks (caller token)"
+        }
+      },
+      "id": "leads-webhook-01",
+      "name": "Webhook",
+      "parameters": {
+        "authentication": "headerAuth",
+        "httpMethod": "POST",
+        "options": {},
+        "path": "leads-run",
+        "responseMode": "onReceived"
+      },
+      "position": [
+        0,
+        200
+      ],
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "7d2b6f10-3c8e-4f5a-9b41-8a0e5c7d1f22"
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "leads-run-01",
+      "name": "Start run",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ JSON.stringify({ workflow: \"leads\", n8n_workflow_id: $workflow.id, n8n_execution_id: String($execution.id) }) }}",
+        "method": "POST",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "http://api:8000/v1/runs"
+      },
+      "position": [
+        240,
+        100
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
           "id": "kitApiAuth000001",
           "name": "Helper API (service token)"
         }
       },
       "id": "leads-pending-01",
-      "name": "List pending inputs",
+      "name": "List companies",
       "parameters": {
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
@@ -80,39 +216,210 @@
         "options": {
           "timeout": 10000
         },
-        "url": "http://api:8000/v1/leads/pending"
+        "url": "http://api:8000/v1/leads/pending?limit=100"
       },
       "position": [
-        220,
-        0
+        460,
+        100
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "leads-if-any-01",
+      "name": "Any companies?",
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "leads-cond-any-01",
+              "leftValue": "={{ $json.items.length }}",
+              "operator": {
+                "operation": "gt",
+                "type": "number"
+              },
+              "rightValue": 0
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          }
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "position": [
+        680,
+        100
+      ],
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "leads-finish-empty-01",
+      "name": "Finish run (no companies)",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ { \"status\": \"succeeded\" } }}",
+        "method": "POST",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "=http://api:8000/v1/runs/{{ $('Start run').first().json.run_id }}/finish"
+      },
+      "position": [
+        900,
+        300
       ],
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2
     },
     {
       "id": "leads-split-01",
-      "name": "One item per input",
+      "name": "One item per company",
       "parameters": {
         "fieldToSplitOut": "items",
         "options": {}
       },
       "position": [
-        440,
+        900,
         0
       ],
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1
     },
     {
-      "id": "leads-next-01",
-      "name": "Next phase starts here",
-      "parameters": {},
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "leads-research-01",
+      "name": "Research",
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ { \"run_id\": $('Start run').first().json.run_id, \"company_name\": $json.company_name, \"city_hint\": $json.city_hint, \"website\": $json.website } }}",
+        "method": "POST",
+        "options": {
+          "timeout": 120000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "http://api:8000/v1/leads/research"
+      },
       "position": [
-        660,
+        1120,
         0
       ],
-      "type": "n8n-nodes-base.noOp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "id": "leads-collect-01",
+      "name": "Collect results",
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "position": [
+        1340,
+        0
+      ],
+      "type": "n8n-nodes-base.aggregate",
       "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "leads-summary-01",
+      "name": "Summary",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "method": "GET",
+        "options": {
+          "timeout": 10000
+        },
+        "url": "=http://api:8000/v1/leads/summary?run_id={{ $('Start run').first().json.run_id }}"
+      },
+      "position": [
+        1560,
+        0
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    },
+    {
+      "credentials": {
+        "smtp": {
+          "id": "kitMailpitSmtp01",
+          "name": "Mailpit SMTP (local, captures all mail)"
+        }
+      },
+      "id": "leads-email-01",
+      "name": "Send summary email",
+      "parameters": {
+        "emailFormat": "text",
+        "fromEmail": "leads@kit.example",
+        "options": {},
+        "subject": "=Leads: {{ $json.created.length }} added, {{ $json.updated.length }} updated, {{ $json.no_website.length }} with no website",
+        "text": "={{ 'Researched ' + $json.researched + ' compan' + ($json.researched === 1 ? 'y' : 'ies') + '.\\n\\n' + 'Records added (' + $json.created.length + '):\\n' + ($json.created.length === 0 ? '- none' : $json.created.map(c => '- ' + c).join('\\n')) + '\\n\\nRecords updated (' + $json.updated.length + '):\\n' + ($json.updated.length === 0 ? '- none' : $json.updated.map(c => '- ' + c).join('\\n')) + '\\n\\nFields left empty because no source supports them:\\n' + ($json.null_fields.length === 0 ? '- none' : $json.null_fields.map(n => '- ' + n.company + ': ' + n.fields.join(', ')).join('\\n')) + ($json.conflicts.length === 0 ? '' : '\\n\\nSources that disagree (left empty):\\n' + $json.conflicts.map(c => '- ' + c.company + ': ' + c.field).join('\\n')) + '\\n\\nNo website given (' + $json.no_website.length + '), so not researched:\\n' + ($json.no_website.length === 0 ? '- none' : $json.no_website.map(c => '- ' + c).join('\\n')) + ($json.unresolved.length === 0 ? '' : '\\n\\nCould not be researched:\\n' + $json.unresolved.map(u => '- ' + u.company + ': ' + u.reason).join('\\n')) + '\\n\\nEvery value in a record has a source URL and a quoted line; see the CRM table.' }}",
+        "toEmail": "owner@kit.example"
+      },
+      "position": [
+        1780,
+        0
+      ],
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "leads-finish-01",
+      "name": "Finish run",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ { \"status\": \"succeeded\" } }}",
+        "method": "POST",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "=http://api:8000/v1/runs/{{ $('Start run').first().json.run_id }}/finish"
+      },
+      "position": [
+        2000,
+        0
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
     }
   ],
   "settings": {

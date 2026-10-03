@@ -4,7 +4,7 @@ Everything in this folder is fictional. Domains use the reserved `.example` TLD.
 
 - `receipts/inbox/`: 30 receipt images, rendered in code.
 - `receipts/bank/`: the matching bank statement CSV.
-- `leads/companies.csv`: 20 company names to research.
+- `leads/companies.csv`: 20 company names to research (`company_name,city_hint`, plus an optional `website` column that is blank when a company has no site).
 - `leads/corpus/`: local documents that stand in for web research, one folder per fictional domain.
 - `crm/accounts.csv`: 5 existing CRM accounts.
 - `inbox/messages/`: 25 `.eml` emails.

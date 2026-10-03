@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     )
     anthropic_api_key: SecretStr | None = Field(default=None, validation_alias=API_KEY_VARIABLE)
 
+    # Where company research reads from. "web" fetches each company's own public site and is
+    # for the manual live demo only: it needs AGENT_CORE_MODE=live.
+    leads_retrieval: Literal["corpus", "web"] = Field(
+        default="corpus", validation_alias="LEADS_RETRIEVAL"
+    )
+
     secrets_dir: Path = Path("/run/kit-secrets")
     db_host: str = "postgres"
     db_port: int = 5432
@@ -42,7 +48,9 @@ class Settings(BaseSettings):
 
     approver_session_hours: int = 8
     # Shown beside "Approvals"; empty disables. Must be same-origin (the CSP blocks others).
-    brand_logo_url: str | None = "/static/brand/logo.svg"
+    brand_logo_url: str | None = "/static/brand/aox-logo-black.png"
+    # The logo's alt text. Change it together with the logo, so a screen reader names yours.
+    brand_logo_alt: str = "AOX"
 
     @field_validator("brand_logo_url")
     @classmethod
@@ -58,6 +66,12 @@ class Settings(BaseSettings):
                 f"AGENT_CORE_MODE={self.agent_core_mode.value} needs {API_KEY_VARIABLE} "
                 "set to your own key"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _web_retrieval_needs_live_mode(self) -> Self:
+        if self.leads_retrieval == "web" and self.agent_core_mode is not Mode.LIVE:
+            raise ValueError("LEADS_RETRIEVAL=web needs AGENT_CORE_MODE=live")
         return self
 
     @property

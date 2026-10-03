@@ -192,6 +192,68 @@ def test_idioms_that_promise_nothing_are_not_commitments() -> None:
     assert _grounding("Please feel free to send the unit list over.").commitment_flags == ()
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        "The install costs $1\u200b,200.",
+        "Call 555\u200b-0987 now.",
+        "It is \uff04\uff11\uff12\uff10\uff10.",
+    ],
+)
+def test_hidden_or_full_width_characters_do_not_hide_a_fact(body: str) -> None:
+    assert _grounding(body).unsupported_facts
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Please feel free to call us.",
+        "Feel free to reply with the unit list.",
+        "You can also use our toll-free number.",
+        "Feel free.",
+        "You are free to reschedule from the portal.",
+    ],
+)
+def test_the_bare_word_free_is_not_a_commitment(body: str) -> None:
+    assert _grounding(body).commitment_flags == ()
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "The visit is free of charge.",
+        "We will look at it for free.",
+        "We offer a free inspection.",
+        "Free shipping on parts.",
+        "The second visit is free.",
+        "The visit is free-of-charge.",
+        "It is a for-free visit.",
+        "We'll fix it free.",
+        "Good news, it\u2019s free.",
+        "The repair is cost-free.",
+        "We'll do the repair charge-free.",
+        "Financing is interest-free.",
+        "The callout is fee-free for you.",
+        "We'll add a free 1-year warranty.",
+        "The inspection is absolutely free.",
+        "The inspection is 100% free.",
+        "Labor's free.",
+        "Inspection: free.",
+        "The filter comes free.",
+        "Free!",
+        "We can do that FREE.",
+        "Shipping is free to all existing customers.",
+        "The second visit is free to you.",
+        "The visit is fr\u200bee of charge.",
+        "The visit is \uff46\uff52\uff45\uff45.",
+        "We offer a F\u00adREE inspection.",
+        "We will issue a ref\u200bund.",
+    ],
+)
+def test_phrases_that_offer_something_free_are_commitments(body: str) -> None:
+    assert _grounding(body).commitment_flags
+
+
 def test_free_of_charge_is_still_a_commitment() -> None:
     assert _grounding("Feel free to book; the visit is free of charge.").commitment_flags
 

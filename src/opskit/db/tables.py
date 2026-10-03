@@ -16,6 +16,7 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -147,6 +148,7 @@ crm_accounts = Table(
     Column("employee_band", Text),
     Column("hq_city", Text),
     Column("description", Text),
+    Column("founded_year", Integer),
     _created_at(),
     _created_at("updated_at"),
     schema="crm",
@@ -161,6 +163,7 @@ crm_account_sources = Table(
     Column("source_ref", Text, nullable=False),
     Column("excerpt", Text, nullable=False),
     _created_at("found_at"),
+    UniqueConstraint("account_id", "field", name="account_sources_account_field_key"),
     schema="crm",
 )
 
@@ -251,4 +254,30 @@ inbox_drafts = Table(
     _created_at(),
     Column("sent_at", DateTime(timezone=True)),
     schema="inbox",
+)
+
+leads_research = Table(
+    "research",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()),
+    Column("run_id", UUID(as_uuid=True), ForeignKey("core.runs.id"), nullable=False),
+    Column("company_name", Text, nullable=False),
+    Column("city_hint", Text, nullable=False),
+    Column("website", Text),
+    Column("domain", Text),
+    Column("status", Text, nullable=False),
+    Column("reason", Text),
+    Column("fields", JSONB, nullable=False),
+    Column("findings", JSONB, nullable=False, server_default="[]"),
+    Column("pages", JSONB, nullable=False, server_default="[]"),
+    Column("raw_cites", Integer, nullable=False, server_default="0"),
+    Column("valid_cites", Integer, nullable=False, server_default="0"),
+    Column("replay_key", String(64)),
+    Column("cost_usd", Numeric(10, 6), nullable=False, server_default="0"),
+    Column("latency_ms", Integer),
+    Column("crm_action", Text),
+    Column("account_id", UUID(as_uuid=True), ForeignKey("crm.accounts.id")),
+    _created_at(),
+    UniqueConstraint("run_id", "company_name", "city_hint"),
+    schema="leads",
 )

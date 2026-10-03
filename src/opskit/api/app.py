@@ -21,6 +21,7 @@ from opskit.api.routers import (
     inbox,
     inbox_release,
     inputs,
+    leads,
     receipts,
     reconcile,
     runs,
@@ -61,6 +62,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.engine = engine
         app.state.core = core
         app.state.session_factory = session_factory
+        if settings.leads_retrieval == "web":
+            app.state.leads_web = leads.WebSession()
         app.state.service_token = settings.read_secret("api_service_token")
         app.state.approver_password_hash = settings.read_secret("approver_password.bcrypt").encode()
         app.state.session_codec = SessionCodec(
@@ -82,6 +85,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 worker.cancel()
             await asyncio.gather(*workers, return_exceptions=True)
             await sender.aclose()
+            web = getattr(app.state, "leads_web", None)
+            if web is not None:
+                await web.aclose()
             await engine.dispose()
 
     app = FastAPI(
@@ -103,6 +109,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         inputs,
         inbox,
         inbox_release,
+        leads,
         approver,
         receipts,
         reconcile,

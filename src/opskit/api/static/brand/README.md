@@ -1,1 +1,3 @@
-Replace logo.svg or set OPSKIT_BRAND_LOGO_URL to use your own logo. The URL must be same-origin (for example a path under /static/): the page's content security policy blocks an external URL. An empty value hides the logo.
+aox-logo-black.png is the AOX logo for the light theme: top left, 20px tall, then a divider and the page name. Don't recolor it or its lime dots.
+
+**The AOX logo is a trademark of AOX LLC and is not licensed under this repository's MIT license.** You may not use it to suggest your deployment comes from or is endorsed by AOX. Replace it in your own deployments: put your own logo in this folder (for example `my-logo.png`), set `OPSKIT_BRAND_LOGO_URL` to its path (for example `/static/brand/my-logo.png`) and `OPSKIT_BRAND_LOGO_ALT` to its alt text, then run `make up` to rebuild the image. To hide the logo, set `OPSKIT_BRAND_LOGO_URL` to empty. The URL must be same-origin: the page's content security policy blocks an external URL.

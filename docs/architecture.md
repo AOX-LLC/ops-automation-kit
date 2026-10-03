@@ -197,7 +197,7 @@ Money is stored as integer cents. Dates the business sees use `date`; event time
 | Schema | Tables (key columns) | Phase |
 | --- | --- | --- |
 | `receipts` | `documents` (sha256 unique, path, media_type), `extractions` (document_id, vendor, receipt_date, subtotal/tax/total_cents, card_last4, confidence jsonb, model_call_id), `bank_transactions` (statement file, row_no, posted_date, description, amount_cents), `matches` (document_id?, bank_txn_id?, status, delta_cents, delta_days, rule), `exports` (path, created_at) | 2 |
-| `leads` | `batches` (source file, status), `batch_items` (batch_id, company_name, city_hint), `findings` (item_id, field, value, source_ref, excerpt, conflict bool) | 3 |
+| `leads` | created in Phase 3b by `leads_0002`: `research` (id, run_id, company_name, city_hint, website, domain, status researched/unresolved, reason, fields jsonb of value/source_url/quote, findings jsonb, raw_cites, valid_cites, cost, latency, crm_action, account_id; unique on run, company, city). `crm_0002` adds `crm.accounts.founded_year` and makes `crm.account_sources` unique on (account, field); see A12 | 3b |
 | `inbox` | created in Phase 3 by `inbox_0002`: `messages` (message_id PK, mailpit_id, from_header, reply_to_header, subject, received_at, body_text), `triage` (message_id PK/FK, run_id, category, priority, needs_reply, escalate, route, quarantined, injection_reasons jsonb, cost, latency), `drafts` (id, message_id unique FK, run_id, approval_id, to_addr, subject, in_reply_to, body, facts_used, grounding jsonb, reply_to_differs, status, failure_reason, sent_at); see A11 | 3 |
 
 ## A5. Workflows as code: export, import, first boot
@@ -238,12 +238,12 @@ Money is stored as integer cents. Dates the business sees use `date`; event time
   | --- | --- | --- | --- |
   | `kitSmoke00000001` | Kit smoke: approval round-trip | yes | Webhook (header auth) → `POST /v1/runs` → `POST /v1/smoke/classify` (replayed model call) → `POST /v1/approvals` (with `$execution.resumeUrl`) → Wait (on webhook call, 10 min limit) → IF `decision == approved` → Send Email (SMTP → Mailpit) → `POST /v1/runs/{id}/finish` |
   | `receipts00000001` | Receipts → reconciled sheet (skeleton) | no | Schedule (15 min) → `GET /v1/receipts/pending` → Split Out → NoOp "Phase 2: extract, reconcile, Convert to File" |
-  | `leads00000000001` | Companies → enriched CRM (skeleton) | no | Manual → `GET /v1/leads/pending` → Split Out → NoOp "Phase 3" |
-  | `inbox00000000001` | Inbox triage with approvals (skeleton) | no | Schedule (5 min) → `GET /v1/inbox/pending` → Split Out → NoOp "Phase 3: triage, Switch on label, Wait, Send Email" |
+  | `leads00000000001` | Companies to enriched CRM records | yes (since 3b) | see A12 |
+  | `inbox00000000001` | Inbox triage with approvals (skeleton) | no | Schedule (5 min) → `POST /v1/inbox/pending` → Split Out → NoOp "Phase 3: triage, Switch on label, Wait, Send Email" |
 
-  The three `pending` endpoints only list inputs: files found, companies in the CSV, Mailpit messages not yet triaged. They show that the mounts and Mailpit access work. No workflow logic.
+  The skeleton `pending` endpoints only listed inputs: files found, companies in the CSV, Mailpit messages not yet triaged. They show that the mounts and Mailpit access work. No workflow logic.
 
-  Later phases replace the skeletons: receipts (A10) and the inbox (A11) are now published, and the inbox adds `inboxReply000001`, a published sub-workflow. n8n refuses to run an unpublished sub-workflow through Execute Workflow, so it must be in the import's published set.
+  Later phases replace the skeletons: receipts (A10), the inbox (A11) and leads (A12) are now published, and the inbox adds `inboxReply000001`, a published sub-workflow. n8n refuses to run an unpublished sub-workflow through Execute Workflow, so it must be in the import's published set.
 
 ## A6. How an n8n execution waits on a human approval and resumes
 
@@ -392,7 +392,7 @@ New mail in Mailpit is triaged; replies are drafted only for categories the kit 
 ```
 Every 5 minutes / Webhook
   -> Start run (POST /v1/runs)
-  -> List new mail (GET /v1/inbox/pending)
+  -> List new mail (POST /v1/inbox/pending)
   -> Anything new?  -- no -> Finish run (nothing new)
   -> One item per message (Split Out)
   -> Triage (POST /v1/inbox/triage, one per message)
@@ -494,6 +494,66 @@ All of these fail closed: nothing is sent, and a person can still answer from th
 - cost and latency per email.
 
 CI runs it in replay with a triage floor of 0.85. Scorecards: `evals/scorecards/inbox-live.*` (the recording run) and `inbox-replay.*`.
+
+## A12. Leads
+
+A list of companies becomes CRM records in which every field says where it came from. `samples/leads/companies.csv` is `company_name,city_hint,website`; `website` is optional.
+
+### Workflow node chain
+
+`n8n/workflows/02-leads.json` (`leads00000000001`), started by hand or by the header-authenticated `leads-run` webhook:
+
+```
+Run on demand / Webhook
+  -> Start run (POST /v1/runs)
+  -> List companies (GET /v1/leads/pending)
+  -> Any companies?  -- no -> Finish run
+  -> One item per company (Split Out)
+  -> Research (POST /v1/leads/research, one per company)
+  -> Collect results -> Summary (GET /v1/leads/summary)
+  -> Send summary email (Mailpit) -> Finish run
+```
+
+No Code nodes. A company whose research fails drops out of the run and is picked up on the next one. The summary email lists records added and updated, the fields left empty, sources that disagree, and companies with "no website given".
+
+### Retrieval
+
+`LEADS_RETRIEVAL=corpus` (default; replay and record) reads `samples/leads/corpus/<domain>/` for the company's website, plus any directory or chamber listing that names the company in its city. `web` (live mode only, for the manual demo) fetches the company's own site.
+
+A company with no `website` is reported as "no website given" and never reaches a model, in every mode.
+
+### Live fetching (`opskit.leads.netguard`, `opskit.leads.robots`)
+
+- The guarded fetcher refuses non-public addresses (private, loopback, link-local, CGNAT, mapped IPv6), connects to the vetted IP while verifying the certificate and SNI against the hostname, allows https on port 443 only, follows at most 3 same-site redirects (each re-checked), refuses compressed bodies, and enforces the 512 KiB cap and the 10 s deadline while streaming. A non-2xx answer returns its status without reading the body.
+- At most 5 pages per company, from a fixed list: `/`, `/about`, `/about-us`, `/company`, `/contact`. Links are never followed.
+- robots.txt is fetched first through the same client, as `ops-automation-kit/0.1`, once per host per run. **2xx:** its rules apply. **4xx other than 429:** allowed (RFC 9309). **429, 5xx, a timeout, a refused connection, a guard failure or a bad redirect:** the whole site is blocked. Rules are matched longest first, Allow wins a tie, and `*` and `$` work as RFC 9309 describes.
+
+### Extraction and citations
+
+`leads.extract` v1 (small tier) sees only the company's name and city and its fenced, untrusted documents. For each field it returns one citation (value, source URL, quoted span) per document that states it. The repo keeps a field only if:
+
+- the URL is a document the model was shown;
+- the quote is in that document's text (case, whitespace, dash and quote style aside);
+- for a third-party listing, the quote names the company;
+- the quote supports the value (a band, year, city or sentence appears in it);
+- the domain equals the website we were given.
+
+Otherwise the field is null. Documents that verifiably disagree leave it null with a `conflict` finding. The CRM row is keyed on the domain: re-running updates the account and its source rows (one per field) and never blanks a value it already has.
+
+### Evals
+
+`make evals` replays `opskit.evals.leads` against format-2 recordings: field accuracy, citation validity (raw model output and after the checks), honest nulls, reported conflicts, the injected instruction in Northfield's page, and cost and latency per company. CI requires field accuracy of 0.95 and every kept field to have a verified source. `leads-live.*` is the scorecard from the recording run; `leads-replay.*` is the same recordings scored by the current code.
+
+### Known limits (v1)
+
+- The corpus stands in for the web; the one real-site run is manual and not committed.
+- Only the company's own site is fetched. There is no search, no JavaScript rendering and no PDF reading.
+- A listing quote must name the company, so a listing that gives a figure without the name is not used.
+- Two companies with the same name and city collide on the research row.
+- The workflow reads the first 100 companies of the list; it does not page past that.
+- A quote supports a value if the value is a whole word of it. Negation ("we are not a plumbing company") and context ("we ship to Boston") are not parsed, so a person still reads the CRM record.
+- robots.txt is matched by the kit's own RFC 9309 matcher. A file with more than 2,000 rules, more than 100 agents in a group or a rule over 512 characters blocks the site.
+- A page that robots.txt allows may redirect; every hop is checked against the same rules.
 
 ## Health endpoints
 

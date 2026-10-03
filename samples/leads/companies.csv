@@ -1,21 +1,21 @@
-company_name,city_hint
-Aeroflow Heating and Cooling,Wexmoor
-Bluebird Bakehouse,Dunmere
-Bluebird Bakery,Quillby
-Brightwell Orthodontics,Vesper Hill
-Cedar Street Dental,Wexmoor
-Copperline Plumbing and Heat,Pellam
-Crumb and Kettle,Vesper Hill
-Fernhollow Landscaping,Wexmoor
-Greenmeadow Lawn Co,Tamsworth
-Harborlight Family Dentistry,Orlen Falls
-Ironwood Collision,Ashgrove Mills
-Kettlebrook Mechanical,Alderton
-Lantern Ledger Bookkeeping,Quillby
-Mistral Climate Services,Alderton
-Northfield Accounting Group,Fenwick Landing
-Pennywhistle Tax Partners,Corbin Ridge
-Redline Auto,Orlen Falls
-Redline Auto Works,Pellam
-Stonepath Gardens,Dunmere
-Tamsworth Tire and Brake,Tamsworth
+company_name,city_hint,website
+Aeroflow Heating and Cooling,Wexmoor,aeroflow.example
+Bluebird Bakehouse,Dunmere,bluebirdbakehouse.example
+Bluebird Bakery,Quillby,bluebird.example
+Brightwell Orthodontics,Vesper Hill,brightwell.example
+Cedar Street Dental,Wexmoor,cedarst.example
+Copperline Plumbing and Heat,Pellam,copperline.example
+Crumb and Kettle,Vesper Hill,
+Fernhollow Landscaping,Wexmoor,fernhollow.example
+Greenmeadow Lawn Co,Tamsworth,greenmeadow.example
+Harborlight Family Dentistry,Orlen Falls,harborlight.example
+Ironwood Collision,Ashgrove Mills,ironwood.example
+Kettlebrook Mechanical,Alderton,kettlebrook.example
+Lantern Ledger Bookkeeping,Quillby,lantern.example
+Mistral Climate Services,Alderton,mistral.example
+Northfield Accounting Group,Fenwick Landing,northfield.example
+Pennywhistle Tax Partners,Corbin Ridge,pennywhistle.example
+Redline Auto,Orlen Falls,redlineauto.example
+Redline Auto Works,Pellam,redlineworks.example
+Stonepath Gardens,Dunmere,
+Tamsworth Tire and Brake,Tamsworth,

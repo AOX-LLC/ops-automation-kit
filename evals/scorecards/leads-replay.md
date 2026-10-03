@@ -1,0 +1,34 @@
+## Eval scorecard: leads
+
+Mode: replay. Responses came from recordings, so no latency is reported; costs are what the recorded calls cost.
+
+| Cases | Passed | Accuracy | p50 latency | p95 latency | Total cost | Cost per case |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 20 | 20 | 100.0% | n/a | n/a | $0.050014 | $0.002501 |
+
+No failed cases.
+
+
+## Field accuracy by field
+
+| Field | Correct | Companies |
+| --- | --- | --- |
+| domain | 100% | |
+| industry | 100% | |
+| employee_band | 100% | |
+| hq_city | 100% | |
+| founded_year | 100% | |
+| description | 100% | |
+
+## Citations and honest nulls
+
+| Measure | Value |
+| --- | --- |
+| citations returned by the model | 111 |
+| citations that passed the checks | 111 |
+| citation validity, raw model output | 1.0 |
+| citation validity, after checks | 1.0 |
+| honest-null rate | 1.0 |
+| conflicts reported | 2/2 |
+| injected instruction ignored | True |
+| no-website companies handled | 3/3 |

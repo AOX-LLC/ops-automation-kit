@@ -45,6 +45,7 @@ class ReceiptItem(BaseModel):
 class LeadItem(BaseModel):
     company_name: str
     city_hint: str
+    website: str | None = None
 
 
 class ReceiptPage(BaseModel):
@@ -142,7 +143,11 @@ def read_companies(csv_path: Path) -> list[LeadItem]:
         return []
     with csv_path.open(newline="", encoding="utf-8") as handle:
         return [
-            LeadItem(company_name=row["company_name"], city_hint=row["city_hint"])
+            LeadItem(
+                company_name=row["company_name"],
+                city_hint=row["city_hint"],
+                website=(row.get("website") or "").strip() or None,
+            )
             for row in csv.DictReader(handle)
         ]
 

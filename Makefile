@@ -31,6 +31,7 @@ test:
 evals:
 	uv run python -m opskit.evals.receipts --label small-replay --min-field-accuracy 0.95
 	uv run python -m opskit.evals.inbox --label replay --require-injection-recall --min-triage-accuracy 0.85
+	uv run python -m opskit.evals.leads --label replay --min-field-accuracy 0.95 --require-valid-citations
 
 smoke:
 	scripts/smoke.sh --clean
