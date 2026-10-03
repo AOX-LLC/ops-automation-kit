@@ -68,9 +68,15 @@ def upgrade() -> None:
             sent_at          timestamptz
         )
     """)
+    op.execute(f"GRANT SELECT, INSERT, UPDATE ON inbox.messages TO {APP_ROLE}")
+    # Triage and drafts are written once; afterwards the app may change only what moves.
+    # The schema's default privileges grant table-wide UPDATE, so that is revoked first.
+    op.execute(f"GRANT SELECT, INSERT ON inbox.triage, inbox.drafts TO {APP_ROLE}")
+    op.execute(f"REVOKE UPDATE ON inbox.triage, inbox.drafts FROM {APP_ROLE}")
     op.execute(
-        f"GRANT SELECT, INSERT, UPDATE ON inbox.messages, inbox.triage, inbox.drafts TO {APP_ROLE}"
+        f"GRANT UPDATE (quarantined, route, injection_reasons) ON inbox.triage TO {APP_ROLE}"
     )
+    op.execute(f"GRANT UPDATE (status, approval_id, sent_at) ON inbox.drafts TO {APP_ROLE}")
 
 
 def downgrade() -> None:

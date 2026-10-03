@@ -471,6 +471,7 @@ The decision is read back from the helper, never taken from the resume call's bo
 - **Release** rebuilds the payload from the stored draft and calls `consume()`, which is single use and checks the hash first. If the draft changed after approval, the hash no longer matches: the release is refused (409), `approval.consume_denied` is audited, and nothing is sent. A second release of the same approval is also refused.
 - **Close** takes no body; the outcome comes from the recorded approval. A rejected approval closes the draft as `rejected`. A pending approval past its expiry is expired first and closes the draft as `expired`. A draft with no approval, or with a live or approved one, gets 409.
 - Draft statuses: `draft` → `pending` (approval requested) → `approved` (released) → `sent`, or `rejected`, `expired` or `failed`. Every move is a conditional update, so two callers cannot both win the same move.
+- The app role may update only `status`, `approval_id` and `sent_at` on `inbox.drafts`, and only the hold columns (`quarantined`, `route`, `injection_reasons`) on `inbox.triage`. A stored draft's recipient and body can't be rewritten through the app's connection, and the approval hash would catch it anyway.
 
 ### Evals
 

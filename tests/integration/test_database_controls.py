@@ -104,3 +104,27 @@ def test_audit_hash_chain_verifies() -> None:
     result = compose("exec", "-T", "api", "python", "-c", script, check=False)
     assert result.returncode == 0, result.stderr[-500:]
     assert int(result.stdout.strip()) >= 1
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "update inbox.drafts set body = 'changed' where false",
+        "update inbox.drafts set to_addr = 'x@y.example' where false",
+        "update inbox.triage set category = 'other' where false",
+        "delete from inbox.drafts where false",
+    ],
+)
+def test_app_role_cannot_rewrite_a_stored_draft_or_triage(sql: str) -> None:
+    result = psql(sql, role="opskit_app")
+    assert result.returncode != 0
+    assert "permission denied" in result.stderr
+
+
+def test_app_role_can_move_a_draft_and_hold_a_message() -> None:
+    for sql in (
+        "update inbox.drafts set status = status, approval_id = approval_id, sent_at = sent_at"
+        " where false",
+        "update inbox.triage set quarantined = quarantined, route = route where false",
+    ):
+        assert psql(sql, role="opskit_app").returncode == 0, sql
