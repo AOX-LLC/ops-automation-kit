@@ -162,3 +162,32 @@ crm_account_sources = Table(
     _created_at("found_at"),
     schema="crm",
 )
+
+receipt_extractions = Table(
+    "extractions",
+    metadata,
+    Column("sha256", String(64), primary_key=True),
+    Column("path", Text, nullable=False),
+    Column("run_id", UUID(as_uuid=True), ForeignKey("core.runs.id"), nullable=False),
+    Column("status", Text, nullable=False),
+    Column("reason", Text),
+    Column("fields", JSONB),
+    Column("replay_key", String(64)),
+    Column("tier", Text),
+    Column("model", Text),
+    Column("cost_usd", Numeric(10, 6), nullable=False, server_default="0"),
+    Column("latency_ms", Integer),
+    _created_at("extracted_at"),
+    schema="receipts",
+)
+
+receipt_reconciliations = Table(
+    "reconciliations",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid()),
+    Column("run_id", UUID(as_uuid=True), ForeignKey("core.runs.id"), nullable=False),
+    Column("rows", JSONB, nullable=False),
+    Column("summary", JSONB, nullable=False),
+    _created_at(),
+    schema="receipts",
+)

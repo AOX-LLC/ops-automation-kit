@@ -19,6 +19,7 @@ from opskit.api.routers import (
     approver,
     health,
     inputs,
+    receipts,
     runs,
     smoke,
 )
@@ -91,6 +92,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.build_info = load_build_info()
     app.add_middleware(SecurityHeaders)
     app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
-    for module in (health, runs, approvals, smoke, inputs, approver):
+    for module in (health, runs, approvals, smoke, inputs, approver, receipts):
         app.include_router(module.router)
     return app
