@@ -129,6 +129,18 @@ async function themedContext(browser: Browser, storageState: object | undefined,
   return context;
 }
 
+/** Boot can answer `healthy` a moment before the first real request is served; retry a few times. */
+async function retrying<T>(what: string, attempt: () => Promise<T>): Promise<T> {
+  for (let tries = 1; ; tries++) {
+    try {
+      return await attempt();
+    } catch (error) {
+      if (tries >= 6) throw new Error(`${what} failed after ${tries} tries: ${String(error).split("\n")[0]}`);
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
+  }
+}
+
 async function n8nSession(api: APIRequestContext): Promise<void> {
   const res = await api.post(`${N8N}/rest/login`, {
     data: { emailOrLdapLoginId: "owner@kit.example", password: secret("KIT_OWNER_PASSWORD") },
@@ -229,8 +241,8 @@ async function main(): Promise<void> {
 
   const browser = await chromium.launch();
   const api = await request.newContext();
-  await n8nSession(api);
-  await approverSession(api);
+  await retrying("n8n login", () => n8nSession(api));
+  await retrying("approver login", () => approverSession(api));
   const state = await api.storageState();
   const context = await themedContext(browser, state, true);
 
