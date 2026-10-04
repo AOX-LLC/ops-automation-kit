@@ -68,3 +68,7 @@ dropbox/
 exports/
 smoke-logs.txt
 .kit-export/
+demo/.bin/
+demo/out/
+demo/.cache/
+demo/terminal/out/

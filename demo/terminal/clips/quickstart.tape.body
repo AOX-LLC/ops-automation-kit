@@ -1,0 +1,15 @@
+# Clip: quickstart. Needs a clean stack boot (minutes). Run only via record-quickstart.sh, which holds the docker lock.
+Hide
+Type "bash --noprofile --norc" Enter
+Type "export PS1='$ ' && cd @REPO@" Enter
+Type "export NO_COLOR=1" Enter
+Type "clear" Enter
+Sleep 300ms
+Show
+Sleep 800ms
+Type "docker compose up -d --wait 2>&1 | grep --line-buffered -v -E '^(time=|WARN)' | cut -c1-104" Sleep 600ms Enter
+Wait+Screen@360s /Healthy/
+Sleep 1s
+Type "docker compose ps --format 'table {{.Service}}\t{{.Status}}'" Sleep 600ms Enter
+Wait+Screen@30s /Up .*healthy/
+Sleep 5s

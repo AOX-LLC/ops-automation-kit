@@ -1,0 +1,23 @@
+{
+  "eyebrow": "03 / Ops automation kit",
+  "title": "Ops automation kit",
+  "subtitle": "Receipts, leads and inbox workflows on n8n and Claude",
+  "workflows": [
+    { "id": "01", "name": "Receipts", "line": "A folder of receipts becomes a reconciled spreadsheet, with bank mismatches flagged." },
+    { "id": "02", "name": "Leads", "line": "A list of company names becomes enriched CRM records, each with its sources." },
+    { "id": "03", "name": "Inbox", "line": "Inbound email is triaged, and drafted replies wait for your approval." }
+  ],
+  "sampleLabel": "Sample data",
+  "runLabel": "Run it yourself",
+  "runCommand": "docker compose up -d --wait",
+  "repoUrl": "github.com/AOX-LLC/ops-automation-kit",
+  "logos": {
+    "light": "../src/opskit/api/static/brand/aox-logo-black.png",
+    "dark": "../src/opskit/api/static/brand/aox-logo-white.png"
+  },
+  "titleCardSeconds": 3,
+  "endCardSeconds": 4,
+  "check": {
+    "allowedPromptPrefixes": ["$ docker compose up", "$ make "]
+  }
+}
