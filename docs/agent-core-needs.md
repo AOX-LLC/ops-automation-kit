@@ -1,6 +1,6 @@
 # What this repo needs from agent-core v0.1.0
 
-Status (Phase 2): pinned to v0.1.0a2; items (a) are met; the kit keeps items (b) in its own adapter (src/opskit/core/pg/).
+Status (Phase 3e): pinned to v0.1.0; items (a) are met; the kit keeps items (b) in its own adapter (src/opskit/core/pg/).
 
 The ops kit drives runs from n8n, so they are long-lived, cross-process, and resumed over HTTP, not by in-process callbacks. Agent-core gates five projects, so list (a) is kept to what cannot be bridged here without forking agent-core. Everything in (b) lives in `opskit/core/` until a later agent-core release absorbs it.
 
@@ -28,4 +28,4 @@ The ops kit drives runs from n8n, so they are long-lived, cross-process, and res
 9. Image preprocessing before the call: EXIF orientation, max long edge and byte cap.
 10. An "honest nulls" convention: a schema helper or prompt pattern for "not present → null" rather than a guessed value.
 11. Atomic record mode and a tool that lists missing or stale fixtures.
-12. **Tag timing** (done: pinned to v0.1.0a2 in Phase 2). Phase 2 pins `v0.1.0a1` as soon as agent-core tags it, then moves to `v0.1.0`. Where agent-core's names differ from §A9, the shim lives in `opskit/core/factory.py`.
+12. **Tag timing** (done: pinned to v0.1.0 in Phase 3e, after v0.1.0a2 in Phase 2, a3 in 3c and a6 earlier in 3e). Where agent-core's names differ from §A9, the shim lives in `opskit/core/factory.py`.

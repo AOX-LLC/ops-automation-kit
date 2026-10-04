@@ -31,7 +31,11 @@ from opskit.api.routers import (
 from opskit.api.routers.health import load_build_info
 from opskit.approvals.resume import N8nResumeSender
 from opskit.config import Settings
-from opskit.core.errors import ApprovalUnreadableError
+from opskit.core.errors import (
+    ApprovalConflictError,
+    ApprovalIntegrityError,
+    ApprovalUnreadableError,
+)
 from opskit.core.factory import build_core, build_resume_worker
 from opskit.core.ports import SWEEP_SERVICE, Core
 from opskit.db.engine import make_approver_engine, make_engine, make_session_factory
@@ -58,6 +62,27 @@ async def _approval_is_unreadable(_: Request, exc: Exception) -> JSONResponse:
         content={
             "detail": "this approval is stored in a form that cannot be read; it was left alone"
         },
+    )
+
+
+async def _approval_conflicts(_: Request, exc: Exception) -> JSONResponse:
+    """A repeat of an open request on other terms: refused, naming the request that stands."""
+    assert isinstance(exc, ApprovalConflictError)
+    return JSONResponse(
+        status_code=409,
+        content={
+            "detail": "an approval is already open for this request with other terms",
+            "existing": str(exc.existing),
+            "differs": list(exc.differs),
+        },
+    )
+
+
+async def _approval_payload_is_not_covered(_: Request, exc: Exception) -> JSONResponse:
+    """The stored payload is not the one the approval's hash covers: nothing is shown or decided."""
+    return JSONResponse(
+        status_code=409,
+        content={"detail": "the payload stored with this approval does not match its hash"},
     )
 
 
@@ -116,6 +141,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url=None,
     )
     app.add_exception_handler(ApprovalUnreadableError, _approval_is_unreadable)
+    app.add_exception_handler(ApprovalConflictError, _approval_conflicts)
+    app.add_exception_handler(ApprovalIntegrityError, _approval_payload_is_not_covered)
     app.state.build_info = load_build_info()
     app.add_middleware(SecurityHeaders)
     app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")

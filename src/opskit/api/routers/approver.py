@@ -21,9 +21,17 @@ from opskit.core.errors import (
     ApprovalAlreadyResolvedError,
     ApprovalExpiredError,
     ApprovalNotFoundError,
+    ApprovalPayloadPurgedError,
     NotAuthorizedToResolveError,
 )
-from opskit.core.ports import APPROVER, ApprovalRequest, AuditEvent, Core, Decision
+from opskit.core.ports import (
+    APPROVER,
+    ApprovalRequest,
+    AuditEvent,
+    Core,
+    Decision,
+    KitApprovalQueue,
+)
 from opskit.inbox.store import SEND_REPLY_ACTION
 from opskit.inbox.view import InboxReplyView, load_inbox_reply_view
 from opskit.receipts.store import session_factory_of
@@ -88,12 +96,26 @@ def _core(request: Request) -> Core:
     return core
 
 
+PURGED_NOTE = "The stored payload was removed after the retention period."
+
+
+async def _payload_json(
+    approvals: KitApprovalQueue, approval_id: UUID
+) -> tuple[str, dict[str, object] | None]:
+    """The payload as shown to an approver, and as a dict; a purged one is said to be purged."""
+    try:
+        payload = await approvals.payload_of(approval_id)
+    except ApprovalPayloadPurgedError:
+        return PURGED_NOTE, None
+    return json.dumps(payload, indent=2, sort_keys=True), payload
+
+
 async def _inbox_view(
-    request: Request, approval: ApprovalRequest, payload: dict[str, object]
+    request: Request, approval: ApprovalRequest, payload: dict[str, object] | None
 ) -> InboxReplyView | None:
     """The dedicated reply view for an inbox draft; other actions keep the generic JSON."""
     factory = session_factory_of(request.app)
-    if approval.action != SEND_REPLY_ACTION or factory is None:
+    if approval.action != SEND_REPLY_ACTION or factory is None or payload is None:
         return None
     return await load_inbox_reply_view(factory, approval.id, payload)
 
@@ -183,7 +205,7 @@ async def detail(request: Request, approval_id: UUID) -> Response:
     session = await _require_login(request)
     try:
         approval = await _core(request).approvals.get(approval_id)
-        payload = await _core(request).approvals.payload_of(approval_id)
+        subject_json, payload = await _payload_json(_core(request).approvals, approval_id)
     except ApprovalNotFoundError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such approval") from exc
     return templates.TemplateResponse(
@@ -192,7 +214,7 @@ async def detail(request: Request, approval_id: UUID) -> Response:
         {
             "csrf_token": session.csrf_token,
             "approval": approval,
-            "subject_json": json.dumps(payload, indent=2, sort_keys=True),
+            "subject_json": subject_json,
             "inbox_view": await _inbox_view(request, approval, payload),
             "error": None,
         },
@@ -219,7 +241,7 @@ async def decide(
         raise HTTPException(status.HTTP_403_FORBIDDEN, "you may not decide this approval") from exc
     except (ApprovalExpiredError, ApprovalAlreadyResolvedError) as exc:
         approval = await approvals.get(approval_id)
-        payload = await approvals.payload_of(approval_id)
+        subject_json, payload = await _payload_json(approvals, approval_id)
         message = (
             "This approval expired before a decision was made."
             if isinstance(exc, ApprovalExpiredError)
@@ -231,7 +253,7 @@ async def decide(
             {
                 "csrf_token": session.csrf_token,
                 "approval": approval,
-                "subject_json": json.dumps(payload, indent=2, sort_keys=True),
+                "subject_json": subject_json,
                 "inbox_view": await _inbox_view(request, approval, payload),
                 "error": message,
             },

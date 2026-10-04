@@ -78,7 +78,7 @@ On boot, a workflow is re-imported only when its committed JSON changed since th
 - **No attribution trailers or co-author lines in commits or PR descriptions.**
 - Public repo: synthetic data only, `.example` domains, 555-01xx phone numbers. No names of real clients, internal products, tools or hosts.
 - `.env.example` only; never commit a real key. gitleaks runs in pre-commit and in CI.
-- Model calls go through agent-core v0.1.0a3 (pinned in `pyproject.toml`). `AGENT_CORE_MODE=replay` is the default and never spends; `live` and `record` read the viewer's own key from `AGENT_CORE_ANTHROPIC_API_KEY`, never `ANTHROPIC_API_KEY`. Model IDs and prices live in config, never in code.
+- Model calls go through agent-core v0.1.0 (pinned in `pyproject.toml`). `AGENT_CORE_MODE=replay` is the default and never spends; `live` and `record` read the viewer's own key from `AGENT_CORE_ANTHROPIC_API_KEY`, never `ANTHROPIC_API_KEY`. Model IDs and prices live in config, never in code.
 - Recordings are made from the host (`AGENT_CORE_MODE=record uv run python -m opskit.evals.receipts`, or `.inbox`), never by hand. Hand-written fixtures never score extraction.
 - Secrets never go to logs. Generated secrets live on the `kit-secrets` volume; `make login` is the only way to read the human passwords.
 - Answer keys under `evals/` are never mounted into a running container.

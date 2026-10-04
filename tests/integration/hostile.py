@@ -48,7 +48,7 @@ APPROVAL_BASE = {
     "action": q("kit_smoke.echo"),
     "summary": q("s"),
     "payload": "'{}'::jsonb",
-    "payload_sha256": "repeat('0', 64)",
+    "payload_sha256": "repeat(md5(random()::text), 2)",
     "requested_by": q("service.n8n"),
     "required_role": q("approver"),
     "created_at": "now()",
@@ -57,7 +57,7 @@ APPROVAL_BASE = {
 AUDIT_BASE = {
     # Huge and random, so a row that got in could never collide with a real record.
     "seq": "(9000000000000000000 - (random() * 1000000000000)::bigint)",
-    "schema_version": "3",
+    "schema_version": "4",
     "event_id": "gen_random_uuid()",
     "occurred_at": "now()",
     "action": q("test.hostile"),

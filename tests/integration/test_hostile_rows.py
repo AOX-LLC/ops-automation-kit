@@ -178,7 +178,7 @@ APPROVAL_CASES: list[Case] = [
     ("payload-json-array", {"payload": jsonb("[1]")}, "payload: must be a JSON object"),
     ("payload-json-string", {"payload": jsonb('"x"')}, "payload: must be a JSON object"),
     ("payload-json-number", {"payload": jsonb("1")}, "payload: must be a JSON object"),
-    ("payload-json-null-literal", {"payload": jsonb("null")}, "payload: must not be null"),
+    ("payload-json-null-literal", {"payload": jsonb("null")}, "stores its payload, a JSON object"),
     # jsonb prints {"k": "xxx"}: nine characters of frame around the value.
     (
         "payload-exactly-at-131072-bytes",

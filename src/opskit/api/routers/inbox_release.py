@@ -121,7 +121,8 @@ async def close(request: Request, draft_id: UUID) -> Response:
     if draft.approval_id is None:
         # Nobody decided anything, so there is no outcome to record.
         raise HTTPException(status.HTTP_409_CONFLICT, "the draft has no approval; not closing")
-    approval = await approvals.get(draft.approval_id)
+    # Closing a draft must work whatever is stored, so the payload is not read or checked here.
+    approval = await approvals.get(draft.approval_id, verify_payload=False)
     if approval.status.value == "expired":
         # Reads report a request past its lifetime as expired; store it so the table agrees.
         approval = await approvals.close_pending(draft.approval_id, principal=N8N_SERVICE)

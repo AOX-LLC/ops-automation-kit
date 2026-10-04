@@ -48,6 +48,7 @@ from opskit.leads.retrieval import (
 )
 
 MAX_QUOTE_CHARS = 400
+MAX_VALUE_CHARS = 80  # a short field's value, as stored
 MAX_PROMPT_CHARS = 60_000
 BAND = re.compile(r"^\d{1,6}(?:-\d{1,6}|\+)$")
 _BAND_UNIT = re.compile(r"\s+(?:employees?|staff|people|team members)$")
@@ -169,7 +170,7 @@ def _value_supported(name: str, value: str, quote: str) -> str | None:
     if name == "description":  # one sentence copied verbatim: the value is the quote
         short = len(value) <= MAX_QUOTE_CHARS
         return None if short and value == quote else "description is not the quoted sentence"
-    if len(value) > 80:
+    if len(value) > MAX_VALUE_CHARS:
         return "value too long"
     return None if _word_in(value, quote) else "value not in the quote"
 
@@ -190,15 +191,18 @@ def _check_cite(
 ) -> tuple[FieldValue | None, Finding | None]:
     doc = docs.get(cite.source_url)
     quote_n = normalize(cite.quote)
+    # Cap what is stored, measured after NFKC: it can widen one character into many.
+    shown_quote = visible(cite.quote).strip()
+    shown_value = visible(cite.value).strip()
 
     def reject(detail: str, kind: FindingKind = "citation_rejected") -> tuple[None, Finding]:
         return None, Finding(field=name, kind=kind, detail=detail)
 
     if doc is None:
         return reject("unknown source")
-    if not quote_n or len(cite.quote) > MAX_QUOTE_CHARS or quote_n not in normalize(doc.text):
+    if not quote_n or len(shown_quote) > MAX_QUOTE_CHARS or quote_n not in normalize(doc.text):
         return reject(f"quote not in {cite.source_url}")
-    if len(cite.value) > MAX_QUOTE_CHARS:
+    if len(shown_value) > MAX_QUOTE_CHARS:
         return reject("value too long")
     # A band is checked as validated below; its bare value (501-1000) has no unit to read it by.
     if has_contact_details(cite.quote) or (
@@ -222,11 +226,11 @@ def _check_cite(
     if name == "founded_year":
         stored = int(value_n)
     elif name in ("industry", "hq_city", "description"):
-        stored = visible(cite.value).strip()
+        stored = shown_value
+        if name != "description" and len(stored) > MAX_VALUE_CHARS:
+            return reject("value too long", "unsupported_value")
     # Store exactly what was checked: the quote as a reader sees it, without hidden characters.
-    return FieldValue(
-        value=stored, source_url=cite.source_url, quote=visible(cite.quote).strip()
-    ), None
+    return FieldValue(value=stored, source_url=cite.source_url, quote=shown_quote), None
 
 
 def verify(company: Company, extraction: LeadExtraction, documents: Sequence[Document]) -> Verified:

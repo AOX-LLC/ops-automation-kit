@@ -1,4 +1,4 @@
-"""The kit's view of models, approvals, audit and runs, backed by agent-core v0.1.0a3.
+"""The kit's view of models, approvals, audit and runs, backed by agent-core v0.1.0.
 
 Everything outside `opskit.core` imports these names from here, never from agent-core
 directly (import-linter enforces it), so the pinned library can change behind this module.
@@ -35,9 +35,11 @@ from aox_agent_core.audit import AuditEvent, AuditHead, AuditLog, AuditRecord
 from pydantic import JsonValue
 
 __all__ = [
+    "ADMIN_ROLE",
     "APPROVER",
     "APPROVER_ROLE",
     "N8N_SERVICE",
+    "PURGE_ROLES",
     "ROLES_BY_ACTION",
     "SWEEP_SERVICE",
     "ApprovalQueue",
@@ -73,6 +75,9 @@ type JsonObject = dict[str, Any]
 # n8n authenticates with the service token and acts as N8N_SERVICE, which can request
 # approvals but never resolve them (agent-core's RoleApproverPolicy needs a human).
 APPROVER_ROLE = "approver"
+# Who may purge stored approval payloads: the decision side, or an operator acting as admin.
+ADMIN_ROLE = "admin"
+PURGE_ROLES = frozenset({APPROVER_ROLE, ADMIN_ROLE})
 APPROVER = Principal(id="approver", kind=PrincipalKind.HUMAN, roles=frozenset({APPROVER_ROLE}))
 N8N_SERVICE = Principal(id="service.n8n", kind=PrincipalKind.SERVICE)
 # The api's own expiry sweep; it only closes requests whose lifetime has passed.
@@ -104,9 +109,11 @@ class KitApprovalQueue(ApprovalQueue, Protocol):
     """agent-core's ApprovalQueue plus what the kit keeps in its own adapter.
 
     submit() also takes `resume_url`, the signed n8n URL to call once decided; it is
-    stored but never returned. The kit also keeps a string-cursor page for the approver
-    page, shows the approver the payload it is approving, and closes a request whose wait is
-    over (`close_pending`).
+    stored but never returned. The payload is always stored, since the approver must see what
+    the hash binds; `include_payload` only sets whether the returned request carries it. A repeat
+    of an open request returns it (see the queue's docstring). The kit also keeps a string-cursor
+    page for the approver page, shows the approver the payload it is approving, and closes a
+    request whose wait is over (`close_pending`).
     """
 
     async def submit(
@@ -121,7 +128,10 @@ class KitApprovalQueue(ApprovalQueue, Protocol):
         delegates: Collection[str] = (),
         context: RunContext | None = None,
         resume_url: str | None = None,
+        include_payload: bool = False,
     ) -> ApprovalRequest: ...
+
+    async def get(self, request_id: UUID, *, verify_payload: bool = True) -> ApprovalRequest: ...
 
     async def payload_of(self, request_id: UUID) -> JsonObject: ...
 

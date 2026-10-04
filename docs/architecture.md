@@ -118,7 +118,7 @@ Everything else is refused, including delete and truncate, and no update changes
 
 **Outbox.** `core.outbox_guard` refuses an insert unless it comes from the approver role, the approval exists with a resume URL and is stored as approved or rejected, the payload is exactly `{"approval_id": <that id>, "decision": <the stored decision>}`, and the row is undelivered, untried and without an error. The worker's updates keep `attempts` going up to 10, `last_error` to 200 characters, `next_attempt_at` within an hour of the database clock, and stamp `delivered_at` once.
 
-**Bounds on every requester-writable column.** `core.enforce_bounds()` is one trigger function driven by a JSON spec (`opskit.db.bounds`): text length and form, enums, number and time ranges, and JSON type, size, depth (measured without recursion) and item count. It checks an insert, and an update only for a column it changed, so a row stored before a bound existed is never refused for an unrelated change and is never rewritten. `core.bounds_violations()` runs the same rules over stored rows. The bounds are in `core_0010` (core tables: runs, approvals, audit log, model calls, sample files) and `crm_0003`, `receipts_0003`, `leads_0003`, `inbox_0003`; each module's spec dicts are the table of record. Limits are wider than the largest sampled value by an order of magnitude, or match a cap the application already has. Values the application writes on purpose stay allowed (empty failed-draft fields, `sha256 = ''` for an unreadable receipt, `prompt_version = 0`). The audit log's `occurred_at` is not bounded here (Phase 3e), and neither are the columns the database fills with its own clock on insert (`created_at`, `started_at`, `loaded_at`, `fetched_at`, `triaged_at`, `extracted_at`, `found_at`, `updated_at`); nothing reads them as input. `runs.finished_at` is bounded to after 2000 and at most five minutes ahead; "not before `started_at`" is a two-column rule the spec cannot say. An approval's payload is capped at 128 KiB so a maximal inbox reply (`drafts.body` at 16384 characters) always fits. `approvals_bounds` fires before `approvals_guard` (trigger names sort), so the approvals spec has no time columns: the guard owns them.
+**Bounds on every requester-writable column.** `core.enforce_bounds()` is one trigger function driven by a JSON spec (`opskit.db.bounds`): text length and form, enums, number and time ranges, and JSON type, size, depth (measured without recursion) and item count. It checks an insert, and an update only for a column it changed, so a row stored before a bound existed is never refused for an unrelated change and is never rewritten. `core.bounds_violations()` runs the same rules over stored rows. The bounds are in `core_0010` (core tables: runs, approvals, audit log, model calls, sample files) and `crm_0003`, `receipts_0003`, `leads_0003`, `inbox_0003`; each module's spec dicts are the table of record. Limits are wider than the largest sampled value by an order of magnitude, or match a cap the application already has. Values the application writes on purpose stay allowed (empty failed-draft fields, `sha256 = ''` for an unreadable receipt, `prompt_version = 0`). The audit log's `occurred_at` is bounded by its insert trigger (`core_0011`, Phase 3e), not by this spec, and the columns the database fills with its own clock on insert are not bounded here either (`created_at`, `started_at`, `loaded_at`, `fetched_at`, `triaged_at`, `extracted_at`, `found_at`, `updated_at`); nothing reads them as input. `runs.finished_at` is bounded to after 2000 and at most five minutes ahead; "not before `started_at`" is a two-column rule the spec cannot say. An approval's payload is capped at 128 KiB so a maximal inbox reply (`drafts.body` at 16384 characters) always fits. `approvals_bounds` fires before `approvals_guard` (trigger names sort), so the approvals spec has no time columns: the guard owns them. `core_0012` re-attaches it with `payload` allowed to be NULL, which only a purge makes it; the guard refuses a NULL or non-object payload on insert, so that bound is no looser than before.
 
 Mail is untrusted, so `inbox.store` clamps what it takes from the mailbox to the `inbox.messages` limits (truncating text, removing NUL and lone surrogates, dropping an out-of-range `Date`), and a message whose id cannot be stored as it is (too long, empty, or holding a NUL) is left out of the listing before the fetch limit applies: an id is refused, never cleaned, because a rewritten one could equal another message's. Model-written lists (injection evidence, `facts_used`, grounding, lead findings and pages) are cut to the database caps by items, characters and printed bytes (`opskit.db.fit`) before they are stored; groundedness is judged on the full lists first. A draft body over 16384 characters, or a sender address over 254, becomes a failed draft (`too_long`, `invalid_sender`) instead of a refused insert, and a lead's page URL over 2048 characters is not kept.
 
@@ -242,6 +242,64 @@ Money is stored as integer cents. Dates the business sees use `date`; event time
 | `leads` | created in Phase 3b by `leads_0002`: `research` (id, run_id, company_name, city_hint, website, domain, status researched/unresolved, reason, fields jsonb of value/source_url/quote, findings jsonb, raw_cites, valid_cites, cost, latency, crm_action, account_id; unique on run, company, city). `crm_0002` adds `crm.accounts.founded_year` and makes `crm.account_sources` unique on (account, field); see A12 | 3b |
 | `inbox` | created in Phase 3 by `inbox_0002`: `messages` (message_id PK, mailpit_id, from_header, reply_to_header, subject, received_at, body_text), `triage` (message_id PK/FK, run_id, category, priority, needs_reply, escalate, route, quarantined, injection_reasons jsonb, cost, latency), `drafts` (id, message_id unique FK, run_id, approval_id, to_addr, subject, in_reply_to, body, facts_used, grounding jsonb, reply_to_differs, status, failure_reason, sent_at); see A11 | 3 |
 
+### agent-core v0.1.0 rules (Phase 3e)
+
+The kit keeps its own `PgAuditLog` and `PgApprovalQueue` and ports what agent-core v0.1.0 (and the
+alphas before it) added to its own tables. Each rule is a database rule in `core_0011` to `core_0013`
+wherever SQL can say it (the purge role check below is the one exception: it is the queue's, not the
+database's); every 3d bound stays.
+
+- **Audit.** `append_many` writes a batch all or nothing, in order, under one lock. `occurred_at` is
+  the caller's if given, else the database clock; the insert trigger refuses a time more than 24
+  hours back or 5 minutes ahead. The trigger sets `recorded_at`, `db_role` (`current_user`) and
+  `db_login` (`session_user`); none of the three is in the hash, which still covers `occurred_at`.
+  New records are schema 4; records at 2 and 3 still verify.
+- **One open approval per requester, action and payload hash** (unique index
+  `approvals_one_open`). An exact repeat of a submit returns the open request and writes no audit
+  record. A repeat with another summary, role, lifetime, delegate list or resume URL raises
+  `ApprovalConflictError`, shown as a 409 that names the open approval. The resume URL is a term
+  because a retried n8n execution has a new one; handing it the old approval would resume the dead
+  execution.
+- **An approver is neither the requester nor a listed delegate**, in the guard trigger as well as in
+  code, and a delegate is not offered the request.
+- **An approval that lapses unused expires** and keeps its decision (`approved -> expired`).
+- **Stored payloads are checked on every read** against `payload_sha256` (`get`, `payload_of`, the
+  pending listing, the decision). Withdrawing, using and expiring never check, so a requester can
+  always close a request.
+- **Purging.** `purge_payloads` sets the payload of a finished request (consumed, rejected,
+  cancelled or expired) to NULL once its finish time is at least 24 hours old; the finish times and
+  `payload_purged_at` are the database's, and only the approver role's connection may write them.
+  `payload_sha256` stays, so what the payload was stays bound. The check that the caller holds the
+  approver or admin role (`PURGE_ROLES`), or is refused with the refusal audited
+  (`approval.purge_denied`), is in the queue, against a `Principal` the caller builds: it keeps a
+  future route from passing the wrong principal and authenticates nobody. The database's own control
+  is that only the approver role's connection can write the purge columns.
+
+**Retention is the deployer's decision.** Nothing runs `purge_payloads` on a schedule, and the kit
+ships no command for it: a deployment chooses how long approval payloads are kept and calls
+`PgApprovalQueue.purge_payloads` itself, with an approver or admin principal on a queue that has the
+approver connection. A purge removes only `core.approvals.payload`. It does not remove the personal
+data kept elsewhere, which includes:
+
+- an approval's `summary` (an inbox reply's reads "Reply to <address>: <subject>"), fixed by the guard;
+- `inbox.messages` (sender and Reply-To headers, subject and the full body of every inbound email),
+  `inbox.triage` and `inbox.drafts` (the full text of each drafted reply);
+- the CRM and leads tables (`crm.*`, `leads.research`), which hold what was researched about
+  companies, including any contact details on a cited page that were not redacted;
+- Mailpit (every message in and out) and n8n's execution data (pruned after 168 hours by
+  `EXECUTIONS_DATA_MAX_AGE` in `compose.yaml`).
+
+The audit log is append-only and holds no payloads, but it records actor and login names.
+
+**Upgrading (3e).** Stop the api before migrating (`make down`, then `make up`): `core_0013` makes the
+audit insert trigger require schema 4, so an api still running the earlier code, which writes schema 3,
+has every audited write refused until it is replaced (an outbox delivery then rolls back and is sent
+again). `core_0012` expires lapsed open approvals, then keeps one open request per requester, action
+and payload hash (the approved one, else the oldest) and cancels the other pending ones, reporting
+the ids as warnings; two live approved requests in one group stop the migration and the error gives
+the statements to resolve it. `core_0011` to `core_0013` change no other stored row and are not
+reversible.
+
 ## A5. Workflows as code: export, import, first boot
 
 - The source of truth is `n8n/workflows/*.json`. Every workflow and credential has a fixed ID. Credentials are referenced by ID, `pinData` is stripped, and no secret is ever inline.
@@ -279,6 +337,8 @@ Money is stored as integer cents. Dates the business sees use `date`; event time
   | ID | Name | Published | Shape |
   | --- | --- | --- | --- |
   | `kitSmoke00000001` | Kit smoke: approval round-trip | yes | Webhook (header auth) → `POST /v1/runs` → `POST /v1/smoke/classify` (replayed model call) → `POST /v1/approvals` (with `$execution.resumeUrl`) → Wait (on webhook call, 10 min limit) → IF `decision == approved` → Send Email (SMTP → Mailpit) → `POST /v1/runs/{id}/finish` |
+
+  The smoke workflow submits the same subject every run, and an approval is one per requester, action and payload while it is open (pending, or approved and unused; nothing uses a smoke approval, so it stays open until its 10 minute lifetime ends). Triggering it again inside that window gets a 409 naming the open approval, because the new execution's resume URL differs; wait for the approval to expire, or start from a clean stack.
   | `receipts00000001` | Receipts → reconciled sheet (skeleton) | no | Schedule (15 min) → `GET /v1/receipts/pending` → Split Out → NoOp "Phase 2: extract, reconcile, Convert to File" |
   | `leads00000000001` | Companies to enriched CRM records | yes (since 3b) | see A12 |
   | `inbox00000000001` | Inbox triage with approvals (skeleton) | no | Schedule (5 min) → `POST /v1/inbox/pending` → Split Out → NoOp "Phase 3: triage, Switch on label, Wait, Send Email" |
@@ -337,7 +397,7 @@ IF status == approved                    2xx → delivered_at; audit approval.re
 
 ## A7. Replay mode and cassettes
 
-Model calls go through agent-core v0.1.0a3. Its settings are in `config/agent-core.toml`; `AGENT_CORE_MODE` overrides `mode`.
+Model calls go through agent-core v0.1.0. Its settings are in `config/agent-core.toml`; `AGENT_CORE_MODE` overrides `mode`.
 
 - **Modes:**
 
@@ -380,8 +440,8 @@ Model calls go through agent-core v0.1.0a3. Its settings are in `config/agent-co
 | Run context | agent-core's `RunContext(run_id=str(uuid), external_ids={"workflow", "n8n_workflow_id", "n8n_execution_id"})`. |
 | Models | agent-core's `ModelClient.call(...) -> CallResult`, wrapped by `MeteredModelClient`, which writes `core.model_calls` and a `model.call` audit record after each call. |
 | Approvals | `PgApprovalQueue` implements agent-core's `ApprovalQueue`: `submit` (with `delegates` and an extra `resume_url` keyword), `get`, `list_pending(principal, after=UUID)`, `resolve(principal)`, `consume` (the requester or a named delegate only), `cancel` and `expire_due(principal, now, limit)`. `RoleApproverPolicy(roles_by_action=ROLES_BY_ACTION)` runs inside `resolve`. The kit keeps its own extras: `close_pending`, `list_pending_page` (string cursor, `Page`) and the outbox. |
-| Audit | `PgAuditLog` implements agent-core's `AuditLog`: `append(AuditEvent) -> AuditRecord`, `iter_records`, `head`, `verify`. Records are hash-chained with agent-core's `compute_record_hash` (schema 3; 2 for records already in the chain, with `db_role` set by the database), and appends are serialised with a transaction-scoped advisory lock. `append_in(session, event)` writes inside a caller's transaction. |
-| Principals | The approver is `Principal("approver", HUMAN, {"approver"})` and `required_role = "approver"`. n8n is `Principal("service.n8n", SERVICE)`, which can request approvals but never resolve them. |
+| Audit | `PgAuditLog` implements agent-core's `AuditLog`: `append(AuditEvent) -> AuditRecord`, `iter_records`, `head`, `verify`. Records are hash-chained with agent-core's `compute_record_hash` (schema 4; 2 and 3 for records already in the chain, with `db_role`, `db_login` and `recorded_at` set by the database, and `append_many` for a batch), and appends are serialised with a transaction-scoped advisory lock. `append_in(session, event)` writes inside a caller's transaction. |
+| Principals | The approver is `Principal("approver", HUMAN, {"approver"})` and `required_role = "approver"`. n8n is `Principal("service.n8n", SERVICE)`, which can request approvals but never resolve them. `purge_payloads` takes a principal holding `approver` or `admin` (`PURGE_ROLES`). |
 
 The Phase 1 audit table is kept read-only as `core.audit_log_v1`; migration `core_0003` creates the hash-chained `core.audit_log` with the same append-only triggers and grants.
 
