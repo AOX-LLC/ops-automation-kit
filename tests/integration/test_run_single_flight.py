@@ -67,3 +67,25 @@ def test_the_smoke_workflow_may_overlap_itself(service: httpx.Client, started: l
         )
         assert response.status_code == 201
         started.append(response.json()["run_id"])
+
+
+def test_two_simultaneous_starts_let_exactly_one_through(
+    service: httpx.Client, started: list[str]
+) -> None:
+    """The advisory lock is what stops the schedule and a webhook call both starting a run."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(pool.map(lambda _: _start(service, f"it-{uuid4().hex[:12]}"), range(2)))
+    codes = sorted(response.status_code for response in responses)
+    assert codes == [201, 409]
+    started.extend(r.json()["run_id"] for r in responses if r.status_code == 201)
+
+
+def test_a_start_with_no_execution_id_is_still_refused_while_one_runs(
+    service: httpx.Client, started: list[str]
+) -> None:
+    first = service.post("/v1/runs", json={"workflow": WORKFLOW})
+    assert first.status_code == 201
+    started.append(first.json()["run_id"])
+    assert service.post("/v1/runs", json={"workflow": WORKFLOW}).status_code == 409

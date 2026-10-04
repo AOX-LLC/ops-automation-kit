@@ -6,6 +6,8 @@ import asyncio
 from types import SimpleNamespace
 from typing import Any
 
+from fastapi import Response
+
 from opskit.api.routers import runs as runs_route
 from opskit.core.ports import Mode
 
@@ -29,7 +31,7 @@ def _request(scheduled_runs: bool) -> tuple[Any, _Runs]:
 def _start(scheduled_runs: bool, *, scheduled: bool) -> tuple[Any, _Runs]:
     request, runs = _request(scheduled_runs)
     body = runs_route.StartRun(workflow="receipts", scheduled=scheduled)
-    return asyncio.run(runs_route.start_run(request, body)), runs
+    return asyncio.run(runs_route.start_run(request, Response(), body)), runs
 
 
 def test_a_scheduled_start_is_skipped_when_schedules_are_off() -> None:

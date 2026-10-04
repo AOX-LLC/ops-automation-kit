@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 
 from opskit.api.auth import ServiceAuth
@@ -41,9 +41,10 @@ class FinishRun(BaseModel):
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-async def start_run(request: Request, body: StartRun) -> RunStarted:
+async def start_run(request: Request, response: Response, body: StartRun) -> RunStarted:
     core: Core = request.app.state.core
     if body.scheduled and not request.app.state.settings.scheduled_runs:
+        response.status_code = status.HTTP_200_OK  # nothing was created
         return RunStarted(run_id=None, mode=core.mode.value, skipped=True)
     try:
         ctx = await core.runs.start(

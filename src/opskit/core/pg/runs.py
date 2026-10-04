@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
@@ -30,7 +31,9 @@ def _context(row: Any) -> RunContext:
 
 
 # A run still marked running after this long is taken to have died, so it stops blocking the next.
-STALE_AFTER = "30 minutes"
+# Replay runs take about a minute. A run that fails inside n8n is not closed (no error workflow
+# yet), so it blocks its workflow for this long: the one known cost of the guard.
+STALE_AFTER = timedelta(minutes=15)
 # The smoke workflow waits for a human approval for up to its lifetime, so it may overlap itself.
 SINGLE_FLIGHT = frozenset({"receipts", "leads", "inbox"})
 
@@ -73,17 +76,15 @@ class PgRunStore:
         await session.execute(
             text("select pg_advisory_xact_lock(hashtext(:key))"), {"key": f"run:{workflow}"}
         )
+        conditions = [
+            runs.c.workflow == workflow,
+            runs.c.status == "running",
+            runs.c.started_at > func.now() - STALE_AFTER,
+        ]
+        if n8n_execution_id is not None:  # with no id there is no retry to recognise
+            conditions.append(runs.c.n8n_execution_id.is_distinct_from(n8n_execution_id))
         busy = (
-            await session.execute(
-                select(runs.c.id)
-                .where(
-                    runs.c.workflow == workflow,
-                    runs.c.status == "running",
-                    runs.c.started_at > func.now() - text(f"interval '{STALE_AFTER}'"),
-                    runs.c.n8n_execution_id.is_distinct_from(n8n_execution_id),
-                )
-                .limit(1)
-            )
+            await session.execute(select(runs.c.id).where(*conditions).limit(1))
         ).scalar_one_or_none()
         if busy is not None:
             raise RunInProgress(workflow, busy)
