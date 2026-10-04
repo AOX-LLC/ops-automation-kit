@@ -29,6 +29,10 @@ jobs:
       - run: uv run lint-imports
       - run: uv run python scripts/lint_workflows.py n8n/workflows
       - run: docker compose config -q
+      - name: Media carries no free-text metadata
+        run: |
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          python3 scripts/check_media_metadata.py $(git ls-files 'docs/media/*.png' 'docs/media/*.gif' 'docs/media/*.webm' 'docs/media/*.mp4')
 
   types:
     runs-on: ubuntu-24.04
