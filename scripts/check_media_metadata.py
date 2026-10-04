@@ -186,6 +186,8 @@ def video_findings(path: Path) -> tuple[list[str], str]:
     data = path.read_bytes()
     if path.suffix.lower() == ".mp4":
         findings, text = mp4_findings(data)
+        if findings and findings[0].startswith("not an mp4"):
+            return findings, text  # no need to ask ffprobe about a file that is not one
     elif data[:4] != b"\x1a\x45\xdf\xa3":
         return ["not a webm (no EBML header)"], ""
     else:
