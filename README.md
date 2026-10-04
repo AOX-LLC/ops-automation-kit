@@ -20,7 +20,7 @@ Three n8n + Claude workflows for small businesses, runnable from one `docker com
 
 n8n orchestrates. A small Python helper API does the work. Everything runs in replay mode by default: no API key, no spend.
 
-**Watch the 2-minute walkthrough (captions on):** YouTube link to be added here <!-- YOUTUBE_URL -->. The captions are in [docs/media/](docs/media/) as `walkthrough.vtt` and `walkthrough.srt`.
+**Watch the walkthrough, about a minute and a half (captions on):** YouTube link to be added here <!-- YOUTUBE_URL -->. The captions are in [docs/media/](docs/media/) as `walkthrough.vtt` and `walkthrough.srt`.
 
 ## What it looks like
 
