@@ -226,6 +226,19 @@ def psql(
     return compose("exec", "-T", "postgres", *args, check=False)
 
 
+@pytest.fixture
+def finish_test_runs() -> Iterator[None]:
+    """Close the runs a test opened. A run of receipts, leads or inbox is refused while another is
+    running, and these tests start runs as fixtures without ever finishing them. n8n's own
+    execution ids are numbers; every test id is prefixed."""
+    yield
+    result = psql(
+        "update core.runs set status = 'failed', finished_at = now() "
+        "where status = 'running' and n8n_execution_id !~ '^[0-9]+$'"
+    )
+    assert result.returncode == 0, result.stderr
+
+
 def age_approval(approval_id: str) -> None:
     """Make a pending approval's lifetime lapse. The guard trigger fixes `expires_at`, so a test
     that needs time to pass switches it off for this one statement, as a superuser, and back
