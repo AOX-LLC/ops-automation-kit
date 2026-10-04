@@ -345,7 +345,7 @@ reversible.
 
   The skeleton `pending` endpoints only listed inputs: files found, companies in the CSV, Mailpit messages not yet triaged. They show that the mounts and Mailpit access work. No workflow logic.
 
-  Later phases replace the skeletons: receipts (A10), the inbox (A11) and leads (A12) are now published, and the inbox adds `inboxReply000001`, a published sub-workflow. n8n refuses to run an unpublished sub-workflow through Execute Workflow, so it must be in the import's published set.
+  Later phases replace the skeletons: receipts (A10), the inbox (A11) and leads (A12) are now published, and the inbox adds `inboxReply000001`, a published sub-workflow. n8n refuses to run an unpublished sub-workflow through Execute Workflow, so it must be in the import's published set. The same goes for the error workflow: n8n logs "is not active and cannot be executed" for an unpublished one, so `runError00000001` (`05-run-error.json`, an Error Trigger that calls `POST /v1/runs/by-execution/{id}/finish`) is published too, and `receipts`, `leads` and `inbox` name it as their `errorWorkflow`.
 
 ## A6. How an n8n execution waits on a human approval and resumes
 

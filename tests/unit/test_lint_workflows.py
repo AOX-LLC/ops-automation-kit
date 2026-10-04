@@ -60,4 +60,3 @@ def test_the_run_workflows_name_the_error_workflow_that_closes_failed_runs() -> 
         assert by_name[name]["settings"]["errorWorkflow"] == error_workflow_id, name
     types = {node["type"] for node in by_name["05-run-error.json"]["nodes"]}
     assert "n8n-nodes-base.errorTrigger" in types
-    assert by_name["05-run-error.json"]["active"] is False
