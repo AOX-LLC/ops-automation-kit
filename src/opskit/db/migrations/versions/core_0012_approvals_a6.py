@@ -27,11 +27,13 @@ Every 3d bound stays: the guard still stamps `created_at`, `expires_at`, `resolv
 and `consumed_at` itself, and `approvals_bounds` is re-attached with the one change that `payload`
 may be NULL (only a purge makes it so; the CHECK and the guard refuse any other NULL).
 
-Duplicates. Before the index is built, each group of open requests with the same key keeps its
-approved request (else its oldest) and the others, which are pending, are cancelled with the guard
-off for that statement and reported as a warning with their ids. No audit record is written for
-them. A group with two approved requests stops the migration with the ids: a person decides which
-one stands.
+Duplicates. Under 3d an approved request that was never used stayed `approved` for ever, so a
+long-lived database holds lapsed open rows. Before the index is built they are expired in place
+(guard off for that statement, `closed_at` their own `expires_at`) and reported. Of the requests
+still live, each group with the same key keeps its approved request (else its oldest) and the
+others, which are pending, are cancelled and reported. No audit record is written for either. A
+group with two live approved requests stops the migration with the ids: a person decides which one
+stands, as the table owner with the guard off (the error says how).
 
 Revision ID: core_0012
 Revises: core_0011
@@ -71,14 +73,24 @@ CLOSE_DUPLICATES = """
     DECLARE
         two_approved uuid[];
         cancelled uuid[];
+        lapsed uuid[];
     BEGIN
+        -- A lapsed open request must not hold a key, or be kept over a live one below.
+        WITH done AS (
+            UPDATE core.approvals SET status = 'expired', closed_at = expires_at
+            WHERE status IN ('pending', 'approved') AND expires_at <= statement_timestamp()
+            RETURNING id)
+        SELECT coalesce(array_agg(id), '{}') INTO lapsed FROM done;
+        RAISE WARNING 'approvals: % lapsed open request(s) expired: %',
+            cardinality(lapsed), lapsed;
         SELECT array_agg(id) INTO two_approved FROM (
             SELECT id, count(*) OVER (PARTITION BY requested_by, action, payload_sha256) AS n
             FROM core.approvals WHERE status = 'approved') a WHERE n > 1;
         IF two_approved IS NOT NULL THEN
-            RAISE EXCEPTION 'two approved requests share a requester, action and payload: %. '
-                'Cancel the one that should not stand, then run the migration again.',
-                two_approved;
+            RAISE EXCEPTION 'live approved requests share a requester, action and payload: %. '
+                'As the table owner, disable approvals_guard, set status = cancelled and '
+                'closed_at = now() on the ones that should not stand, enable it again (always), '
+                'then run the migration again.', two_approved;
         END IF;
         WITH ranked AS (
             SELECT id, status,
