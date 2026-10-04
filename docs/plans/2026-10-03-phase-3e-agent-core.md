@@ -51,18 +51,22 @@ Done in the first commit. Docs that name the version follow it.
   neither. `purge_payloads(*, principal, older_than, limit=500) -> int` runs on the approver
   connection, refuses `older_than` below the floor (`ValueError`), selects due rows
   `FOR UPDATE SKIP LOCKED`, stamps them, and writes one `approval.payload_purged` audit record each,
-  in the same transaction. It is not scheduled in this phase: nothing deletes data on a timer until a
+  in one batched append at the end of the transaction. It is not scheduled in this phase: nothing deletes data on a timer until a
   retention period is chosen (listed under follow-ups).
 - **Idempotent submit**: partial unique index `approvals_one_open` on
   `(requested_by, action, payload_sha256) WHERE status IN ('pending','approved')`. `submit` closes an
   open request of that key that has lapsed, then looks for an open one: an exact repeat (same
   `summary`, `required_role`, lifetime `expires_at - created_at == ttl_seconds`, `delegates`) returns it
   and writes no audit record; any difference raises `ApprovalConflictError(existing, differs)` audited as
-  `approval.submit_conflict`. A race lands on the index; the loser re-reads. `context` and `resume_url`
-  are not compared (as agent-core's `context`). The migration turns existing duplicates into a report:
-  it keeps each group's approved request (else its oldest) and cancels the other pending ones with
-  the guard off for those statements, as `core_0010` did; two approved in one group stops the
-  migration with the ids. The HTTP contract is unchanged: a repeat gets the existing request's id and
+  `approval.submit_conflict`. A race lands on the index; the loser re-reads. `context` is not compared
+  (as in agent-core). **`resume_url` is compared** (added after review; agent-core has no push delivery,
+  the kit's resume URL is its delivery channel): a retried n8n execution has a new URL, and handing it
+  the old approval would resume the dead execution while the human's decision was discarded. An HTTP
+  retry inside one execution keeps its URL, so it stays idempotent. The migration turns existing duplicates into a report:
+  lapsed open rows (3d left unused approvals `approved` for ever) are expired first; of the live ones
+  each group keeps its approved request (else its oldest) and the other pending ones are cancelled,
+  with the guard off for those statements, as `core_0010` did; two live approved in one group stops
+  the migration with the ids and says how to resolve it. The HTTP contract is unchanged: a repeat gets the existing request's id and
   status back; a conflict is a 409 with the existing id.
 - **Payload verification**: the kit always stores the payload (the approver must see what the hash binds).
   `include_payload` is accepted for protocol compatibility and controls only whether the returned
