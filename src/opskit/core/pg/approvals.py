@@ -13,7 +13,9 @@ unused keeps its decision: EXPIRED may carry `approve`.
 Submit is idempotent: at most one request is open (pending, or approved and not yet used) per
 requester, action and payload hash, which the database's unique index enforces. An exact repeat
 returns the open request and writes no audit record; a repeat on other terms is an
-ApprovalConflictError.
+ApprovalConflictError. The resume URL is one of the terms: it is the only way a decision reaches
+the waiting n8n execution, so a retried execution (which has a new one) must not be handed an
+approval that would resume the old one.
 
 The stored payload is the one the hash covers, checked on every read of it: `get` and `payload_of`
 raise ApprovalIntegrityError, the listing omits the request, and a decision is refused. Withdrawing,
@@ -64,12 +66,12 @@ from aox_agent_core.errors import (
     NotTheRequesterError,
 )
 from pydantic import JsonValue
-from sqlalchemy import and_, case, func, insert, null, or_, select, true, update
+from sqlalchemy import and_, case, extract, func, insert, null, or_, select, true, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from opskit.core.errors import ApprovalPayloadPurgedError, ApprovalUnreadableError
-from opskit.core.pg.audit import append_in, append_once_in
+from opskit.core.pg.audit import append_in, append_many_in, append_once_in
 from opskit.core.ports import JsonObject, Page
 from opskit.db.engine import SessionFactory
 from opskit.db.tables import approvals, outbox
@@ -295,7 +297,9 @@ class _Terms:
     resume_url: str | None
 
 
-def _differences(existing: ApprovalRequest, stored_payload: Any, terms: _Terms) -> tuple[str, ...]:
+def _differences(
+    existing: ApprovalRequest, stored_payload: Any, stored_resume_url: str | None, terms: _Terms
+) -> tuple[str, ...]:
     """What an open request has that a repeat submit does not ask for, sorted."""
     differs = []
     if existing.summary != terms.summary:
@@ -304,6 +308,8 @@ def _differences(existing: ApprovalRequest, stored_payload: Any, terms: _Terms) 
         differs.append("required_role")
     if existing.delegates != frozenset(terms.delegates):
         differs.append("delegates")
+    if (stored_resume_url or None) != (terms.resume_url or None):
+        differs.append("resume_url")
     lifetime = (existing.expires_at - existing.created_at).total_seconds()
     if abs(lifetime - terms.ttl_seconds) > 0.001:
         differs.append("lifetime")
@@ -392,9 +398,9 @@ class PgApprovalQueue:
 
         The payload is always stored, because the approver must see what the hash binds;
         `include_payload` only decides whether the returned request carries it. An exact repeat of
-        an open request (same summary, role, lifetime and delegates) returns it, unchanged and
-        unaudited; any difference raises ApprovalConflictError. `context` and `resume_url` are not
-        compared: the first submit's stay.
+        an open request (same summary, role, lifetime, delegates and resume URL) returns it,
+        unchanged and unaudited; any difference raises ApprovalConflictError. `context` is not
+        compared: the first submit's stays.
         """
         if not 0 < ttl_seconds <= TTL_SECONDS_MAX:
             raise ValueError(f"ttl_seconds must be between 1 and {TTL_SECONDS_MAX}")
@@ -440,14 +446,14 @@ class PgApprovalQueue:
             await self._store_expired(session, same_key, terms.requested_by.id)
             row = (
                 await session.execute(
-                    select(*REQUEST_COLUMNS, approvals.c.payload)
+                    select(*REQUEST_COLUMNS, approvals.c.payload, approvals.c.resume_url)
                     .where(same_key, approvals.c.status.in_(OPEN_STATUSES))
                     .with_for_update()
                 )
             ).one_or_none()
             if row is not None:
                 existing = _parsed(row)
-                differs = _differences(existing, row.payload, terms)
+                differs = _differences(existing, row.payload, row.resume_url, terms)
                 if not differs:
                     return existing
                 conflict = ApprovalConflictError(
@@ -506,12 +512,16 @@ class PgApprovalQueue:
                 return request
         raise conflict
 
-    async def get(self, request_id: UUID) -> ApprovalRequest:
+    async def get(self, request_id: UUID, *, verify_payload: bool = True) -> ApprovalRequest:
         """The request, with its stored payload once that has been checked against the hash.
 
         Raises ApprovalIntegrityError if the stored payload is not the one the hash covers. A
-        purged payload reads as None, with `payload_purged_at` set.
+        purged payload reads as None, with `payload_purged_at` set. `verify_payload=False` reads
+        the request without its payload, which is not fetched: for closing one, which a requester
+        must be able to do whatever is stored.
         """
+        if not verify_payload:
+            return await self._get_unchecked(request_id)
         query = select(*REQUEST_COLUMNS, approvals.c.payload).where(approvals.c.id == request_id)
         async with self._reading("get"):
             async with self._session_factory() as session:
@@ -520,7 +530,9 @@ class PgApprovalQueue:
                 raise ApprovalNotFoundError(f"approval {request_id} not found")
             request = _judged(_parsed(row), datetime.now(UTC))
             if row.payload is None:
-                return request
+                if request.payload_purged_at is not None:
+                    return request
+                raise _UnreadableRow(request_id)
             if not _covers(request, row.payload):
                 raise ApprovalIntegrityError(_MISMATCH.format(id=request_id))
             return request.model_copy(update={"payload": dict(row.payload)})
@@ -969,7 +981,11 @@ class PgApprovalQueue:
                                 ApprovalStatus.EXPIRED.value,
                             ]
                         ),
-                        finished_at <= func.statement_timestamp() - older_than,
+                        # Epoch seconds, as the guard counts them: an interval would follow the
+                        # session time zone across a DST change and could pick a row too young.
+                        extract("epoch", finished_at)
+                        <= extract("epoch", func.statement_timestamp())
+                        - older_than.total_seconds(),
                     )
                     .order_by(finished_at, approvals.c.id)
                     .limit(limit)
@@ -983,18 +999,25 @@ class PgApprovalQueue:
                     # The guard stamps payload_purged_at from its own clock whatever this says.
                     .values(payload=null(), payload_purged_at=func.statement_timestamp())
                 )
-                await _audit(
-                    session,
-                    "approval.payload_purged",
-                    principal.id,
-                    row.id,
-                    {
-                        "approval_action": row.action,
-                        "payload_sha256": row.payload_sha256,
-                        "request_status": row.status,
-                    },
-                    None,
-                )
+            # One append for the batch: the chain lock is taken once, at the end, instead of
+            # being held across every update while the rest of the kit's audited writes wait.
+            await append_many_in(
+                session,
+                [
+                    AuditEvent(
+                        action="approval.payload_purged",
+                        actor_id=principal.id,
+                        subject_id=str(row.id),
+                        payload={
+                            "subject_type": "approval",
+                            "approval_action": row.action,
+                            "payload_sha256": row.payload_sha256,
+                            "request_status": row.status,
+                        },
+                    )
+                    for row in due
+                ],
+            )
         return len(due)
 
     def _given_up_on(self) -> list[UUID]:
