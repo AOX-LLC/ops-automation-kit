@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from opskit.api.auth import ServiceAuth
-from opskit.core.errors import NotFound
+from opskit.core.errors import NotFound, RunInProgress
 from opskit.core.ports import Core
 
 router = APIRouter(prefix="/v1/runs", tags=["runs"], dependencies=[ServiceAuth])
@@ -39,11 +39,14 @@ class FinishRun(BaseModel):
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def start_run(request: Request, body: StartRun) -> RunStarted:
     core: Core = request.app.state.core
-    ctx = await core.runs.start(
-        workflow=body.workflow,
-        n8n_workflow_id=body.n8n_workflow_id,
-        n8n_execution_id=body.n8n_execution_id,
-    )
+    try:
+        ctx = await core.runs.start(
+            workflow=body.workflow,
+            n8n_workflow_id=body.n8n_workflow_id,
+            n8n_execution_id=body.n8n_execution_id,
+        )
+    except RunInProgress as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     return RunStarted(run_id=UUID(ctx.run_id), mode=core.mode.value)
 
 

@@ -47,6 +47,7 @@ __all__ = [
     "NotAuthorizedToResolveError",
     "NotFound",
     "ReplayMissError",
+    "RunInProgress",
     "StaleRecordingError",
     "StructuredOutputError",
 ]
@@ -82,3 +83,12 @@ class ApprovalPayloadPurgedError(ApprovalError):
 class NotAuthorizedToPurgeError(ApprovalError):
     """The principal holds neither the approver nor the admin role, so it may not purge stored
     approval payloads. The refusal is recorded in the audit log (`approval.purge_denied`)."""
+
+
+class RunInProgress(CoreError):
+    """Another run of this workflow is still going. A second trigger (the schedule firing while a
+    webhook run is in flight) must not start work on the same pending items twice."""
+
+    def __init__(self, workflow: str, run_id: UUID) -> None:
+        super().__init__(f"a {workflow} run is already in progress ({run_id})")
+        self.run_id = run_id
