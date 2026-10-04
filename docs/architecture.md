@@ -67,7 +67,7 @@ Hardening for every service except Postgres: `cap_drop: [ALL]`, `security_opt: [
 | `approver_password` + `.bcrypt` | api gets the hash only; the plaintext is shown by `make login` |
 | `approver_session_secret` | api (signs the approver session cookie) |
 | `api_service_token` (n8n → api) | api, n8n-import (rendered into an n8n Header Auth credential) |
-| `n8n_webhook_token` (callers → n8n webhooks) | n8n-import (Header Auth credential on the smoke webhook), smoke script |
+| `n8n_webhook_token` (callers → n8n webhooks) | n8n-import (Header Auth credential on the webhooks), smoke script, `make login` (so the quickstart can call a workflow) |
 
 n8n reads `N8N_ENCRYPTION_KEY_FILE` and `DB_POSTGRESDB_PASSWORD_FILE` natively. The owner variables have no `_FILE` form, so a short wrapper entrypoint exports `N8N_INSTANCE_OWNER_PASSWORD_HASH` from its file and then `exec`s the stock entrypoint.
 
