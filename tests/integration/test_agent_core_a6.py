@@ -16,6 +16,7 @@ from uuid import uuid4
 import httpx
 import pytest
 
+from opskit.db.migrations.versions import core_0012_approvals_a6 as migration
 from tests.integration.conftest import (
     N8N_PORT,
     ApproverClient,
@@ -48,11 +49,11 @@ PRELUDE = textwrap.dedent(
     NONCE = "__NONCE__"
 
     async def submit(queue, *, nonce=NONCE, summary="itest", role="approver", ttl=600,
-                     delegates=(), include=False):
+                     delegates=(), include=False, resume_url=None):
         return await queue.submit(
             action="kit_smoke.echo", summary=summary, payload={"n": 1, "nonce": nonce},
             requested_by=N8N_SERVICE, required_role=role, ttl_seconds=ttl,
-            delegates=delegates, include_payload=include,
+            delegates=delegates, include_payload=include, resume_url=resume_url,
         )
 
     async def attempt(call):
@@ -274,6 +275,10 @@ def test_a_repeat_on_other_terms_is_a_conflict_that_names_what_differs() -> None
                 "required_role": {"role": "someone.else", "delegates": ["service.a"]},
                 "lifetime": {"ttl": 601, "delegates": ["service.a"]},
                 "delegates": {"delegates": ["service.a", "service.z"]},
+                "resume_url": {
+                    "resume_url": "http://api.example/resume",
+                    "delegates": ["service.a"],
+                },
             }.items():
                 try:
                     await submit(queue, **kwargs)
@@ -285,7 +290,7 @@ def test_a_repeat_on_other_terms_is_a_conflict_that_names_what_differs() -> None
     )
     for name, got in out["seen"].items():
         assert got == {"existing": out["id"], "differs": [name]}, (name, got)
-    assert audit_count("approval.submit_conflict", out["id"]) == 4
+    assert audit_count("approval.submit_conflict", out["id"]) == 5
     assert audit_count("approval.requested", out["id"]) == 1
 
 
@@ -348,7 +353,20 @@ def test_an_n8n_retry_of_the_same_draft_approval_returns_the_existing_request(
         "/v1/runs", json={"workflow": "inbox", "n8n_execution_id": f"retry-{uuid4()}"}
     )
     assert run.status_code == 201, run.text
+    url = one(f"select resume_url from core.approvals where id = '{approval_id}'")
     retried = service.post(
+        f"/v1/inbox/drafts/{draft_id}/approval",
+        json={"run_id": run.json()["run_id"], "resume_url": url},
+    )
+    assert retried.status_code == 201, retried.text
+    assert retried.json()["approval_id"] == approval_id
+    assert _draft_status(draft_id) == "pending"
+    assert one(key) == "1"
+    assert audit_count("approval.requested", approval_id) == 1
+
+    # A retried execution carries a new resume URL; handing it the old approval would resume the
+    # dead execution, so it is refused, naming the approval that stands.
+    new_execution = service.post(
         f"/v1/inbox/drafts/{draft_id}/approval",
         json={
             "run_id": run.json()["run_id"],
@@ -358,11 +376,10 @@ def test_an_n8n_retry_of_the_same_draft_approval_returns_the_existing_request(
             ),
         },
     )
-    assert retried.status_code == 201, retried.text
-    assert retried.json()["approval_id"] == approval_id
-    assert _draft_status(draft_id) == "pending"
+    assert new_execution.status_code == 409, new_execution.text
+    assert new_execution.json()["existing"] == approval_id
+    assert new_execution.json()["differs"] == ["resume_url"]
     assert one(key) == "1"
-    assert audit_count("approval.requested", approval_id) == 1
 
 
 # --- approvals: the delegate rule ---------------------------------------------------------------
@@ -662,3 +679,63 @@ def test_only_a_finished_request_may_be_purged_and_only_by_the_approver_role() -
         role="opskit_approver",
     )
     assert restore.returncode != 0
+
+
+# --- the core_0012 duplicate step, on a database that holds what 3d allowed -------------------
+
+
+def _plant(tag: str, n: int, status: str, *, lapsed: bool) -> str:
+    """One open row for the key `tag`, planted with the guards off (as 3d could have left it)."""
+    approved = status == "approved"
+    decided = (
+        "'approve', 'a.person', now() - interval '2 hours'" if approved else "null, null, null"
+    )
+    return (
+        "insert into core.approvals (action, summary, payload, payload_sha256, requested_by, "
+        "required_role, created_at, expires_at, status, decision, resolved_by, resolved_at) "
+        f"values ('kit_smoke.echo', '{tag}-{n}', '{{}}', repeat(md5('{tag}'), 2), 'service.mig', "
+        f"'approver', now() - interval '3 hours' + {n} * interval '1 second', "
+        f"now() {'-' if lapsed else '+'} interval '1 hour', '{status}', {decided}); "
+    )
+
+
+def _run_duplicate_step(plants: list[str]) -> Any:
+    """The migration's own SQL against planted rows, in a transaction that is rolled back."""
+    sql = (
+        "begin; drop index core.approvals_one_open; "
+        "alter table core.approvals disable trigger approvals_bounds; "
+        "alter table core.approvals disable trigger approvals_guard; "
+        + "".join(plants)
+        + migration.CLOSE_DUPLICATES
+        + " select summary || '=' || status from core.approvals "
+        "where requested_by = 'service.mig' order by summary; rollback;"
+    )
+    return psql(sql)
+
+
+def test_the_migration_expires_lapsed_open_rows_instead_of_refusing_on_them() -> None:
+    result = _run_duplicate_step(
+        [
+            # Two approved requests that were never used and have long lapsed: 3d kept them
+            # approved for ever, and they must not be taken for a live conflict.
+            _plant("A", 1, "approved", lapsed=True),
+            _plant("A", 2, "approved", lapsed=True),
+            # A lapsed approval beside two live pending requests: the oldest live one stands.
+            _plant("B", 1, "approved", lapsed=True),
+            _plant("B", 2, "pending", lapsed=False),
+            _plant("B", 3, "pending", lapsed=False),
+        ]
+    )
+    assert result.returncode == 0, result.stderr
+    stored = [line for line in result.stdout.splitlines() if "=" in line]
+    assert stored == ["A-1=expired", "A-2=expired", "B-1=expired", "B-2=pending", "B-3=cancelled"]
+    assert "lapsed open request(s) expired" in result.stderr
+
+
+def test_the_migration_still_refuses_two_live_approved_requests_and_says_what_to_do() -> None:
+    result = _run_duplicate_step(
+        [_plant("C", 1, "approved", lapsed=False), _plant("C", 2, "approved", lapsed=False)]
+    )
+    assert result.returncode != 0
+    assert "live approved requests share" in result.stderr
+    assert "disable approvals_guard" in result.stderr
