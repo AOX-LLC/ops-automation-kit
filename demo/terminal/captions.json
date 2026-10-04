@@ -1,9 +1,5 @@
 {
   "evals": {
     "caption": "make evals in replay mode: recorded model responses, no API key, no spend. Output is the real JSON from each eval, reformatted to one line each. Runs in about 5 seconds; not sped up."
-  },
-  "quickstart": {
-    "caption": "docker compose up -d --wait from a clean state, then the service list. The boot takes minutes; the clip is sped up (see speed in captions.json) and the wait is cut, not faked.",
-    "speed": 8
   }
 }

@@ -7,7 +7,6 @@ Terminal recordings for the portfolio, made with [VHS](https://github.com/charmb
 ```sh
 demo/terminal/render.sh dark evals        # one clip, one theme
 demo/terminal/render.sh light evals
-demo/terminal/record-quickstart.sh        # quickstart, both themes, under the docker lock
 ```
 
 Output goes to `demo/terminal/out/<theme>/terminal/<clip>.mp4` and `.gif` (set `OUT=` to put `<theme>/terminal/` elsewhere). The MP4 is H.264, crf 27, 30 fps. The GIF is 900 px wide, palette method, 15 fps (10 fps if the first pass is over 3 MB). The raw webm lives in a temp dir and is deleted. `KEEP_WORK=1` keeps the generated tape for debugging.
@@ -50,4 +49,7 @@ for f in /tmp/fr/*.png; do tesseract "$f" -; done | grep -i -E 'aiden|@|/home|no
 ## Clips
 
 - `evals`: `make evals` in replay mode (recorded responses, no key, no spend, no stack). It rewrites timestamps in the tracked `evals/scorecards/*.scorecard.json`; `render.sh` runs `git checkout -- evals` afterwards if `git status --porcelain evals` changed, so the tree stays clean. About 12 s, not sped up.
-- `quickstart`: `docker compose up -d --wait` then `docker compose ps`. Needs a clean boot of several minutes, so run it only through `record-quickstart.sh`, which takes `flock ~/portfolio-projects/.locks/docker`, runs `docker compose down -v --remove-orphans`, records, then `docker compose down`. Sped up 8x, as its caption says. Not yet run.
+
+## Not built
+
+A quickstart clip (`docker compose up -d --wait` on a clean boot) was tried and dropped: with the output piped through `grep` and `cut`, VHS saw no output for six minutes and timed out. A wrapper that holds the docker lock, boots clean and records would need compose's own progress output on a TTY (for example `--progress=plain` without the pipe), and would run under `flock ~/portfolio-projects/.locks/docker`.
