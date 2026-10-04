@@ -43,11 +43,11 @@ n8n orchestrates. A small Python helper API does the work. Everything runs in re
   </tr>
   <tr>
     <td width="50%">
-      <picture>
+      <a href="docs/media/canvas-receipts-light.png"><picture>
         <source media="(prefers-color-scheme: dark)" srcset="docs/media/canvas-receipts-dark.png">
         <img alt="The receipts workflow on the n8n canvas." src="docs/media/canvas-receipts-light.png">
-      </picture>
-      <br><sub><b>n8n canvas.</b> The receipts workflow. No Code nodes: anything beyond a field lookup is Python.</sub>
+      </picture></a>
+      <br><sub><b>n8n canvas.</b> The receipts workflow. No Code nodes: anything beyond a field lookup is Python. Click to enlarge: <a href="docs/media/canvas-receipts-light.png">light</a>, <a href="docs/media/canvas-receipts-dark.png">dark</a>.</sub>
     </td>
     <td width="50%">
       <picture>
@@ -55,6 +55,22 @@ n8n orchestrates. A small Python helper API does the work. Everything runs in re
         <img alt="CRM records with the quoted text and source behind each enriched field." src="docs/media/crm-records-light.png">
       </picture>
       <br><sub><b>CRM records.</b> Each enriched field carries the quoted text and source it came from. Rendered from the <code>crm</code> tables.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <a href="docs/media/canvas-inbox-light.png"><picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/media/canvas-inbox-dark.png">
+        <img alt="The inbox workflow on the n8n canvas." src="docs/media/canvas-inbox-light.png">
+      </picture></a>
+      <br><sub><b>n8n canvas.</b> The inbox workflow. Drafts wait for a person. Click to enlarge: <a href="docs/media/canvas-inbox-light.png">light</a>, <a href="docs/media/canvas-inbox-dark.png">dark</a>.</sub>
+    </td>
+    <td width="50%">
+      <a href="docs/media/canvas-leads-light.png"><picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/media/canvas-leads-dark.png">
+        <img alt="The leads workflow on the n8n canvas." src="docs/media/canvas-leads-light.png">
+      </picture></a>
+      <br><sub><b>n8n canvas.</b> The leads workflow. Every field keeps its source. Click to enlarge: <a href="docs/media/canvas-leads-light.png">light</a>, <a href="docs/media/canvas-leads-dark.png">dark</a>.</sub>
     </td>
   </tr>
 </table>

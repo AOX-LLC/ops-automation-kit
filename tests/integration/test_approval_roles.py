@@ -141,8 +141,12 @@ def test_the_approver_role_cannot_approve_an_expired_request(make_approval: Make
     approval_id = make_approval()["approval_id"]
     age_approval(approval_id)
     result = psql(APPROVE.format(id=approval_id), role="opskit_approver")
+    # Two refusals are correct: "has expired" if the row is still pending, "cannot move from
+    # expired to approved" if the expiry sweep got to it first. Either way it is not approved.
     assert result.returncode != 0
-    assert "has expired" in result.stderr
+    assert "has expired" in result.stderr or "cannot move from expired to approved" in result.stderr
+    status = psql(f"select status from core.approvals where id = '{approval_id}'").stdout.strip()
+    assert status != "approved"
 
 
 def test_the_approver_role_cannot_approve_its_own_request(make_approval: MakeApproval) -> None:
