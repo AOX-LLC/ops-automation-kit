@@ -139,9 +139,11 @@ def test_a_failed_execution_starts_the_error_workflow(
     """The refused Start run fails the leads execution, so n8n must start the error workflow."""
     blocker = _start(service, f"it-{uuid4().hex[:12]}")
     started.append(blocker.json()["run_id"])
+    begun = time.time()
     count_sql = (
         "select count(*) from execution_entity "
-        "where \"workflowId\" = 'runError00000001' and status = 'success'"
+        "where \"workflowId\" = 'runError00000001' and status = 'success' "
+        f'and "startedAt" >= to_timestamp({begun})'
     )
     before = int(psql(count_sql, db="n8n").stdout.strip())
 

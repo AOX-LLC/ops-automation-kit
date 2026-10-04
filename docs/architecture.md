@@ -463,7 +463,7 @@ Every paired row carries `delta_cents` (bank amount minus receipt amount, both a
 
 ### One run at a time, and the schedules
 
-A run of `receipts`, `leads` or `inbox` is refused with a 409 while another run of the same workflow is going (a per-workflow advisory lock makes two simultaneous starts take turns). Without it, a schedule firing beside a webhook call read the same pending items and the summary email went out twice. A retry of the same n8n execution is not an overlap, `kit_smoke` is exempt (it waits for a human), and a run that has not finished after 30 minutes stops blocking.
+A run of `receipts`, `leads` or `inbox` is refused with a 409 while another run of the same workflow is going (a per-workflow advisory lock makes two simultaneous starts take turns). Without it, a schedule firing beside a webhook call read the same pending items and the summary email went out twice. A retry of the same n8n execution is not an overlap, `kit_smoke` is exempt (it waits for a human), and a run that has not finished after 15 minutes stops blocking. A failure inside n8n closes the run at once: `receipts`, `leads` and `inbox` name `runError00000001` (`05-run-error.json`) as their error workflow, which marks the failed execution's run failed through the helper. The 15 minutes matter only if that workflow fails too, or n8n dies mid-run.
 
 `KIT_SCHEDULED_RUNS=false` (`OPSKIT_SCHEDULED_RUNS` in the api) makes the helper answer a scheduled start with `skipped: true`, and the `Run allowed?` branch in `01-receipts` and `03-inbox` stops there. Webhook calls are unaffected. Smoke and the demo recorder turn the schedules off so a run happens when the script triggers it and not when a clock boundary falls; the default is on.
 

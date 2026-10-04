@@ -31,8 +31,8 @@ def _context(row: Any) -> RunContext:
 
 
 # A run still marked running after this long is taken to have died, so it stops blocking the next.
-# Replay runs take about a minute. A run that fails inside n8n is not closed (no error workflow
-# yet), so it blocks its workflow for this long: the one known cost of the guard.
+# Replay runs take about a minute. A failure inside n8n is closed at once by the error workflow
+# (05-run-error.json); this window only matters when that workflow fails too, or n8n dies mid-run.
 STALE_AFTER = timedelta(minutes=15)
 # The smoke workflow waits for a human approval for up to its lifetime, so it may overlap itself.
 SINGLE_FLIGHT = frozenset({"receipts", "leads", "inbox"})

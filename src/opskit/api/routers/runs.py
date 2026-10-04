@@ -66,6 +66,10 @@ async def finish_run(request: Request, run_id: UUID, body: FinishRun) -> None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such run") from exc
 
 
+class FailRun(BaseModel):
+    status: Literal["failed"]
+
+
 class ClosedRun(BaseModel):
     closed: bool
 
@@ -73,11 +77,10 @@ class ClosedRun(BaseModel):
 @router.post("/by-execution/{n8n_execution_id}/finish")
 async def fail_run_of_execution(
     request: Request,
-    body: FinishRun,
+    body: FailRun,
     n8n_execution_id: str = Path(max_length=64, pattern=N8N_ID_PATTERN),
 ) -> ClosedRun:
     """Called by the error workflow. It can only mark a running run failed, never succeeded."""
-    if body.status != "failed":
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "only failed is accepted")
+    del body  # the schema only admits "failed"
     core: Core = request.app.state.core
     return ClosedRun(closed=await core.runs.fail_by_execution(n8n_execution_id))
