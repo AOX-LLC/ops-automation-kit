@@ -156,7 +156,7 @@ def test_the_approver_role_cannot_approve_its_own_request(make_approval: MakeApp
     [
         (NEW_APPROVED_ROW, "permission denied"),
         ("select * from core.runs limit 1", "permission denied"),
-        ("update core.approvals set payload = '{}' where false", "permission denied"),
+        ("update core.approvals set summary = 'x' where false", "permission denied"),
         ("update core.approvals set consumed_at = now() where false", "permission denied"),
         ("delete from core.approvals where false", "permission denied"),
         ("update core.audit_log set action = 'x' where false", "permission denied"),
@@ -195,9 +195,13 @@ def test_the_grants_are_exactly_the_split() -> None:
     for column in ("status", "closed_at"):
         assert can("opskit_app", column) == "t"
         assert can("opskit_approver", column) == "t"
-    for column in ("payload", "expires_at", "requested_by", "required_role", "delegates"):
+    for column in ("expires_at", "requested_by", "required_role", "delegates"):
         assert can("opskit_app", column) == "f", column
         assert can("opskit_approver", column) == "f", column
+    # Only the decision side may purge a stored payload (the guard allows nothing else there).
+    for column in ("payload", "payload_purged_at"):
+        assert can("opskit_app", column) == "f", column
+        assert can("opskit_approver", column) == "t", column
     insert = "select has_table_privilege('{}', 'core.approvals', 'INSERT')"
     assert psql(insert.format("opskit_app")).stdout.strip() == "t"
     assert psql(insert.format("opskit_approver")).stdout.strip() == "f"

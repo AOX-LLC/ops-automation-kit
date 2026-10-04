@@ -163,8 +163,11 @@ def upgrade() -> None:
                 IF NEW.reason IS NOT NULL THEN
                     RAISE EXCEPTION 'a new approval has no reason yet';
                 END IF;
-                IF NEW.payload IS NULL OR NEW.payload_purged_at IS NOT NULL THEN
-                    RAISE EXCEPTION 'a new approval stores its payload';
+                -- approvals_bounds lets payload be NULL, for a purge; a new row never is, and
+                -- a JSON null is not an object either.
+                IF jsonb_typeof(NEW.payload) IS DISTINCT FROM 'object'
+                   OR NEW.payload_purged_at IS NOT NULL THEN
+                    RAISE EXCEPTION 'a new approval stores its payload, a JSON object';
                 END IF;
                 -- Only the length of the lifetime comes from the caller; both ends are then the
                 -- database's. An infinite value gives an infinite length, which is refused.
