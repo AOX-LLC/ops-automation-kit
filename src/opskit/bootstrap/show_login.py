@@ -14,15 +14,17 @@ def _read(name: str) -> str:
 
 def main() -> None:
     owner, approver = _read("n8n_owner_password"), _read("approver_password")
+    webhook_token = _read("n8n_webhook_token")
     if "--env" in sys.argv:
         # Machine-readable form for scripts/smoke.sh, which keeps the values in variables.
         print(f"KIT_OWNER_PASSWORD={owner}")
         print(f"KIT_APPROVER_PASSWORD={approver}")
-        print(f"KIT_WEBHOOK_TOKEN={_read('n8n_webhook_token')}")
+        print(f"KIT_WEBHOOK_TOKEN={webhook_token}")
         return
     print("n8n editor      email: owner@kit.example")
     print(f"                password: {owner}")
     print(f"approver page   password: {approver}")
+    print(f"workflow calls  X-Kit-Token: {webhook_token}")
 
 
 if __name__ == "__main__":
