@@ -47,7 +47,10 @@ interface Frame {
 
 function loadDenylist(): string[] {
   const path = join(REPO_DIR, ".denylist.local");
-  if (!existsSync(path)) return [];
+  if (!existsSync(path)) {
+    if (process.env.CHECK_NO_DENYLIST === "1") return [];
+    throw new Error("no .denylist.local: without it the internal-name check checks nothing. Copy it from the main checkout, or set CHECK_NO_DENYLIST=1 to run without it.");
+  }
   return readFileSync(path, "utf8")
     .split("\n")
     .map((line) => line.trim())
@@ -58,8 +61,9 @@ function loadDenylist(): string[] {
 
 function isAllowedHost(token: string): boolean {
   const host = token.replace(/^https?:\/\//i, "").split(/[/:?]/)[0].toLowerCase();
-  // `api` is the Compose service name, public in compose.yaml and shown in n8n's node subtitles.
-  if (host === "localhost" || host === "127.0.0.1" || host === "api" || host.endsWith(".example")) return true;
+  // `api` is the Compose service name, public in compose.yaml and shown in n8n's node subtitles; the
+  // pattern also takes the way OCR misreads it (apt, api8000).
+  if (host === "localhost" || host === "127.0.0.1" || /^ap[it1l]\d{0,4}$/.test(host) || host.endsWith(".example")) return true;
   return ALLOWED_REPO.test(token);
 }
 
@@ -233,12 +237,14 @@ async function selfTest(): Promise<void> {
   mkdirSync(dir, { recursive: true });
   const dirty = join(dir, "dirty.png");
   const clean = join(dir, "clean.png");
-  process.env.CHECK_EXTRA_TERMS = "zzz-internal-name";
-  await renderTextPng(dirty, "user@host:~$ ssh 100.64.0.1 zzz-internal-name");
+  process.env.CHECK_EXTRA_TERMS = "zzzqwerty";
+  await renderTextPng(dirty, "user@host:~$ ssh 100.64.0.1 zzzqwerty");
   await renderTextPng(clean, "Sample data on localhost:4301 at github.com/AOX-LLC/ops-automation-kit");
   const dirtyRules = new Set((await checkFile(dirty, { sheet: false })).map((f) => f.rule));
   const cleanFindings = await checkFile(clean, { sheet: false });
   const expected = ["IPv4 address", "shell prompt or path"];
+  const termHit = [...dirtyRules].some((rule) => rule.startsWith("denylist term"));
+  if (!termHit) throw new Error("selftest: the extra denylist term was not flagged");
   const missing = expected.filter((rule) => !dirtyRules.has(rule));
   if (missing.length > 0) throw new Error(`selftest: the dirty image did not trigger: ${missing.join(", ")}`);
   if (cleanFindings.length > 0) {

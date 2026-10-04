@@ -4,7 +4,7 @@
   --bg: #F6F7F8; --surface: #FFFFFF; --surface-muted: #F0F2F4; --border: #DDE1E5;
   --text: #15181B; --text-secondary: #3D444B; --text-muted: #5B636B;
   --accent: #0F7A6F; --accent-text: #0B6159; --accent-soft: #E3F2EF;
-  --danger: #B4233A; --danger-soft: #FBE7EA; --warning: #8A5700; --warning-soft: #FBF0DA;
+  --danger: #B4233A; --danger-soft: #FBE7EA; --warning: #8A5A00; --warning-soft: #FDF3DC;
   --success: #1E7A44; --success-soft: #E4F2E9;
   color-scheme: light;
 }

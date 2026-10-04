@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # Fetch the pinned terminal-recording tools into demo/.bin (gitignored): VHS and ttyd.
 # Linux x86_64 only. Playwright and its browser come from `npm ci` and `npx playwright install`;
-# ffmpeg and ffprobe must already be on PATH. Every download is checked against the publisher's
-# checksum file before it is used.
+# ffmpeg and ffprobe must already be on PATH. Every download is checked against the SHA-256 pinned
+# below (taken from the release assets; a checksum file fetched from the same release would prove
+# nothing). Bump a version and its hash together.
 set -euo pipefail
 
 VHS_VERSION=0.12.1
 TTYD_VERSION=1.7.7
+VHS_SHA256=eb33787a5b1cebf91fe0b18bd231e2d71d36c1ff4babd99ddac1a6ab411efd10
+TTYD_SHA256=8a217c968aba172e0dbf3f34447218dc015bc4d5e59bf51db2f2cd12b7be4f55
 BIN="$(cd "$(dirname "$0")" && pwd)/.bin"
 mkdir -p "$BIN"
 WORK=$(mktemp -d)
@@ -18,8 +21,7 @@ if [ ! -x "$BIN/vhs" ]; then
     base="https://github.com/charmbracelet/vhs/releases/download/v${VHS_VERSION}"
     archive="vhs_${VHS_VERSION}_Linux_x86_64.tar.gz"
     fetch "$base/$archive" "$WORK/$archive"
-    fetch "$base/checksums.txt" "$WORK/vhs-sums"
-    (cd "$WORK" && grep " $archive\$" vhs-sums | sha256sum -c -)
+    echo "$VHS_SHA256  $WORK/$archive" | sha256sum -c -
     tar -xzf "$WORK/$archive" -C "$WORK"
     install -m 0755 "$(find "$WORK" -name vhs -type f | head -1)" "$BIN/vhs"
 fi
@@ -27,8 +29,7 @@ fi
 if [ ! -x "$BIN/ttyd" ]; then
     base="https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}"
     fetch "$base/ttyd.x86_64" "$WORK/ttyd.x86_64"
-    fetch "$base/SHA256SUMS" "$WORK/ttyd-sums"
-    (cd "$WORK" && grep " ttyd.x86_64\$" ttyd-sums | sha256sum -c -)
+    echo "$TTYD_SHA256  $WORK/ttyd.x86_64" | sha256sum -c -
     install -m 0755 "$WORK/ttyd.x86_64" "$BIN/ttyd"
 fi
 

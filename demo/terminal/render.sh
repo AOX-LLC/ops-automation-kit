@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Render one terminal clip in one theme: demo/terminal/render.sh <dark|light> <clip>
-# Writes $OUT/<theme>/terminal/<clip>.mp4 and .gif (OUT defaults to demo/terminal/out). No webm is kept.
+# Writes $OUT/<theme>/terminal/<clip>.mp4 and .gif (OUT defaults to demo/out, where publish.sh and check-frames.ts look). No webm is kept.
 set -euo pipefail
 
 theme=${1:?usage: render.sh <dark|light> <clip>}
@@ -8,7 +8,7 @@ clip=${2:?usage: render.sh <dark|light> <clip>}
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(git -C "$here" rev-parse --show-toplevel)
 bin=$(cd "$here/.." && pwd)/.bin
-out=${OUT:-$here/out}/$theme/terminal
+out=${OUT:-$here/../out}/$theme/terminal
 body=$here/clips/$clip.tape.body
 [ -f "$body" ] || { echo "no clip $clip (looking for $body)" >&2; exit 1; }
 export PATH="$bin:$PATH"

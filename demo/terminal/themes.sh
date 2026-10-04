@@ -6,7 +6,7 @@ theme_json() {
 J
     ;;
     light) cat <<'J'
-{"name":"aox-light","background":"#FFFFFF","foreground":"#15181B","cursor":"#0F7A6F","cursorAccent":"#FFFFFF","selection":"#E3F2EF","black":"#15181B","brightBlack":"#5B636B","red":"#B4233A","brightRed":"#B4233A","green":"#1E7A44","brightGreen":"#1E7A44","yellow":"#8A5700","brightYellow":"#8A5700","blue":"#1F5FA8","brightBlue":"#1F5FA8","magenta":"#6B4FC2","brightMagenta":"#6B4FC2","cyan":"#0B6159","brightCyan":"#0B6159","white":"#3D444B","brightWhite":"#3D444B"}
+{"name":"aox-light","background":"#FFFFFF","foreground":"#15181B","cursor":"#0F7A6F","cursorAccent":"#FFFFFF","selection":"#E3F2EF","black":"#15181B","brightBlack":"#5B636B","red":"#B4233A","brightRed":"#B4233A","green":"#1E7A44","brightGreen":"#1E7A44","yellow":"#8A5A00","brightYellow":"#8A5A00","blue":"#1F5FA8","brightBlue":"#1F5FA8","magenta":"#6B4FC2","brightMagenta":"#6B4FC2","cyan":"#0B6159","brightCyan":"#0B6159","white":"#3D444B","brightWhite":"#3D444B"}
 J
     ;;
     *) echo "unknown theme: $1 (dark|light)" >&2; return 1 ;;

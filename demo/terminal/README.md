@@ -17,7 +17,7 @@ Output goes to `demo/terminal/out/<theme>/terminal/<clip>.mp4` and `.gif` (set `
 - `themes.sh`: the two theme JSON blocks.
 - `render.sh`: writes `Output`, font, size (1200x640, FontSize 18, Padding 24, Margin 0, no window bar) and the theme in front of the body, runs `vhs`, then encodes with ffmpeg.
 - `captions.json`: per-clip caption text and an optional `speed`. Any clip that is sped up says so in its caption, and `render.sh` applies the same factor.
-- Font: IBM Plex Mono is not installed on this box, so the clips use DejaVu Sans Mono. Set `FONT="IBM Plex Mono"` once it is installed.
+- Font: IBM Plex Mono is not installed here, so the clips use DejaVu Sans Mono. Set `FONT="IBM Plex Mono"` once it is installed.
 
 ## The no-prompt rule
 
@@ -36,7 +36,7 @@ Show
 
 ```sh
 ffmpeg -i out/dark/terminal/evals.mp4 -vf fps=2 /tmp/fr/f%03d.png
-for f in /tmp/fr/*.png; do tesseract "$f" -; done | grep -i -E 'aiden|@|/home|node-01|portfolio|worktree'   # must print nothing
+for f in /tmp/fr/*.png; do tesseract "$f" -; done | grep -i -E '@|/home/|/Users/|worktree'   # must print nothing
 ```
 
 ## Add a clip

@@ -16,7 +16,9 @@ import type { Theme } from "./pages.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..");
-const theme = (process.env.THEME ?? "light") as Theme;
+const themeName = process.env.THEME ?? "light";
+if (themeName !== "light" && themeName !== "dark") throw new Error(`THEME must be light or dark, got ${JSON.stringify(themeName)}`);
+const theme: Theme = themeName;
 const N8N = `http://127.0.0.1:${process.env.KIT_N8N_PORT ?? 4300}`;
 const API = `http://127.0.0.1:${process.env.KIT_API_PORT ?? 4301}`;
 const MAILPIT = `http://127.0.0.1:${process.env.KIT_MAILPIT_WEB_PORT ?? 4303}`;
@@ -127,8 +129,15 @@ async function approverSession(api: APIRequestContext): Promise<void> {
   if (res.status() >= 400) throw new Error(`approver login failed: ${res.status()}`);
 }
 
-const hook = (api: APIRequestContext, path: string) =>
-  api.post(`${N8N}/webhook/${path}`, { headers: { "X-Kit-Token": secret("KIT_WEBHOOK_TOKEN") } });
+// Playwright's request errors list the request headers, and one of them is the webhook token, so a
+// failure here is rethrown without them.
+async function hook(api: APIRequestContext, path: string) {
+  try {
+    return await api.post(`${N8N}/webhook/${path}`, { headers: { "X-Kit-Token": secret("KIT_WEBHOOK_TOKEN") } });
+  } catch (error) {
+    throw new Error(`POST /webhook/${path} failed: ${String(error).split("\n")[0]}`);
+  }
+}
 
 /** Newest execution of a workflow that has finished, found through the editor's own REST API. */
 async function finishedExecution(api: APIRequestContext, workflowId: string, since: number): Promise<string | null> {
@@ -336,6 +345,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  console.error(error);
+  console.error(String(error instanceof Error ? error.message : error).split("\n")[0]);
   process.exit(1);
 });

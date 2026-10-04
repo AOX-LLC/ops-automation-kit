@@ -22,7 +22,7 @@ Needs Docker with Compose, Node 22.18 or newer, ffmpeg, ffprobe and tesseract on
 ```sh
 cd demo
 npm ci
-npm run setup            # VHS and ttyd (pinned, checksum-checked) into .bin/, and Chromium for Playwright
+npm run setup            # VHS and ttyd (pinned versions and SHA-256) into .bin/, and Chromium for Playwright
 ./record.sh              # clean seeded stack per theme, records both, stops the stack
 node edit.ts light       # and: node edit.ts dark
 ./terminal/render.sh dark evals       # a terminal clip (see terminal/README.md)
