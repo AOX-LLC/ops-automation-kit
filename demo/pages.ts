@@ -9,6 +9,10 @@ const here = dirname(fileURLToPath(import.meta.url));
 const font = (pkg: string, file: string) =>
   `file://${resolve(here, "node_modules/@fontsource", pkg, "files", file)}`;
 
+// The same logo files the approver page uses: black on the light theme, white on the dark one.
+const logo = (theme: Theme) =>
+  `file://${resolve(here, "../src/opskit/api/static/brand", theme === "dark" ? "aox-logo-white.png" : "aox-logo-black.png")}`;
+
 export type Theme = "light" | "dark";
 type Row = Record<string, string>;
 
@@ -22,7 +26,7 @@ function shell(theme: Theme, eyebrow: string, title: string, sub: string, body: 
     .replace("PLEX_MONO_400", font("ibm-plex-mono", "ibm-plex-mono-latin-400-normal.woff2"))
     .replace("SPACE_500", font("space-grotesk", "space-grotesk-latin-500-normal.woff2"));
   return `<!doctype html><html lang="en" data-theme="${theme}"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${css}</style></head>
-<body><header><span class="name">Ops automation kit</span><span class="badge">Sample data</span></header>
+<body><header><span class="brand-lockup"><img class="brand-logo" src="${logo(theme)}" alt="AOX" height="20"><span class="brand-divider" aria-hidden="true"></span>${escapeHtml(title)}</span><span class="badge">Sample data</span></header>
 <main><p class="eyebrow">${escapeHtml(eyebrow)}</p><h1>${escapeHtml(title)}</h1><p class="sub">${escapeHtml(sub)}</p>${body}</main></body></html>`;
 }
 
