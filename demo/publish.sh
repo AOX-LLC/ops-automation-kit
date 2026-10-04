@@ -11,7 +11,8 @@ DEST=../docs/media
 mkdir -p "$DEST/loops" "$DEST/terminal"
 
 for theme in light dark; do
-    cp "$OUT/$theme/walkthrough.mp4" "$DEST/walkthrough-$theme.mp4"
+    # The full videos stay out of git (they go to YouTube): MEDIA_OUT names a folder outside the repo.
+    if [ -n "${MEDIA_OUT:-}" ]; then mkdir -p "$MEDIA_OUT"; cp "$OUT/$theme/walkthrough.mp4" "$MEDIA_OUT/walkthrough-$theme.mp4"; fi
     cp "$OUT/$theme/readme.gif" "$DEST/walkthrough-$theme.gif"
     for still in approver-detail reconciliation canvas-receipts crm-records; do
         cp "$OUT/$theme/stills-web/$still.png" "$DEST/$still-$theme.png"
@@ -31,4 +32,6 @@ cp "$OUT/light/cards/social.png" "$DEST/social-preview.png"
 if ! node check-frames.ts $(find "$DEST" -type f \( -name '*.mp4' -o -name '*.gif' -o -name '*.png' -o -name '*.webm' \) | sort); then
     [ "${MEDIA_REVIEWED:-0}" = "1" ] || { echo "frame check found something: look at it, then rerun with MEDIA_REVIEWED=1" >&2; exit 1; }
 fi
+../scripts/strip_media_metadata.sh $(find "$DEST" -type f \( -name '*.mp4' -o -name '*.gif' -o -name '*.png' -o -name '*.webm' \))
+python3 ../scripts/check_media_metadata.py $(find "$DEST" -type f \( -name '*.mp4' -o -name '*.gif' -o -name '*.png' -o -name '*.webm' \))
 du -sh "$DEST"; find "$DEST" -type f | wc -l
