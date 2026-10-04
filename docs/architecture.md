@@ -461,6 +461,12 @@ The Phase 1 audit table is kept read-only as `core.audit_log_v1`; migration `cor
 
 Every paired row carries `delta_cents` (bank amount minus receipt amount, both absolute) and `delta_days` (posting date minus receipt date). Rows with no pair leave both empty. The summary counts each status and a `flagged` total: every status except `matched` and `out_of_scope`.
 
+### One run at a time, and the schedules
+
+A run of `receipts`, `leads` or `inbox` is refused with a 409 while another run of the same workflow is going (a per-workflow advisory lock makes two simultaneous starts take turns). Without it, a schedule firing beside a webhook call read the same pending items and the summary email went out twice. A retry of the same n8n execution is not an overlap, `kit_smoke` is exempt (it waits for a human), and a run that has not finished after 30 minutes stops blocking.
+
+`KIT_SCHEDULED_RUNS=false` (`OPSKIT_SCHEDULED_RUNS` in the api) makes the helper answer a scheduled start with `skipped: true`, and the `Run allowed?` branch in `01-receipts` and `03-inbox` stops there. Webhook calls are unaffected. Smoke and the demo recorder turn the schedules off so a run happens when the script triggers it and not when a clock boundary falls; the default is on.
+
 ### Workflow node chain
 
 `n8n/workflows/01-receipts.json`, with no Code nodes. A schedule trigger (every 15 minutes) and a header-authenticated webhook (`receipts-run`) both start it.
@@ -468,6 +474,7 @@ Every paired row carries `delta_cents` (bank amount minus receipt amount, both a
 ```
 Every 15 minutes / Webhook
   -> Start run (POST /v1/runs)
+  -> Run allowed?  -- no -> Scheduled runs are off
   -> List new receipts (GET /v1/receipts/pending)
   -> Anything new?  -- no -> Finish run (nothing new)
   -> One item per receipt (Split Out)
@@ -494,6 +501,7 @@ New mail in Mailpit is triaged; replies are drafted only for categories the kit 
 ```
 Every 5 minutes / Webhook
   -> Start run (POST /v1/runs)
+  -> Run allowed?  -- no -> Scheduled runs are off
   -> List new mail (POST /v1/inbox/pending)
   -> Anything new?  -- no -> Finish run (nothing new)
   -> One item per message (Split Out)
