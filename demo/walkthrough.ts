@@ -276,7 +276,6 @@ async function main(): Promise<void> {
     await openCanvas(page, "receipts00000001");
     await pause(page, 1500); // the whole workflow, fitted
     await zoomCanvas(page);
-    await still(page, "canvas-receipts"); // zoomed in: the node names read at README size
     for (let i = 0; i < 34; i++) {
       await page.mouse.wheel(40, 0);
       await pause(page, 60);

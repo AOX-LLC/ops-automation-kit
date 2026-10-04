@@ -27,9 +27,13 @@ npm run setup            # VHS and ttyd (pinned versions and SHA-256) into .bin/
 node edit.ts light       # and: node edit.ts dark
 ./terminal/render.sh dark evals       # a terminal clip (see terminal/README.md)
 node check-frames.ts --all
+./canvas-stills.sh       # only the README canvas stills: no video, no workflow runs
+./publish.sh --canvas-only   # publish just those (add --reviewed once an OCR finding has been read)
 ```
 
 `record.sh` takes the shared Docker lock around the whole boot, record and stop sequence, starts every theme from `docker compose down -v` (a workflow processes its pending items once, so a second take needs fresh data), and turns the 15 and 5 minute schedules off with `KIT_SCHEDULED_RUNS=false` so every run happens when the script triggers it. The passwords come from `kit-login --env` into the script's environment and are never printed. Logins happen in a throwaway browser context before recording starts, so nothing secret is typed on camera.
+
+`canvas-stills.sh` boots the stack under the same lock and captures each workflow fitted to the frame, cropped to its nodes and sticky note, at deviceScaleFactor 2 with the mouse off the canvas. It fails rather than cut a workflow off.
 
 The stack runs in replay mode, so a recording costs nothing and needs no key.
 
