@@ -215,7 +215,7 @@ async function openMail(page: Page, query: string): Promise<void> {
   const first = page.locator("a[href^='/view/']").first();
   await first.waitFor({ timeout: 20000 });
   await click(page, first);
-  await settle(page, page.getByText("Link Check"));
+  await settle(page, page.getByRole("tab", { name: "Link Check" }));
 }
 
 async function runWorkflow(
@@ -328,7 +328,7 @@ async function main(): Promise<void> {
       return (await page.locator("a[href^='/view/']").count()) > 0;
     });
     await click(page, page.locator("a[href^='/view/']").first());
-    await settle(page, page.getByText("Link Check"));
+    await settle(page, page.getByRole("tab", { name: "Link Check" }));
     await pause(page, 4000);
   });
 
