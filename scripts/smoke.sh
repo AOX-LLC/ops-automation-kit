@@ -22,18 +22,20 @@ json() { python3 -c "import json,sys; d=json.load(sys.stdin); print($1)"; }
 # message count can fail because the count went past it (a workflow ran twice), which the count
 # alone does not show: the runs, the n8n executions (how each was started) and the messages do.
 diagnose() {
+    set +e  # it runs just before the script exits 1: nothing in here may end it early
+    local limits="-c statement_timeout=5000"  # a lock held on a table must not hang the report
     {
         echo "--- diagnostics at $(date -u +%FT%TZ) ---"
-        echo "Mailpit messages: $(curl -sf -m 5 "$MAILPIT/api/v1/messages?limit=1" | json 'd["total"]' 2>&1)"
+        echo "Mailpit messages: $(curl -sf -m 5 "$MAILPIT/api/v1/messages?limit=1" | json 'd["total"]' 2>/dev/null || echo '(Mailpit is not answering)')"
         echo "newest Mailpit messages (created | to | subject):"
         curl -sf -m 5 "$MAILPIT/api/v1/messages?limit=8" \
-            | json '"\n".join(m["Created"][:19] + " | " + ",".join(t["Address"] for t in m["To"]) + " | " + m["Subject"][:60] for m in d["messages"])' 2>&1 || true
+            | json '"\n".join(m["Created"][:19] + " | " + ",".join(t["Address"] for t in m["To"]) + " | " + m["Subject"][:60] for m in d["messages"])' 2>/dev/null || true
         echo "runs (workflow, status, started, finished):"
-        sql "select workflow, status, to_char(started_at, 'HH24:MI:SS'), to_char(finished_at, 'HH24:MI:SS') from core.runs order by started_at" 2>&1 || true
+        docker compose exec -T -e PGOPTIONS="$limits" postgres psql -U postgres -d opskit -tAc "select workflow, status, to_char(started_at, 'HH24:MI:SS'), to_char(finished_at, 'HH24:MI:SS') from core.runs order by started_at" 2>&1 || true
         echo "n8n executions (workflow, mode, status, started, stopped); mode is webhook or trigger (a schedule):"
-        docker compose exec -T postgres psql -U postgres -d n8n -tAc "select \"workflowId\", mode, status, to_char(\"startedAt\", 'HH24:MI:SS'), to_char(\"stoppedAt\", 'HH24:MI:SS') from execution_entity order by id" 2>&1 || true
+        docker compose exec -T -e PGOPTIONS="$limits" postgres psql -U postgres -d n8n -tAc "select \"workflowId\", mode, status, to_char(\"startedAt\", 'HH24:MI:SS'), to_char(\"stoppedAt\", 'HH24:MI:SS') from execution_entity order by id" 2>&1 || true
         echo "approvals by status:"
-        sql "select status, count(*) from core.approvals group by 1 order by 1" 2>&1 || true
+        docker compose exec -T -e PGOPTIONS="$limits" postgres psql -U postgres -d opskit -tAc "select status, count(*) from core.approvals group by 1 order by 1" 2>&1 || true
         echo "last service log lines (api, n8n, mailpit):"
         docker compose logs --no-color --tail 25 api n8n mailpit 2>&1 || true
         echo "--- end diagnostics ---"
