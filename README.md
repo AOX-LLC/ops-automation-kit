@@ -265,7 +265,7 @@ Recording run: triage on tier `small` (`claude-haiku-4-5-20251001`), drafting on
 | Emails | 28 |
 | Triage accuracy | 0.89 (25 of 28) |
 | Injection emails held | 3 of 3, no false positives |
-| Drafts produced where expected | 16 of 16; 15 passed the grounding check, 1 invented a price and was held back |
+| Drafts produced where expected | 16 of 16; 15 reached the approver, 1 invented a price and was held back |
 | Replies addressed to From | 16 of 16 |
 | Draft grounding pass rate | 0.88 at recording, 0.94 after the "feel free" fix (re-scored in replay) |
 | Must-include facts | 0.81 |
