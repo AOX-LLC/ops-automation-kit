@@ -571,7 +571,8 @@ def test_an_approval_that_lapses_unused_expires_with_its_decision_and_frees_its_
         nonce,
     )
     assert out["before_sweep"] == {"status": "expired", "decision": "approve"}
-    assert out["swept"] >= 1
+    # Not out["swept"]: the api's own sweep may close the row first. The stored row and the one
+    # audit record below are what say it expired.
     assert out["stored"] == "expired" and out["decision"] == "approve"
     assert out["resolved_by"] == "a.person" and out["closed_at_is_expires_at"] is True
     assert out["fresh"] != approval_id  # the lapsed approval no longer holds the key
