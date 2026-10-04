@@ -19,5 +19,5 @@ repos:
         name: media metadata (no free text, no denylisted term)
         entry: python3 scripts/check_media_metadata.py
         language: system
-        files: \.(png|gif|mp4|webm)$
+        files: (?i)\.(png|gif|mp4|webm|jpe?g|webp)$
         pass_filenames: true

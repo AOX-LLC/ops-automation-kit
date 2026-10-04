@@ -1,37 +1,52 @@
 #!/usr/bin/env bash
 # Copy the finished media from demo/out into docs/media under the names the README uses.
-# Run after `node edit.ts light`, `node edit.ts dark` and the terminal clips, and after
-# `node check-frames.ts --all` came back clean. Raw recordings never leave demo/out.
-# It then runs the frame check on what it copied and stops on any finding; OCR misreads happen,
-# so read each finding, and set MEDIA_REVIEWED=1 to keep the files once a person has.
+#   demo/publish.sh [--reviewed]
+# Run after `node edit.ts light`, `node edit.ts dark` and the terminal clips. Raw recordings never
+# leave demo/out. The files are staged in a temporary folder first: stripped of metadata, checked
+# for metadata (scripts/check_media_metadata.py) and OCR-checked for names, hosts and prompts
+# (check-frames.ts). Only if all of that passes are they moved into docs/media. OCR misreads
+# happen: read each finding, and rerun with --reviewed to accept the frame check's findings this
+# once (the metadata check cannot be waived).
+# MEDIA_OUT names a folder outside the repo for the full videos, which go to YouTube, not git;
+# they get the same checks.
 set -euo pipefail
 cd "$(dirname "$0")"
+reviewed=0; [ "${1:-}" = "--reviewed" ] && reviewed=1
 OUT=out
 DEST=../docs/media
-mkdir -p "$DEST/loops" "$DEST/terminal"
+STAGE=$(mktemp -d)
+trap 'rm -rf "$STAGE"' EXIT
+mkdir -p "$STAGE/loops" "$STAGE/terminal" "$STAGE/videos"
 
 for theme in light dark; do
-    # The full videos stay out of git (they go to YouTube): MEDIA_OUT names a folder outside the repo.
-    if [ -n "${MEDIA_OUT:-}" ]; then mkdir -p "$MEDIA_OUT"; cp "$OUT/$theme/walkthrough.mp4" "$MEDIA_OUT/walkthrough-$theme.mp4"; fi
-    cp "$OUT/$theme/readme.gif" "$DEST/walkthrough-$theme.gif"
+    cp "$OUT/$theme/walkthrough.mp4" "$STAGE/videos/walkthrough-$theme.mp4"
+    cp "$OUT/$theme/readme.gif" "$STAGE/walkthrough-$theme.gif"
     for still in approver-detail reconciliation canvas-receipts crm-records; do
-        cp "$OUT/$theme/stills-web/$still.png" "$DEST/$still-$theme.png"
+        cp "$OUT/$theme/stills-web/$still.png" "$STAGE/$still-$theme.png"
     done
     for loop in "$OUT/$theme"/loops/*.mp4 "$OUT/$theme"/loops/*.webm; do
-        base=$(basename "$loop"); cp "$loop" "$DEST/loops/${base%.*}-$theme.${base##*.}"
+        base=$(basename "$loop"); cp "$loop" "$STAGE/loops/${base%.*}-$theme.${base##*.}"
     done
     for clip in "$OUT/$theme"/terminal/*.mp4 "$OUT/$theme"/terminal/*.gif; do
         [ -e "$clip" ] || continue
-        base=$(basename "$clip"); cp "$clip" "$DEST/terminal/${base%.*}-$theme.${base##*.}"
+        base=$(basename "$clip"); cp "$clip" "$STAGE/terminal/${base%.*}-$theme.${base##*.}"
     done
 done
 # The captions are the same in both themes.
-cp "$OUT/light/walkthrough.vtt" "$DEST/walkthrough.vtt"
-cp "$OUT/light/walkthrough.srt" "$DEST/walkthrough.srt"
-cp "$OUT/light/cards/social.png" "$DEST/social-preview.png"
-if ! node check-frames.ts $(find "$DEST" -type f \( -name '*.mp4' -o -name '*.gif' -o -name '*.png' -o -name '*.webm' \) | sort); then
-    [ "${MEDIA_REVIEWED:-0}" = "1" ] || { echo "frame check found something: look at it, then rerun with MEDIA_REVIEWED=1" >&2; exit 1; }
+cp "$OUT/light/walkthrough.vtt" "$STAGE/walkthrough.vtt"
+cp "$OUT/light/walkthrough.srt" "$STAGE/walkthrough.srt"
+cp "$OUT/light/cards/social.png" "$STAGE/social-preview.png"
+
+media=$(find "$STAGE" -type f \( -name '*.mp4' -o -name '*.gif' -o -name '*.png' -o -name '*.webm' \) | sort)
+python3 ../scripts/strip_media_metadata.py $media
+python3 ../scripts/check_media_metadata.py $media
+if ! node check-frames.ts $media; then
+    [ "$reviewed" = 1 ] || { echo "frame check found something: read it, then rerun with --reviewed" >&2; exit 1; }
 fi
-../scripts/strip_media_metadata.sh $(find "$DEST" -type f \( -name '*.mp4' -o -name '*.gif' -o -name '*.png' -o -name '*.webm' \))
-python3 ../scripts/check_media_metadata.py $(find "$DEST" -type f \( -name '*.mp4' -o -name '*.gif' -o -name '*.png' -o -name '*.webm' \))
+
+# Everything passed: move the files into place. The videos leave the repo.
+mkdir -p "$DEST/loops" "$DEST/terminal"
+cp -r "$STAGE/loops/." "$DEST/loops/"; cp -r "$STAGE/terminal/." "$DEST/terminal/"
+find "$STAGE" -maxdepth 1 -type f -exec cp {} "$DEST/" \;
+if [ -n "${MEDIA_OUT:-}" ]; then mkdir -p "$MEDIA_OUT"; cp "$STAGE"/videos/*.mp4 "$MEDIA_OUT/"; cp "$STAGE/walkthrough.vtt" "$STAGE/walkthrough.srt" "$MEDIA_OUT/"; fi
 du -sh "$DEST"; find "$DEST" -type f | wc -l
