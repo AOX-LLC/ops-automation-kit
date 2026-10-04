@@ -283,6 +283,7 @@ services:
       seed: { condition: service_completed_successfully }
     environment:
       OPSKIT_N8N_PUBLIC_URL: http://localhost:${KIT_N8N_PORT:-4300}
+      OPSKIT_SCHEDULED_RUNS: ${KIT_SCHEDULED_RUNS:-true}
       AGENT_CORE_CONFIG: /app/config/agent-core.toml
     read_only: true
     tmpfs: [/tmp]

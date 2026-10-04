@@ -8,6 +8,9 @@
 # Secrets stay in shell variables and are never echoed.
 set -euo pipefail
 
+# The schedules fire on clock boundaries, which would run a workflow before this script asks it to.
+export KIT_SCHEDULED_RUNS=false
+
 N8N="http://127.0.0.1:${KIT_N8N_PORT:-4300}"
 API="http://127.0.0.1:${KIT_API_PORT:-4301}"
 MAILPIT="http://127.0.0.1:${KIT_MAILPIT_WEB_PORT:-4303}"

@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     )
     anthropic_api_key: SecretStr | None = Field(default=None, validation_alias=API_KEY_VARIABLE)
 
+    # Whether the 15 and 5 minute schedules in the receipts and inbox workflows start runs. Off,
+    # only a webhook call does: the smoke test and the recorded demo need runs that happen when
+    # they say, not when a clock boundary falls.
+    scheduled_runs: bool = True
+
     # Where company research reads from. "web" fetches each company's own public site and is
     # for the manual live demo only: it needs AGENT_CORE_MODE=live.
     leads_retrieval: Literal["corpus", "web"] = Field(

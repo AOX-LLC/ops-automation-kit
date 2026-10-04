@@ -25,11 +25,15 @@ class StartRun(BaseModel):
     # The form core_0010 enforces (and agent-core's id pattern): a 422 here, not a 500 there.
     n8n_workflow_id: str | None = Field(default=None, max_length=64, pattern=N8N_ID_PATTERN)
     n8n_execution_id: str | None = Field(default=None, max_length=64, pattern=N8N_ID_PATTERN)
+    # True when n8n's schedule trigger, not a webhook call, started the execution.
+    scheduled: bool = False
 
 
 class RunStarted(BaseModel):
-    run_id: UUID
+    # None with skipped=True: scheduled runs are switched off and nothing was started.
+    run_id: UUID | None
     mode: str
+    skipped: bool = False
 
 
 class FinishRun(BaseModel):
@@ -39,6 +43,8 @@ class FinishRun(BaseModel):
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def start_run(request: Request, body: StartRun) -> RunStarted:
     core: Core = request.app.state.core
+    if body.scheduled and not request.app.state.settings.scheduled_runs:
+        return RunStarted(run_id=None, mode=core.mode.value, skipped=True)
     try:
         ctx = await core.runs.start(
             workflow=body.workflow,
