@@ -35,9 +35,11 @@ from aox_agent_core.audit import AuditEvent, AuditHead, AuditLog, AuditRecord
 from pydantic import JsonValue
 
 __all__ = [
+    "ADMIN_ROLE",
     "APPROVER",
     "APPROVER_ROLE",
     "N8N_SERVICE",
+    "PURGE_ROLES",
     "ROLES_BY_ACTION",
     "SWEEP_SERVICE",
     "ApprovalQueue",
@@ -73,6 +75,9 @@ type JsonObject = dict[str, Any]
 # n8n authenticates with the service token and acts as N8N_SERVICE, which can request
 # approvals but never resolve them (agent-core's RoleApproverPolicy needs a human).
 APPROVER_ROLE = "approver"
+# Who may purge stored approval payloads: the decision side, or an operator acting as admin.
+ADMIN_ROLE = "admin"
+PURGE_ROLES = frozenset({APPROVER_ROLE, ADMIN_ROLE})
 APPROVER = Principal(id="approver", kind=PrincipalKind.HUMAN, roles=frozenset({APPROVER_ROLE}))
 N8N_SERVICE = Principal(id="service.n8n", kind=PrincipalKind.SERVICE)
 # The api's own expiry sweep; it only closes requests whose lifetime has passed.

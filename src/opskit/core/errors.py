@@ -43,6 +43,7 @@ __all__ = [
     "AuditTimeRejectedError",
     "CoreError",
     "ModelRefusalError",
+    "NotAuthorizedToPurgeError",
     "NotAuthorizedToResolveError",
     "NotFound",
     "ReplayMissError",
@@ -76,3 +77,8 @@ class ApprovalPayloadPurgedError(ApprovalError):
     def __init__(self, approval_id: UUID) -> None:
         super().__init__(f"the payload of approval {approval_id} was purged")
         self.approval_id = approval_id
+
+
+class NotAuthorizedToPurgeError(ApprovalError):
+    """The principal holds neither the approver nor the admin role, so it may not purge stored
+    approval payloads. The refusal is recorded in the audit log (`approval.purge_denied`)."""

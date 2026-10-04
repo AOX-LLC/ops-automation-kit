@@ -70,9 +70,13 @@ from sqlalchemy import and_, case, extract, func, insert, null, or_, select, tru
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from opskit.core.errors import ApprovalPayloadPurgedError, ApprovalUnreadableError
+from opskit.core.errors import (
+    ApprovalPayloadPurgedError,
+    ApprovalUnreadableError,
+    NotAuthorizedToPurgeError,
+)
 from opskit.core.pg.audit import append_in, append_many_in, append_once_in
-from opskit.core.ports import JsonObject, Page
+from opskit.core.ports import PURGE_ROLES, JsonObject, Page
 from opskit.db.engine import SessionFactory
 from opskit.db.tables import approvals, outbox
 
@@ -939,7 +943,16 @@ class PgApprovalQueue:
         written per request, in the same transaction. Only the approver role may purge, so this
         runs on its connection. A request another transaction holds is skipped, and the next run
         takes it, so a short batch does not always mean the backlog is empty.
+
+        The principal must hold the approver or the admin role (`PURGE_ROLES`): any other is
+        refused with NotAuthorizedToPurgeError, and the refusal is audited, before anything else
+        is looked at.
         """
+        if not principal.roles & PURGE_ROLES:
+            await self._record_purge_denied(principal)
+            raise NotAuthorizedToPurgeError(
+                f"{principal.id} holds neither the approver nor the admin role; it may not purge"
+            )
         if connection is not None:
             raise ConfigError("this queue runs its own transactions; it takes no connection")
         if older_than < PAYLOAD_RETENTION_FLOOR:
@@ -955,6 +968,21 @@ class PgApprovalQueue:
             total += purged
             if purged < limit:
                 return total
+
+    async def _record_purge_denied(self, principal: Principal) -> None:
+        """Audit a refused purge. A refusal stands whether or not the note could be written."""
+        try:
+            async with self._session_factory.begin() as session:
+                await append_in(
+                    session,
+                    AuditEvent(
+                        action="approval.purge_denied",
+                        actor_id=principal.id,
+                        payload={"subject_type": "approval", "reason": "missing_role"},
+                    ),
+                )
+        except Exception:
+            log.exception("could not record the refused purge by %s", principal.id)
 
     async def _purge_batch(self, principal: Principal, older_than: timedelta, limit: int) -> int:
         assert self._approver_session_factory is not None

@@ -46,6 +46,7 @@ PRELUDE = textwrap.dedent(
     from opskit.db.engine import make_approver_engine, make_engine, make_session_factory
 
     HUMAN = Principal(id="approver", kind=PrincipalKind.HUMAN, roles=frozenset({"approver"}))
+    ADMIN = Principal(id="ops.admin", kind=PrincipalKind.HUMAN, roles=frozenset({"admin"}))
     NONCE = "__NONCE__"
 
     async def submit(queue, *, nonce=NONCE, summary="itest", role="approver", ttl=600,
@@ -599,7 +600,7 @@ def test_purge_removes_the_payload_stamps_the_database_clock_and_keeps_the_hash(
         async def main(queue, audit):
             id = UUID("{request_id}")
             purged = await queue.purge_payloads(
-                principal=N8N_SERVICE, older_than=timedelta(hours=24)
+                principal=HUMAN, older_than=timedelta(hours=24)
             )
             read = await queue.get(id)
             return {{
@@ -674,9 +675,9 @@ def test_a_purge_cannot_be_triggered_early_by_a_backdated_time() -> None:
         """
         async def main(queue, audit):
             short = await attempt(
-                queue.purge_payloads(principal=N8N_SERVICE, older_than=timedelta(hours=1))
+                queue.purge_payloads(principal=HUMAN, older_than=timedelta(hours=1))
             )
-            await queue.purge_payloads(principal=N8N_SERVICE, older_than=timedelta(hours=24))
+            await queue.purge_payloads(principal=HUMAN, older_than=timedelta(hours=24))
             return {"short": short}
         """
     )
@@ -797,3 +798,53 @@ def test_the_statements_the_refusal_gives_really_clear_the_way() -> None:
     assert result.returncode == 0, result.stderr
     stored = [line for line in result.stdout.splitlines() if "=" in line]
     assert stored == ["D-1=approved", "D-2=cancelled"]
+
+
+def test_purge_refuses_a_principal_without_the_approver_or_admin_role_and_audits_it() -> None:
+    request_id = _cancelled_request()
+    backdate_finish(request_id)
+    before = audit_count("approval.purge_denied")
+    out = in_api(
+        """
+        async def main(queue, audit):
+            nobody = {
+                "service": N8N_SERVICE,
+                "human, no roles": Principal(id="ops.nobody", kind=PrincipalKind.HUMAN),
+                "other role": Principal(
+                    id="ops.reader", kind=PrincipalKind.HUMAN, roles=frozenset({"requester"})
+                ),
+            }
+            return {
+                name: await attempt(
+                    queue.purge_payloads(principal=who, older_than=timedelta(hours=24))
+                )
+                for name, who in nobody.items()
+            }
+        """
+    )
+    assert {name: got["error"] for name, got in out.items()} == {
+        "service": "NotAuthorizedToPurgeError",
+        "human, no roles": "NotAuthorizedToPurgeError",
+        "other role": "NotAuthorizedToPurgeError",
+    }
+    # Nothing was purged, and each refusal is on the record under the refused principal.
+    assert one(f"select payload is not null from core.approvals where id = '{request_id}'") == "t"
+    assert audit_count("approval.purge_denied") == before + 3
+    assert (
+        one(
+            "select count(*) from core.audit_log where action = 'approval.purge_denied' "
+            "and actor_id = 'ops.nobody' and subject_id is null"
+        )
+        == "1"
+    )
+
+    allowed = in_api(
+        """
+        async def main(queue, audit):
+            return {"purged": await queue.purge_payloads(
+                principal=ADMIN, older_than=timedelta(hours=24))}
+        """
+    )
+    assert allowed["purged"] >= 1
+    assert one(f"select payload is null from core.approvals where id = '{request_id}'") == "t"
+    assert audit_count("approval.purge_denied") == before + 3
