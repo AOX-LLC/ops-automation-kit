@@ -22,6 +22,8 @@ n8n orchestrates. A small Python helper API does the work. Everything runs in re
 
 **Watch the walkthrough, about a minute and a half (captions on):** YouTube link to be added here <!-- YOUTUBE_URL -->. The captions are in [docs/media/](docs/media/) as `walkthrough.vtt` and `walkthrough.srt`.
 
+**Read the case study** (one page: the problem, the architecture, the evals with their caveats, cost and latency, and what the safeguards caught): [docs/case-study.md](docs/case-study.md).
+
 ## What it looks like
 
 <table>
@@ -263,7 +265,7 @@ Recording run: triage on tier `small` (`claude-haiku-4-5-20251001`), drafting on
 | Emails | 28 |
 | Triage accuracy | 0.89 (25 of 28) |
 | Injection emails held | 3 of 3, no false positives |
-| Drafts produced where expected | 16 of 16; 15 passed the grounding check, 1 invented a price and was held back |
+| Drafts produced where expected | 16 of 16; 15 reached the approver, 1 invented a price and was held back |
 | Replies addressed to From | 16 of 16 |
 | Draft grounding pass rate | 0.88 at recording, 0.94 after the "feel free" fix (re-scored in replay) |
 | Must-include facts | 0.81 |
