@@ -61,13 +61,24 @@ class Settings(BaseSettings):
     brand_logo_url: str | None = "/static/brand/aox-logo-black.png"
     # The logo's alt text. Change it together with the logo, so a screen reader names yours.
     brand_logo_alt: str = "AOX"
+    # Shown instead of the logo in the dark theme. Left unset, it is derived: a logo whose file
+    # name ends in "-black.png" gets its "-white.png" twin; any other logo serves both themes.
+    brand_logo_dark_url: str | None = None
 
-    @field_validator("brand_logo_url")
+    @field_validator("brand_logo_url", "brand_logo_dark_url")
     @classmethod
     def _logo_is_same_origin(cls, value: str | None) -> str | None:
         if value and (not value.startswith("/") or value.startswith("//")):
             raise ValueError("OPSKIT_BRAND_LOGO_URL must be a path on this site, like /static/...")
         return value or None
+
+    @property
+    def brand_logo_dark_url_resolved(self) -> str | None:
+        if self.brand_logo_dark_url:
+            return self.brand_logo_dark_url
+        if self.brand_logo_url and self.brand_logo_url.endswith("-black.png"):
+            return self.brand_logo_url.removesuffix("-black.png") + "-white.png"
+        return None
 
     @model_validator(mode="after")
     def _live_mode_needs_a_key(self) -> Self:

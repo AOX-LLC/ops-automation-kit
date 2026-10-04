@@ -33,4 +33,4 @@ The approver page does not self-host any fonts. `src/opskit/api/static/approver.
 
 ## AOX logo (trademark, not MIT)
 
-`src/opskit/api/static/brand/aox-logo-black.png` is a trademark of AOX LLC and is not licensed under this repository's MIT licence. Do not use it to suggest your deployment comes from or is endorsed by AOX. See [src/opskit/api/static/brand/README.md](src/opskit/api/static/brand/README.md) for how to replace or hide it.
+`src/opskit/api/static/brand/aox-logo-black.png` and `aox-logo-white.png` is a trademark of AOX LLC and is not licensed under this repository's MIT licence. Do not use it to suggest your deployment comes from or is endorsed by AOX. See [src/opskit/api/static/brand/README.md](src/opskit/api/static/brand/README.md) for how to replace or hide it.

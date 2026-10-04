@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="light" data-accent="verdigris" data-density="comfortable">
+<html lang="en" data-accent="verdigris" data-density="comfortable">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,9 +8,12 @@
 </head>
 <body>
   <header class="bar">
-    {% set logo_url = request.app.state.settings.brand_logo_url %}
+    {% set brand = request.app.state.settings %}
+    {% set logo_url = brand.brand_logo_url %}
+    {% set dark_logo_url = brand.brand_logo_dark_url_resolved %}
+    {% set logo_alt = brand.brand_logo_alt %}
     <span class="brand brand-lockup">
-      {% if logo_url %}<img class="brand-logo" src="{{ logo_url }}" alt="{{ request.app.state.settings.brand_logo_alt }}" height="20"><span class="brand-divider" aria-hidden="true"></span>{% endif %}
+      {% if logo_url %}<img class="brand-logo{% if dark_logo_url %} pui-logo--light{% endif %}" src="{{ logo_url }}" alt="{{ logo_alt }}" height="20">{% if dark_logo_url %}<img class="brand-logo pui-logo--dark" src="{{ dark_logo_url }}" alt="{{ logo_alt }}" height="20">{% endif %}<span class="brand-divider" aria-hidden="true"></span>{% endif %}
       Approvals
     </span>
     <div class="bar-end">

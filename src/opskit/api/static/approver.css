@@ -1,4 +1,4 @@
-/* Approver page: the portfolio UI system's light theme, Verdigris accent, comfortable density.
+/* Approver page: the portfolio UI system's light and dark themes, Verdigris accent, comfortable density.
    Role tokens only below this block; values copied from the system's tokens. Fonts use the
    system's stacks without loading web fonts, so the page keeps its strict same-origin CSP. */
 :root {
@@ -39,6 +39,62 @@
   --pui-control-lg: 40px;
   --pui-topbar-height: 56px;
   color-scheme: light;
+}
+/* Dark theme, declared twice as the system does: by the browser's preference unless the page
+   says light, and when the page says dark. Keep both blocks identical. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --pui-bg: #0E1012;
+    --pui-surface: #15181B;
+    --pui-surface-muted: #1C2024;
+    --pui-border: #2A2F35;
+    --pui-border-strong: #3A4148;
+    --pui-border-control: #6B747D;
+    --pui-text: #E6E8EA;
+    --pui-text-secondary: #C3C8CD;
+    --pui-text-muted: #9AA1A9;
+    --pui-accent: #3FC1B0;
+    --pui-accent-hover: #5FD0C1;
+    --pui-on-accent: #08201D;
+    --pui-accent-soft: #12302C;
+    --pui-accent-text: #5FD0C1;
+    --pui-focus-ring: var(--pui-accent);
+    --pui-success: #4CC985;
+    --pui-success-soft: #132A1D;
+    --pui-danger: #F2707F;
+    --pui-danger-soft: #33161B;
+    --pui-pending: #A792F2;
+    --pui-pending-soft: #231D3A;
+    --pui-warning: #E8B23A;
+    --pui-warning-soft: #2E2410;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --pui-bg: #0E1012;
+  --pui-surface: #15181B;
+  --pui-surface-muted: #1C2024;
+  --pui-border: #2A2F35;
+  --pui-border-strong: #3A4148;
+  --pui-border-control: #6B747D;
+  --pui-text: #E6E8EA;
+  --pui-text-secondary: #C3C8CD;
+  --pui-text-muted: #9AA1A9;
+  --pui-accent: #3FC1B0;
+  --pui-accent-hover: #5FD0C1;
+  --pui-on-accent: #08201D;
+  --pui-accent-soft: #12302C;
+  --pui-accent-text: #5FD0C1;
+  --pui-focus-ring: var(--pui-accent);
+  --pui-success: #4CC985;
+  --pui-success-soft: #132A1D;
+  --pui-danger: #F2707F;
+  --pui-danger-soft: #33161B;
+  --pui-pending: #A792F2;
+  --pui-pending-soft: #231D3A;
+  --pui-warning: #E8B23A;
+  --pui-warning-soft: #2E2410;
+  color-scheme: dark;
 }
 * { box-sizing: border-box; }
 body {
@@ -114,7 +170,7 @@ button.link {
 .approve-bar { border-top: 1px dashed var(--pui-pending); }
 :focus-visible { outline: 2px solid var(--pui-focus-ring); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
-/* A caution that is not an error: dark amber on pale amber, AA contrast (about 5.4:1). */
+/* A caution that is not an error: the warning role on its soft role, AA contrast in both themes. */
 .warning {
   margin: var(--pui-space-3) 0 0; padding: var(--pui-space-2) var(--pui-space-3);
   color: var(--pui-warning); background: var(--pui-warning-soft); border: 1px solid var(--pui-warning);
@@ -124,5 +180,13 @@ button.link {
 .badge-warning { color: var(--pui-warning); background: var(--pui-warning-soft); border: 1px solid var(--pui-warning); }
 /* 20px tall; 6px of clear space is about the height of one of the mark's dots. */
 .brand-logo { display: block; height: 20px; width: auto; margin: 6px; }
+/* Black mark in light, white mark in dark; the twin is display:none, so a screen reader meets one. */
+.pui-logo--dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .pui-logo--light { display: none; }
+  :root:not([data-theme="light"]) .pui-logo--dark { display: block; }
+}
+:root[data-theme="dark"] .pui-logo--light { display: none; }
+:root[data-theme="dark"] .pui-logo--dark { display: block; }
 .brand-divider { width: 1px; height: 20px; background: var(--pui-border-strong); }
 .brand-lockup { display: flex; align-items: center; gap: var(--pui-space-3); }
