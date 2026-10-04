@@ -279,6 +279,8 @@ Money is stored as integer cents. Dates the business sees use `date`; event time
   | ID | Name | Published | Shape |
   | --- | --- | --- | --- |
   | `kitSmoke00000001` | Kit smoke: approval round-trip | yes | Webhook (header auth) → `POST /v1/runs` → `POST /v1/smoke/classify` (replayed model call) → `POST /v1/approvals` (with `$execution.resumeUrl`) → Wait (on webhook call, 10 min limit) → IF `decision == approved` → Send Email (SMTP → Mailpit) → `POST /v1/runs/{id}/finish` |
+
+  The smoke workflow submits the same subject every run, and an approval is one per requester, action and payload while it is open (pending, or approved and unused; nothing uses a smoke approval, so it stays open until its 10 minute lifetime ends). Triggering it again inside that window gets a 409 naming the open approval, because the new execution's resume URL differs; wait for the approval to expire, or start from a clean stack.
   | `receipts00000001` | Receipts → reconciled sheet (skeleton) | no | Schedule (15 min) → `GET /v1/receipts/pending` → Split Out → NoOp "Phase 2: extract, reconcile, Convert to File" |
   | `leads00000000001` | Companies to enriched CRM records | yes (since 3b) | see A12 |
   | `inbox00000000001` | Inbox triage with approvals (skeleton) | no | Schedule (5 min) → `POST /v1/inbox/pending` → Split Out → NoOp "Phase 3: triage, Switch on label, Wait, Send Email" |
