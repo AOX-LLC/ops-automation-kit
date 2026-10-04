@@ -186,12 +186,17 @@ async function untilTruthy<T>(page: Page, what: string, seconds: number, probe: 
   throw new Error(`timed out waiting for ${what}`);
 }
 
+/** The Logs panel is always in the DOM; collapsed it is a bar of about 36 px, open it is far taller. */
+async function logsOpen(page: Page): Promise<boolean> {
+  const box = await page.locator("[data-test-id='logs-panel']").boundingBox();
+  return (box?.height ?? 0) > 100;
+}
+
 /** Close the bottom Logs panel if it is open, then fit the whole workflow into the frame. */
 async function fitCanvas(page: Page): Promise<void> {
-  const logs = page.locator("[data-test-id='logs-overview']");
-  if (await logs.isVisible()) {
+  if (await logsOpen(page)) {
     await page.locator("[data-test-id='logs-overview-header']").click();
-    await logs.waitFor({ state: "hidden", timeout: 5000 });
+    await untilTruthy(page, "the Logs panel to close", 10, async () => !(await logsOpen(page)));
   }
   await page.locator("[data-test-id='zoom-to-fit']").click();
   await page.mouse.move(150, 330); // off the controls and off any node, so no hover state is on camera
