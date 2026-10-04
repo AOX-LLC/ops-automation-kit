@@ -247,7 +247,16 @@ async def request_draft_approval(
         approval_id=approval.id,
     )
     if not moved:
-        # Another request won the race; withdraw this approval so only one stays open.
+        current = await store.get_draft(factory, draft_id)
+        if (
+            current is not None
+            and current.status == "pending"
+            and current.approval_id == approval.id
+        ):
+            # An identical request won the race and moved the draft to this same approval (a
+            # repeat submit returns the open one), so there is nothing to withdraw.
+            return ApprovalCreated(approval_id=approval.id, draft_id=draft_id)
+        # Another request won the race with a different approval; withdraw this one.
         await core.approvals.cancel(
             approval.id, principal=N8N_SERVICE, reason="draft already awaiting approval"
         )
