@@ -199,7 +199,11 @@ async def create_draft(request: Request, body: MessageRequest) -> DraftCreated:
 async def request_draft_approval(
     request: Request, draft_id: UUID, body: ApprovalRequestBody
 ) -> ApprovalCreated:
-    """Ask for a human decision on the draft, exactly as stored; it moves draft -> pending."""
+    """Ask for a human decision on the draft, exactly as stored; it moves draft -> pending.
+
+    A repeat of the same request (n8n retrying the node) returns the approval already open for
+    the draft; the draft is not moved twice and no second approval is queued.
+    """
     settings: Settings = request.app.state.settings
     try:
         internal_resume_target(body.resume_url, settings)
@@ -209,7 +213,8 @@ async def request_draft_approval(
     draft = await store.get_draft(factory, draft_id)
     if draft is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "unknown draft")
-    if draft.status != "draft":
+    repeat = draft.status == "pending" and draft.approval_id is not None
+    if draft.status != "draft" and not repeat:
         raise HTTPException(status.HTTP_409_CONFLICT, f"draft is {draft.status}, not awaiting")
     if await store.is_quarantined(factory, draft.message_id):
         raise HTTPException(status.HTTP_409_CONFLICT, "the message is held for review")
@@ -225,6 +230,15 @@ async def request_draft_approval(
         context=ctx,
         resume_url=body.resume_url,
     )
+    if repeat:
+        if approval.id != draft.approval_id:
+            # The draft's own approval has closed, so this repeat opened a new one that nothing
+            # is waiting on: withdraw it rather than leave it for an approver to decide.
+            await core.approvals.cancel(
+                approval.id, principal=N8N_SERVICE, reason="draft already had an approval"
+            )
+            raise HTTPException(status.HTTP_409_CONFLICT, "the draft's approval is no longer open")
+        return ApprovalCreated(approval_id=approval.id, draft_id=draft_id)
     moved = await store.set_draft_status(
         factory,
         draft_id,
@@ -233,7 +247,16 @@ async def request_draft_approval(
         approval_id=approval.id,
     )
     if not moved:
-        # Another request won the race; withdraw this approval so only one stays open.
+        current = await store.get_draft(factory, draft_id)
+        if (
+            current is not None
+            and current.status == "pending"
+            and current.approval_id == approval.id
+        ):
+            # An identical request won the race and moved the draft to this same approval (a
+            # repeat submit returns the open one), so there is nothing to withdraw.
+            return ApprovalCreated(approval_id=approval.id, draft_id=draft_id)
+        # Another request won the race with a different approval; withdraw this one.
         await core.approvals.cancel(
             approval.id, principal=N8N_SERVICE, reason="draft already awaiting approval"
         )

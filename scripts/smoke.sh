@@ -15,9 +15,33 @@ WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
 step() { printf '\n== %s\n' "$*"; }
-fail() { printf 'FAIL: %s\n' "$*" >&2; docker compose logs --no-color > smoke-logs.txt 2>&1 || true; exit 1; }
 sql() { docker compose exec -T postgres psql -U postgres -d opskit -tAc "$1"; }
 json() { python3 -c "import json,sys; d=json.load(sys.stdin); print($1)"; }
+
+# What to look at when a step times out, printed before the full log is saved. A wait on an exact
+# message count can fail because the count went past it (a workflow ran twice), which the count
+# alone does not show: the runs, the n8n executions (how each was started) and the messages do.
+diagnose() {
+    set +e  # it runs just before the script exits 1: nothing in here may end it early
+    local limits="-c statement_timeout=5000"  # a lock held on a table must not hang the report
+    {
+        echo "--- diagnostics at $(date -u +%FT%TZ) ---"
+        echo "Mailpit messages: $(curl -sf -m 5 "$MAILPIT/api/v1/messages?limit=1" | json 'd["total"]' 2>/dev/null || echo '(Mailpit is not answering)')"
+        echo "newest Mailpit messages (created | to | subject):"
+        curl -sf -m 5 "$MAILPIT/api/v1/messages?limit=8" \
+            | json '"\n".join(m["Created"][:19] + " | " + ",".join(t["Address"] for t in m["To"]) + " | " + m["Subject"][:60] for m in d["messages"])' 2>/dev/null || true
+        echo "runs (workflow, status, started, finished):"
+        docker compose exec -T -e PGOPTIONS="$limits" postgres psql -U postgres -d opskit -tAc "select workflow, status, to_char(started_at, 'HH24:MI:SS'), to_char(finished_at, 'HH24:MI:SS') from core.runs order by started_at" 2>&1 || true
+        echo "n8n executions (workflow, mode, status, started, stopped); mode is webhook or trigger (a schedule):"
+        docker compose exec -T -e PGOPTIONS="$limits" postgres psql -U postgres -d n8n -tAc "select \"workflowId\", mode, status, to_char(\"startedAt\", 'HH24:MI:SS'), to_char(\"stoppedAt\", 'HH24:MI:SS') from execution_entity order by id" 2>&1 || true
+        echo "approvals by status:"
+        docker compose exec -T -e PGOPTIONS="$limits" postgres psql -U postgres -d opskit -tAc "select status, count(*) from core.approvals group by 1 order by 1" 2>&1 || true
+        echo "last service log lines (api, n8n, mailpit):"
+        docker compose logs --no-color --tail 25 api n8n mailpit 2>&1 || true
+        echo "--- end diagnostics ---"
+    } >&2
+}
+fail() { printf 'FAIL: %s\n' "$*" >&2; diagnose; docker compose logs --no-color > smoke-logs.txt 2>&1 || true; exit 1; }
 wait_for() {  # wait_for <seconds> <description> <command...>
     local deadline=$((SECONDS + $1)) what=$2; shift 2
     until "$@" >/dev/null 2>&1; do
@@ -27,6 +51,13 @@ wait_for() {  # wait_for <seconds> <description> <command...>
 }
 mail_count() { curl -sf "$MAILPIT/api/v1/messages?limit=1" | json 'd["total"]'; }
 mail_count_is() { [ "$(mail_count)" = "$1" ]; }
+wait_for_mail_count() {  # wait_for_mail_count <seconds> <description> <expected count>
+    local deadline=$((SECONDS + $1)) what=$2 expected=$3
+    until mail_count_is "$expected" >/dev/null 2>&1; do
+        [ $SECONDS -lt $deadline ] || fail "timed out waiting for $what: Mailpit holds $(mail_count 2>/dev/null || echo '?') messages, expected $expected"
+        sleep 2
+    done
+}
 expected_sample_files() {
     find samples -type f \( -path 'samples/receipts/*' -o -path 'samples/leads/*' -o -path 'samples/crm/*' -o -path 'samples/inbox/*' \) | wc -l
 }
@@ -91,7 +122,7 @@ wait_for 90 "the smoke run to resume and finish" run_done
 for action in approval.requested approval.decided approval.resumed model.call; do
     [ "$(sql "select count(*) from core.audit_log where action = '$action'")" -ge 1 ] || fail "no $action audit row"
 done
-wait_for 30 "the Send Email node's message in Mailpit" mail_count_is 29
+wait_for_mail_count 30 "the Send Email node's message in Mailpit" 29
 echo "approved on the page, n8n resumed, audit rows written, confirmation email captured"
 
 step "receipts workflow end to end (replay)"
@@ -104,7 +135,7 @@ wait_for 240 "the receipts run to finish" receipts_done
 flagged=$(sql "select summary->>'flagged' from receipts.reconciliations order by created_at desc limit 1")
 [ -n "$flagged" ] || fail "no reconciliation was stored"
 ls exports/reconciliation-*.xlsx >/dev/null 2>&1 || fail "no spreadsheet in exports/"
-wait_for 30 "the receipts summary email" mail_count_is 30
+wait_for_mail_count 30 "the receipts summary email" 30
 echo "30 receipts extracted from recordings, reconciled ($flagged flagged), spreadsheet written, summary emailed"
 
 step "inbox workflow end to end (replay)"
@@ -172,7 +203,7 @@ wait_for 120 "the rejected draft to be closed" rejected
 reply_to=$(sql "select to_addr from inbox.drafts where approval_id = '$approve_id'")
 replied() { [ "$(curl -sf -G "$MAILPIT/api/v1/search" --data-urlencode "query=from:inbox@kit.example to:$reply_to" | json 'd["messages_count"]')" -ge 1 ]; }
 wait_for 30 "the approved reply in Mailpit" replied
-wait_for 30 "the inbox summary and the reply in Mailpit" mail_count_is 32
+wait_for_mail_count 30 "the inbox summary and the reply in Mailpit" 32
 echo "28 messages triaged, 3 held and never drafted, 1 reply approved and sent, 1 rejected and left unsent"
 
 step "leads workflow end to end (replay)"
@@ -190,7 +221,7 @@ wait_for 240 "the leads run to finish" leads_done
 [ "$(sql "select count(*) from crm.account_sources s join crm.accounts a on a.id = s.account_id where a.domain = 'northfield.example' and s.field = 'employee_band' and s.excerpt like '%11-50%'")" = "1" ] \
     || fail "Northfield's band should be sourced as 11-50"
 [ "$(sql "select count(*) from crm.account_sources where source_ref = '' or excerpt = ''")" = "0" ] || fail "a CRM field has no source"
-wait_for 30 "the leads summary email" mail_count_is 33
+wait_for_mail_count 30 "the leads summary email" 33
 echo "17 companies researched with sources, 3 reported as no website given, Ironwood updated not duplicated"
 
 step "leads run again (no duplicates)"
@@ -200,7 +231,7 @@ wait_for 240 "the second leads run to finish" leads_runs
 [ "$(sql 'select count(*) from crm.accounts')" = "21" ] || fail "a re-run changed the number of CRM accounts"
 [ "$(sql 'select count(*) from (select account_id, field from crm.account_sources group by 1, 2 having count(*) > 1) d')" = "0" ] \
     || fail "a re-run duplicated a source row"
-wait_for 30 "the second leads summary email" mail_count_is 34
+wait_for_mail_count 30 "the second leads summary email" 34
 echo "re-run updated the same records: still 21 accounts, one source row per field"
 
 step "second boot without -v"
@@ -210,5 +241,11 @@ if docker compose logs --no-color n8n-import | grep -q WARNING; then
     fail "second boot re-imported a workflow that did not change"
 fi
 echo "second boot: same data, no workflow re-imported"
+
+# For the record: how each execution started. A schedule ("trigger") that fires beside a webhook
+# run doubles that workflow's email, which an exact count then reports as a timeout.
+echo "n8n executions (workflow, how started, count):"
+docker compose exec -T postgres psql -U postgres -d n8n -tAc \
+    'select "workflowId", mode, count(*) from execution_entity group by 1, 2 order by 1, 2' || true
 
 printf '\nSMOKE PASSED\n'

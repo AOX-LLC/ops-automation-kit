@@ -50,7 +50,7 @@ approvals = Table(
     Column("run_id", UUID(as_uuid=True), ForeignKey("core.runs.id")),
     Column("action", Text, nullable=False),
     Column("summary", Text, nullable=False),
-    Column("payload", JSONB, nullable=False),
+    Column("payload", JSONB),  # NULL only once purged (payload_purged_at says when)
     Column("payload_sha256", String(64), nullable=False),
     Column("requested_by", Text, nullable=False),
     Column("required_role", Text, nullable=False),
@@ -66,6 +66,7 @@ approvals = Table(
     Column("reason", Text),
     Column("run_context", JSONB(none_as_null=True)),
     Column("delegates", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
+    Column("payload_purged_at", DateTime(timezone=True)),
     schema="core",
 )
 
@@ -97,6 +98,8 @@ audit_log = Table(
     Column("prev_hash", String(64), nullable=False),
     Column("record_hash", String(64), nullable=False, unique=True),
     Column("db_role", Text),  # set by an insert trigger, whatever was sent; not in the hash
+    Column("recorded_at", DateTime(timezone=True)),  # likewise; NULL on rows from before 3e
+    Column("db_login", Text),  # session_user, likewise; NULL on rows before schema 4
     schema="core",
 )
 

@@ -57,7 +57,7 @@ ATTEMPTS: dict[str, tuple[str, str]] = {
     "delete then re-insert": (
         "delete from core.approvals where id = '{id}'; "
         f"insert into core.approvals ({COLUMNS}, status) values ('{{id}}', 'a', 's', '{{}}', "
-        "repeat('0', 64), 'x', 'approver', now() + interval '1 hour', 'approved')",
+        "repeat(md5(random()::text), 2), 'x', 'approver', now() + interval '1 hour', 'approved')",
         "permission denied",
     ),
     "set session authorization": (
@@ -156,7 +156,8 @@ def test_the_requester_cannot_make_the_approver_page_show_other_than_what_is_cov
     planted = psql(
         "insert into core.approvals (action, summary, payload, payload_sha256, requested_by, "
         "required_role, expires_at) values ('kit_smoke.echo', 's', '{\"shown\": 1}', "
-        "repeat('0', 64), 'service.n8n', 'approver', now() + interval '1 hour') returning id",
+        "repeat(md5(random()::text), 2), 'service.n8n', 'approver', "
+        "now() + interval '1 hour') returning id",
         role="opskit_app",
     )
     assert planted.returncode == 0, planted.stderr

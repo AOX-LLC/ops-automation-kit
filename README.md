@@ -8,7 +8,7 @@ Three n8n + Claude workflows for small businesses, runnable from one `docker com
 
 n8n orchestrates. A small Python helper API does the work.
 
-**Status:** Phase 3c: the receipts, inbox and leads workflows run end to end (in replay by default) on agent-core v0.1.0a3.
+**Status:** Phase 3e: the receipts, inbox and leads workflows run end to end (in replay by default) on agent-core v0.1.0.
 
 <!-- GIF arrives with Phase 4 -->
 
@@ -213,7 +213,7 @@ docs/                plans and architecture notes
 
 ## Licenses
 
-This repository's code is MIT licensed (see LICENSE). n8n is licensed under its Sustainable Use License; this repo pulls the official n8n image and does not redistribute n8n. The receipt fonts are under the SIL Open Font License (tools/samplegen/fonts/OFL.txt).
+This repository's code is MIT licensed (see LICENSE). n8n is licensed under its Sustainable Use License; this repo pulls the official n8n image and does not redistribute n8n. The receipt fonts are under the SIL Open Font License (tools/samplegen/fonts/OFL.txt). Third-party components this repo pulls or redistributes, with their licences, are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 **The AOX logo is not MIT licensed.** The AOX logo (`src/opskit/api/static/brand/aox-logo-black.png`, shown on the approver page) is a trademark of AOX LLC. It is not licensed under this repository's MIT license, and you may not use it to suggest your deployment comes from or is endorsed by AOX. Replace it in your own deployments: set `OPSKIT_BRAND_LOGO_URL` to your own logo (for example a path under `/static/`) and `OPSKIT_BRAND_LOGO_ALT` to its alt text, or set the URL to empty to hide the logo. See `src/opskit/api/static/brand/README.md`.
 
