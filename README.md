@@ -1,26 +1,84 @@
 # ops-automation-kit
 
+[![CI](https://github.com/AOX-LLC/ops-automation-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/AOX-LLC/ops-automation-kit/actions/workflows/ci.yml)
+[![Compose smoke](https://img.shields.io/github/actions/workflow/status/AOX-LLC/ops-automation-kit/ci.yml?label=compose%20smoke&logo=docker&logoColor=white)](https://github.com/AOX-LLC/ops-automation-kit/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Replay mode: no API key needed](https://img.shields.io/badge/replay%20mode-no%20API%20key-0F7A6F)
+
 Three n8n + Claude workflows for small businesses, runnable from one `docker compose up` with fictional sample data.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/walkthrough-dark.gif">
+    <img alt="Receipts reconciled into a spreadsheet, an inbox triaged with a held injection email and an approved reply, and leads turned into cited CRM records." src="docs/media/walkthrough-light.gif" width="800">
+  </picture>
+</p>
 
 1. **Receipts:** a folder of receipts becomes a reconciled spreadsheet, with mismatches against a bank CSV flagged.
 2. **Leads:** a list of company names becomes enriched CRM records, each field with its source.
 3. **Inbox:** inbound email is triaged, and drafted replies are held for human approval before anything is sent.
 
-n8n orchestrates. A small Python helper API does the work.
+n8n orchestrates. A small Python helper API does the work. Everything runs in replay mode by default: no API key, no spend.
 
-**Status:** Phase 3e: the receipts, inbox and leads workflows run end to end (in replay by default) on agent-core v0.1.0.
+A 2-minute video with captions is in [docs/media/](docs/media/): `walkthrough-light.mp4` and `walkthrough-dark.mp4`, with `.vtt` and `.srt` subtitles.
 
-<!-- GIF arrives with Phase 4 -->
+## What it looks like
 
-## All data in this repo is fictional
+<table>
+  <tr>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/media/approver-detail-dark.png">
+        <img alt="The approver page: a drafted reply waiting for a decision, shown exactly as it will be sent, with the Approve and send button." src="docs/media/approver-detail-light.png">
+      </picture>
+      <br><sub><b>Approver page.</b> A drafted reply waits for a person. Nothing is sent until it is approved, and exactly that text is sent.</sub>
+    </td>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/media/reconciliation-dark.png">
+        <img alt="The reconciled spreadsheet with the mismatching receipts listed first." src="docs/media/reconciliation-light.png">
+      </picture>
+      <br><sub><b>Reconciliation.</b> Mismatches against the bank file first. This view is rendered from the real <code>.xlsx</code> the workflow writes.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/media/canvas-receipts-dark.png">
+        <img alt="The receipts workflow on the n8n canvas." src="docs/media/canvas-receipts-light.png">
+      </picture>
+      <br><sub><b>n8n canvas.</b> The receipts workflow. No Code nodes: anything beyond a field lookup is Python.</sub>
+    </td>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/media/crm-records-dark.png">
+        <img alt="CRM records with the quoted text and source behind each enriched field." src="docs/media/crm-records-light.png">
+      </picture>
+      <br><sub><b>CRM records.</b> Each enriched field carries the quoted text and source it came from. Rendered from the <code>crm</code> tables.</sub>
+    </td>
+  </tr>
+</table>
 
-**Every business, person, address, email and number here is invented. Domains use the reserved `.example` TLD. Phone numbers use the 555-01xx fictional range. Receipts are rendered in code.**
+**Status:** the receipts, inbox and leads workflows run end to end (in replay by default) on agent-core v0.1.0.
+
+## Eval scorecards
+
+All three suites run in replay in CI, free. The numbers below come from live recordings made with the maintainers' own key, then replayed.
+
+| Workflow | Set | Headline | Caveat |
+| --- | --- | --- | --- |
+| [Receipts](#eval-scorecard-receipts) | 30 synthetic receipts | field accuracy 1.00 | One generator made the receipts and the answer key, and the reconciliation rules were refined against the same key. A wiring and regression check, not a field benchmark. |
+| [Leads](#eval-scorecard-leads) | 20 fictional companies | field accuracy 1.00, citations valid after checks 1.00 | The research corpus is local and fictional, so this does not measure live web retrieval. One cited quote in 109 was rejected by the checks. |
+| [Inbox](#eval-scorecard-inbox) | 28 synthetic emails | triage accuracy 0.89, 3 of 3 injections held | Small set, no held-out part. Draft grounding passed 15 of 16 at recording. |
 
 ## Quickstart
 
-Requirements: Docker Engine 26+ with Compose 2.30+.
+Replay mode, no key. Requirements: Docker Engine 26+ with Compose 2.30+.
 
 ```sh
+git clone https://github.com/AOX-LLC/ops-automation-kit.git
+cd ops-automation-kit
+mkdir -p exports
 docker compose up -d --wait
 ```
 
@@ -32,14 +90,24 @@ The first boot takes a few minutes. n8n runs its database migrations before it r
 | Approver page | http://localhost:4301/approver/ |
 | Mailpit (caught email) | http://localhost:4303 |
 
-Passwords are generated on first boot and never logged. `make login` prints the n8n owner password and the approver password. It is the only way to see them.
+Passwords and the workflow token are generated on first boot and never logged. `make login` prints the n8n owner password, the approver password and the token workflow calls carry. It is the only way to see them.
+
+Run a workflow with its webhook, using the token from `make login`:
+
+```sh
+curl -X POST -H "X-Kit-Token: <token>" http://localhost:4300/webhook/receipts-run
+```
+
+Use `receipts-run`, `inbox-run` or `leads-run`. Open the workflow in n8n to watch it, then look at Mailpit for the summary email. Receipts and inbox also start on their own, every 15 and 5 minutes; set `KIT_SCHEDULED_RUNS=false` in `.env` to start them only by webhook. Approve or reject inbox drafts on the approver page.
 
 | Command | What it does |
 | --- | --- |
-| `make evals` | Score receipts and the inbox in replay; free |
-| `make smoke` | End-to-end check: clean boot, seeded data, approval round-trip, second boot |
+| `make evals` | Score receipts, the inbox and leads in replay; free |
+| `make smoke` | End-to-end check: clean boot, seeded data, approval round-trip, every workflow, second boot |
 | `make down` | Stop the stack and keep its volumes |
 | `make clean` | Stop the stack and remove its volumes |
+
+**Upgrading.** Stop the stack before you migrate: `make down`, pull, then `make up`. Run migrations with the api stopped, because `core_0013` makes the audit insert trigger require the new audit schema, and an api still running the old code has its audited writes refused until it is replaced. Details and the data the migrations touch are in [docs/architecture.md](docs/architecture.md#a4-postgres-schema).
 
 ## How it fits together
 
@@ -122,7 +190,36 @@ Committed scorecards: [live](evals/scorecards/receipts-small-live.md) ([summary]
 
 ## Leads workflow
 
+Workflow `02-leads` runs when you start it (the **Run on demand** trigger in the editor) or when its webhook is called.
+
+1. Read the company list. A company with no website is reported as "no website given" and never sent to the model.
+2. Research each company. In replay and by default, retrieval reads a local corpus of fictional pages. A `web` mode that fetches a company's own public site through a guarded client (SSRF checks, robots.txt) exists for a manual live demo only and needs `AGENT_CORE_MODE=live`.
+3. A field is kept only if its quoted text appears in the cited page and supports the value. Conflicts are left empty rather than guessed.
+4. Write the CRM record by domain, so a re-run updates a company instead of duplicating it, with one source row per field.
+5. Email a summary: added, updated, no website.
+
 A cited sentence can contain a staff member's name, so review the stored research before you use real data.
+
+## Eval scorecard (leads)
+
+Measured on 20 fictional companies, 17 with websites and 3 without, against a local corpus of about 37 documents written by the same generator. No held-out set, and the retrieval rules were refined against the same answer key. It tests the extraction and citation checks, not live web retrieval.
+
+| Measure | Result |
+| --- | --- |
+| Companies | 20 (17 researched, 3 with no website, all 3 handled) |
+| Field accuracy | 1.00 for domain, industry, employee band, headquarters city, founded year and description |
+| Citations | 109 returned, 108 passed the checks (raw validity 0.9908; 1.0 after the checks, which dropped the one that failed) |
+| Honest nulls | 1.0 (3 of 3 expected) |
+| Conflicts reported | 2 of 2 |
+| Injected instruction in a page | ignored |
+| Cost per company | $0.0029 |
+
+Reproduce:
+
+- `make evals` scores the recordings in replay. It is free.
+- Re-record from the host with your own key: `AGENT_CORE_MODE=record uv run python -m opskit.evals.leads`
+
+Committed scorecards: [live](evals/scorecards/leads-live.md) ([summary](evals/scorecards/leads-live.summary.json)) and [replay](evals/scorecards/leads-replay.md) ([summary](evals/scorecards/leads-replay.summary.json)).
 
 ## Inbox workflow
 
@@ -209,13 +306,15 @@ evals/answer_keys/   ground truth for scoring, never mounted
 tools/samplegen/     generators for samples and answer keys
 scripts/             workflow lint, public-safety check
 docs/                plans and architecture notes
+docs/media/          the README GIFs, screenshots, videos and website clips
+demo/                the recording pipeline that made them (Playwright, ffmpeg, VHS); see demo/README.md
 ```
 
 ## Licenses
 
 This repository's code is MIT licensed (see LICENSE). n8n is licensed under its Sustainable Use License; this repo pulls the official n8n image and does not redistribute n8n. The receipt fonts are under the SIL Open Font License (tools/samplegen/fonts/OFL.txt). Third-party components this repo pulls or redistributes, with their licences, are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-**The AOX logo is not MIT licensed.** The AOX logo (`src/opskit/api/static/brand/aox-logo-black.png` and `aox-logo-white.png`, shown on the approver page) is a trademark of AOX LLC. It is not licensed under this repository's MIT license, and you may not use it to suggest your deployment comes from or is endorsed by AOX. Replace it in your own deployments: set `OPSKIT_BRAND_LOGO_URL` to your own logo (for example a path under `/static/`) and `OPSKIT_BRAND_LOGO_ALT` to its alt text, or set the URL to empty to hide the logo. See `src/opskit/api/static/brand/README.md`.
+**The AOX logo is not MIT licensed.** The AOX logo (`src/opskit/api/static/brand/aox-logo-black.png` and `aox-logo-white.png`, shown on the approver page and in the media under `docs/media/`) is a trademark of AOX LLC. It is not licensed under this repository's MIT license, and you may not use it to suggest your deployment comes from or is endorsed by AOX. Replace it in your own deployments: set `OPSKIT_BRAND_LOGO_URL` to your own logo (for example a path under `/static/`) and `OPSKIT_BRAND_LOGO_ALT` to its alt text, or set the URL to empty to hide the logo. See `src/opskit/api/static/brand/README.md`.
 
 ## Notes
 
