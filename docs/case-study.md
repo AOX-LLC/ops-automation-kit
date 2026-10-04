@@ -15,27 +15,23 @@ Everything runs from one `docker compose up`, in replay mode, on fictional data.
 n8n owns triggers, schedules, branching, waiting for approvals and sending approved email. A small FastAPI helper does the work: reading files and mailboxes, extraction, reconciliation, research, drafting, approvals and audit. There are no Code nodes; if a step needs more than a field lookup, it is Python. Model calls, approvals and audit writes all go through one module, `opskit.core`, built on agent-core. An import linter keeps model SDKs out of everything else.
 
 ```mermaid
-flowchart LR
-    subgraph n8n["n8n: triggers, branching, waits, sends"]
-        WF["Workflows"]
-    end
-    subgraph api["Helper API (FastAPI)"]
-        H["Receipts, inbox, leads logic"]
-        AP["Approver page"]
-        CORE["opskit.core"]
-    end
+flowchart TD
+    N8N["n8n: triggers, branching, waits, sends"]
+    API["Helper API (FastAPI): receipts, inbox and leads logic"]
+    APPR["Approver page, served by the helper API"]
+    CORE["opskit.core: the one door"]
     AC["agent-core: model calls, replay and record"]
     PG[("Postgres: approvals, audit, CRM, run records")]
     MP["Mailpit: caught email"]
 
-    WF -- "work requests" --> H
-    H --> CORE
+    N8N -->|"work requests"| API
+    API --> CORE
     CORE --> AC
     CORE --> PG
-    AP --> PG
-    AP -- "signed resume" --> WF
-    WF -- "approved replies and summaries" --> MP
-    MP -- "inbound mail" --> H
+    APPR --> PG
+    APPR -->|"signed resume"| N8N
+    N8N -->|"approved replies, summaries"| MP
+    MP -->|"inbound mail"| API
 ```
 
 ## The evals
