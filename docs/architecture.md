@@ -339,7 +339,7 @@ IF status == approved                    2xx → delivered_at; audit approval.re
 
 ## A7. Replay mode and cassettes
 
-Model calls go through agent-core v0.1.0a6. Its settings are in `config/agent-core.toml`; `AGENT_CORE_MODE` overrides `mode`.
+Model calls go through agent-core v0.1.0. Its settings are in `config/agent-core.toml`; `AGENT_CORE_MODE` overrides `mode`.
 
 - **Modes:**
 
