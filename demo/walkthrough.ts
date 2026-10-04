@@ -186,15 +186,26 @@ async function untilTruthy<T>(page: Page, what: string, seconds: number, probe: 
   throw new Error(`timed out waiting for ${what}`);
 }
 
-async function openCanvas(page: Page, workflowId: string): Promise<void> {
-  await page.goto(`${N8N}/workflow/${workflowId}`);
-  await settle(page, page.locator("[data-test-id='canvas-node']").first());
-  await page.keyboard.press("1"); // zoom to fit
+/** Close the bottom Logs panel if it is open, then fit the whole workflow into the frame. */
+async function fitCanvas(page: Page): Promise<void> {
+  const logs = page.locator("[data-test-id='logs-overview']");
+  if (await logs.isVisible()) {
+    await page.locator("[data-test-id='logs-overview-header']").click();
+    await logs.waitFor({ state: "hidden", timeout: 5000 });
+  }
+  await page.locator("[data-test-id='zoom-to-fit']").click();
+  await page.mouse.move(150, 330); // off the controls and off any node, so no hover state is on camera
   await pause(page, 800);
 }
 
-/** Zoom in on the left end of the canvas and pan right along it, so every node label is legible. */
-async function tourCanvas(page: Page, panSteps: number): Promise<void> {
+async function openCanvas(page: Page, workflowId: string, path = ""): Promise<void> {
+  await page.goto(`${N8N}/workflow/${workflowId}${path}`);
+  await settle(page, page.locator("[data-test-id='canvas-node']").first());
+  await fitCanvas(page);
+}
+
+/** Zoom in on the left end of the canvas, so the node labels are legible at README size. */
+async function zoomCanvas(page: Page): Promise<void> {
   await page.mouse.move(150, 330); // empty canvas: no hover toolbar on a node
   await page.keyboard.down("Control");
   for (let i = 0; i < 5; i++) {
@@ -203,6 +214,11 @@ async function tourCanvas(page: Page, panSteps: number): Promise<void> {
   }
   await page.keyboard.up("Control");
   await pause(page, 1800);
+}
+
+/** Zoom in, then pan right along the workflow. */
+async function tourCanvas(page: Page, panSteps: number): Promise<void> {
+  await zoomCanvas(page);
   for (let i = 0; i < panSteps; i++) {
     await page.mouse.wheel(40, 0);
     await pause(page, 60);
@@ -253,16 +269,18 @@ async function main(): Promise<void> {
   // ---- Receipts
   await scene({ id: "receipts-canvas", workflow: "receipts", caption: "Receipts: n8n orchestrates, the helper API does the work", loop: "receipts-canvas", gif: true }, async () => {
     await openCanvas(page, "receipts00000001");
-    await still(page, "canvas-receipts");
-    await pause(page, 1500);
-    await tourCanvas(page, 34);
+    await pause(page, 1500); // the whole workflow, fitted
+    await zoomCanvas(page);
+    await still(page, "canvas-receipts"); // zoomed in: the node names read at README size
+    for (let i = 0; i < 34; i++) {
+      await page.mouse.wheel(40, 0);
+      await pause(page, 60);
+    }
+    await pause(page, 1200);
   });
   const receiptsExecution = await runWorkflow(page, api, { workflowId: "receipts00000001", webhook: "receipts-run", workflow: "receipts", label: "Receipts" });
   await scene({ id: "receipts-execution", workflow: "receipts", caption: "30 receipts extracted, then reconciled against the bank file" }, async () => {
-    await page.goto(`${N8N}/workflow/receipts00000001/executions/${receiptsExecution}`);
-    await settle(page, page.locator("[data-test-id='canvas-node']").first());
-    await page.keyboard.press("1");
-    await pause(page, 800);
+    await openCanvas(page, "receipts00000001", `/executions/${receiptsExecution}`);
     await tourCanvas(page, 34);
   });
   const sheetFile = newestExport(join(repoRoot, "exports"));
@@ -284,10 +302,7 @@ async function main(): Promise<void> {
   });
   const inboxExecution = await runWorkflow(page, api, { workflowId: "inbox00000000001", webhook: "inbox-run", workflow: "inbox", label: "Inbox" });
   await scene({ id: "inbox-execution", workflow: "inbox", caption: "Injection attempts take the held branch and are never drafted" }, async () => {
-    await page.goto(`${N8N}/workflow/inbox00000000001/executions/${inboxExecution}`);
-    await settle(page, page.locator("[data-test-id='canvas-node']").first());
-    await page.keyboard.press("1");
-    await pause(page, 800);
+    await openCanvas(page, "inbox00000000001", `/executions/${inboxExecution}`);
     await tourCanvas(page, 44);
   });
   await scene({ id: "inbox-mail", workflow: "inbox", caption: "Three injection emails quarantined, with the evidence" }, async () => {
@@ -339,10 +354,7 @@ async function main(): Promise<void> {
   });
   const leadsExecution = await runWorkflow(page, api, { workflowId: "leads00000000001", webhook: "leads-run", workflow: "leads", label: "Leads" });
   await scene({ id: "leads-execution", workflow: "leads", caption: "17 companies researched, 3 reported as having no website" }, async () => {
-    await page.goto(`${N8N}/workflow/leads00000000001/executions/${leadsExecution}`);
-    await settle(page, page.locator("[data-test-id='canvas-node']").first());
-    await page.keyboard.press("1");
-    await pause(page, 800);
+    await openCanvas(page, "leads00000000001", `/executions/${leadsExecution}`);
     await tourCanvas(page, 24);
   });
   await scene({ id: "leads-crm", workflow: "leads", caption: "Every CRM field carries the quoted text and source it came from", gif: true, loop: "leads-crm" }, async () => {
