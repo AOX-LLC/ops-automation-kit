@@ -1,4 +1,4 @@
-"""Phase 3e: what agent-core v0.1.0a4 to a6 added, held by the database and the queue.
+"""Phase 3e: what agent-core v0.1.0 added, held by the database and the queue.
 
 Each rule is tested where it is enforced: through the queue and audit log from the api container
 (the requester and approver roles, as the api uses them) and, for the rules the database owns,
@@ -16,7 +16,7 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from opskit.db.migrations.versions import core_0012_approvals_a6 as migration
+from opskit.db.migrations.versions import core_0012_approvals as migration
 from tests.integration.conftest import (
     N8N_PORT,
     ApproverClient,
@@ -199,7 +199,7 @@ def test_an_unsupplied_occurred_at_is_the_database_clock() -> None:
 INSERT_AUDIT = (
     "begin; insert into core.audit_log (seq, schema_version, event_id, occurred_at, action, "
     "actor_id, payload, prev_hash, record_hash{extra_cols}) values "
-    "((select coalesce(max(seq), 0) + 1 from core.audit_log), 3, gen_random_uuid(), {occurred}, "
+    "((select coalesce(max(seq), 0) + 1 from core.audit_log), 4, gen_random_uuid(), {occurred}, "
     "'itest.append', 'itest', '{{}}', repeat('0', 64), repeat(md5(random()::text), 2)"
     "{extra_vals}) returning {returning}; rollback;"
 )
@@ -242,6 +242,43 @@ def test_the_database_sets_recorded_at_whatever_the_writer_sends() -> None:
     result = psql(sql, role="opskit_app")
     assert result.returncode == 0, result.stderr
     assert "t|opskit_app" in result.stdout.splitlines()
+
+
+def test_the_database_sets_db_login_to_the_real_login_whatever_the_writer_sends() -> None:
+    sql = INSERT_AUDIT.format(
+        occurred="now()",
+        extra_cols=", db_login",
+        extra_vals=", 'somebody_else'",
+        returning="db_login, db_role",
+    )
+    for role in ("opskit_app", "opskit_approver"):
+        result = psql(sql, role=role)
+        assert result.returncode == 0, result.stderr
+        assert f"{role}|{role}" in result.stdout.splitlines()
+
+
+def test_a_record_through_the_queue_carries_its_login_outside_the_hash() -> None:
+    out = in_api(
+        """
+        async def main(queue, audit):
+            record = await audit.append(
+                AuditEvent(action="itest.login", actor_id="itest", payload={})
+            )
+            other = record.model_copy(update={"db_login": "somebody_else"})
+            return {
+                "schema": record.schema_version,
+                "login": record.db_login,
+                "hash_ignores_login": compute_record_hash(other) == record.record_hash,
+                "verifies": (await audit.verify()).seq >= record.seq,
+            }
+        """
+    )
+    assert out == {
+        "schema": 4,
+        "login": "opskit_app",
+        "hash_ignores_login": True,
+        "verifies": True,
+    }
 
 
 # --- approvals: idempotent submit --------------------------------------------------------------

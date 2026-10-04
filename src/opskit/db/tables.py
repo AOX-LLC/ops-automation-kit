@@ -99,6 +99,7 @@ audit_log = Table(
     Column("record_hash", String(64), nullable=False, unique=True),
     Column("db_role", Text),  # set by an insert trigger, whatever was sent; not in the hash
     Column("recorded_at", DateTime(timezone=True)),  # likewise; NULL on rows from before 3e
+    Column("db_login", Text),  # session_user, likewise; NULL on rows before schema 4
     schema="core",
 )
 

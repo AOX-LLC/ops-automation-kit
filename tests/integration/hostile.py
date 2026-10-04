@@ -57,7 +57,7 @@ APPROVAL_BASE = {
 AUDIT_BASE = {
     # Huge and random, so a row that got in could never collide with a real record.
     "seq": "(9000000000000000000 - (random() * 1000000000000)::bigint)",
-    "schema_version": "3",
+    "schema_version": "4",
     "event_id": "gen_random_uuid()",
     "occurred_at": "now()",
     "action": q("test.hostile"),

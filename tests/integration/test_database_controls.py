@@ -39,7 +39,7 @@ def test_even_owner_and_superuser_hit_the_append_only_trigger(role: str, sql: st
 def test_app_role_can_append() -> None:
     sql = (
         "begin; insert into core.audit_log (seq, schema_version, event_id, occurred_at, action, "
-        "actor_id, payload, prev_hash, record_hash) values (9000000000, 3, gen_random_uuid(), "
+        "actor_id, payload, prev_hash, record_hash) values (9000000000, 4, gen_random_uuid(), "
         "now(), 'itest.append', 'itest', '{}', repeat('0', 64), repeat('f', 64)); rollback;"
     )
     assert psql(sql, role="opskit_app").returncode == 0
@@ -137,7 +137,7 @@ def test_db_role_is_set_by_the_database_and_cannot_be_forged() -> None:
     sql = (
         "do $$ declare stored text; begin "
         "insert into core.audit_log (seq, schema_version, event_id, occurred_at, action, "
-        "actor_id, payload, prev_hash, record_hash, db_role) values (9000000001, 3, "
+        "actor_id, payload, prev_hash, record_hash, db_role) values (9000000001, 4, "
         "gen_random_uuid(), now(), 'itest.append', 'itest', '{}', repeat('0', 64), "
         "repeat('e', 64), 'opskit_approver') returning db_role into stored; "
         "raise exception 'stored db_role=%', stored; end $$"
@@ -146,20 +146,23 @@ def test_db_role_is_set_by_the_database_and_cannot_be_forged() -> None:
     assert "stored db_role=opskit_app" in result.stderr, result.stderr
 
 
-def test_a_new_record_cannot_claim_schema_2_to_dodge_attribution() -> None:
-    v2 = (
+def test_a_new_record_cannot_claim_an_older_schema_to_dodge_attribution() -> None:
+    older = (
         "begin; insert into core.audit_log (seq, schema_version, event_id, occurred_at, action, "
-        "actor_id, payload, prev_hash, record_hash) values (9000000002, 2, gen_random_uuid(), "
-        "now(), 'itest.append', 'itest', '{}', repeat('0', 64), repeat('d', 64)); rollback;"
+        "actor_id, payload, prev_hash, record_hash) values (9000000002, {version}, "
+        "gen_random_uuid(), now(), 'itest.append', 'itest', '{{}}', repeat('0', 64), "
+        "repeat('d', 64)); rollback;"
     )
-    for role in ("opskit_app", "opskit_approver", "opskit_owner", "postgres"):
-        result = psql(v2, role=role)
-        assert result.returncode != 0, role
-        assert "must be schema 3" in result.stderr or "permission denied" in result.stderr
+    for version in (2, 3):
+        for role in ("opskit_app", "opskit_approver", "opskit_owner", "postgres"):
+            result = psql(older.format(version=version), role=role)
+            assert result.returncode != 0, (version, role)
+            assert "must be schema 4" in result.stderr or "permission denied" in result.stderr
 
 
-def test_every_version_3_record_names_its_role_and_older_ones_have_none() -> None:
+def test_every_record_names_its_role_and_login_as_its_version_says() -> None:
     wrong = psql(
-        "select count(*) from core.audit_log where (schema_version = 3) <> (db_role is not null)"
+        "select count(*) from core.audit_log where (schema_version >= 3) <> (db_role is not null) "
+        "or (schema_version >= 4) <> (db_login is not null)"
     )
     assert wrong.stdout.strip() == "0"

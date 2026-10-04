@@ -1,14 +1,14 @@
 """The kit's Postgres audit log, implementing agent-core's hash-chained AuditLog protocol.
 
-Records follow agent-core's schema 3 (2 for those already in the chain) and are sealed with its
-compute_record_hash, so the chain verifies the same way agent-core's own logs do. Appends are
+Records follow agent-core's schema 4 (2 and 3 for those already in the chain) and are sealed with
+its compute_record_hash, so the chain verifies the same way agent-core's own logs do. Appends are
 serialized with a transaction-scoped advisory lock, and append_in() lets a caller write its
 change and the event recording it in one transaction. The database also refuses UPDATE, DELETE
 and TRUNCATE on the table, and the app roles may only INSERT and SELECT.
 
 `occurred_at` is the caller's if it gave one, else the database's clock; the insert trigger
 refuses a time more than 24 hours back or 5 minutes ahead, and sets `recorded_at` itself. The hash
-covers `occurred_at` only, never `recorded_at` or `db_role`.
+covers `occurred_at` only, never `recorded_at`, `db_role` or `db_login`.
 """
 
 from __future__ import annotations
@@ -170,16 +170,22 @@ async def _append_checked(session: AsyncSession, events: Sequence[AuditEvent]) -
                     for record in records
                 ]
             )
-            .returning(audit_log.c.seq, audit_log.c.db_role, audit_log.c.recorded_at)
+            .returning(
+                audit_log.c.seq,
+                audit_log.c.db_role,
+                audit_log.c.db_login,
+                audit_log.c.recorded_at,
+            )
         )
     ).all()
-    # db_role and recorded_at are the database's own account of who wrote the row and when; both
-    # are outside the hash.
+    # db_role, db_login and recorded_at are the database's own account of who wrote the row and
+    # when; all are outside the hash.
     by_seq = {row.seq: row for row in stored}
     return [
         record.model_copy(
             update={
                 "db_role": by_seq[record.seq].db_role,
+                "db_login": by_seq[record.seq].db_login,
                 "recorded_at": by_seq[record.seq].recorded_at,
             }
         )
@@ -220,6 +226,7 @@ def _record(row: Any) -> AuditRecord:
         prev_hash=row.prev_hash,
         record_hash=row.record_hash,
         db_role=row.db_role,
+        db_login=row.db_login,
         recorded_at=row.recorded_at,
     )
 
