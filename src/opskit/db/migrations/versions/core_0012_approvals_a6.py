@@ -33,7 +33,7 @@ long-lived database holds lapsed open rows. Before the index is built they are e
 still live, each group with the same key keeps its approved request (else its oldest) and the
 others, which are pending, are cancelled and reported. No audit record is written for either. A
 group with two live approved requests stops the migration with the ids: a person decides which one
-stands, as the table owner with the guard off (the error says how).
+stands, as the table owner with the guard off (the error gives the statements).
 
 Revision ID: core_0012
 Revises: core_0011
@@ -88,9 +88,12 @@ CLOSE_DUPLICATES = """
             FROM core.approvals WHERE status = 'approved') a WHERE n > 1;
         IF two_approved IS NOT NULL THEN
             RAISE EXCEPTION 'live approved requests share a requester, action and payload: %. '
-                'As the table owner, disable approvals_guard, set status = cancelled and '
-                'closed_at = now() on the ones that should not stand, enable it again (always), '
-                'then run the migration again.', two_approved;
+                'As the table owner run: ALTER TABLE core.approvals DISABLE TRIGGER '
+                'approvals_guard; UPDATE core.approvals SET status = ''cancelled'', '
+                'closed_at = now(), decision = NULL, resolved_by = NULL, resolved_at = NULL '
+                'WHERE id = <the id that should not stand>; ALTER TABLE core.approvals '
+                'ENABLE ALWAYS TRIGGER approvals_guard; then run the migration again.',
+                two_approved;
         END IF;
         WITH ranked AS (
             SELECT id, status,

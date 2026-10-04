@@ -944,8 +944,9 @@ class PgApprovalQueue:
             raise ConfigError("this queue runs its own transactions; it takes no connection")
         if older_than < PAYLOAD_RETENTION_FLOOR:
             raise ValueError(f"older_than must be at least {PAYLOAD_RETENTION_FLOOR}")
-        if limit < 1:
-            raise ValueError("limit must be at least 1")
+        if not 1 <= limit <= PURGE_BATCH_MAX:
+            # The batch's audit records go in one append, which takes at most 1000.
+            raise ValueError(f"limit must be between 1 and {PURGE_BATCH_MAX}")
         if self._approver_session_factory is None:
             raise ConfigError("this queue has no approver-role connection; it cannot purge")
         total = 0

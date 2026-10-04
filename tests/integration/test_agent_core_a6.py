@@ -702,13 +702,14 @@ def _plant(tag: str, n: int, status: str, *, lapsed: bool) -> str:
     )
 
 
-def _run_duplicate_step(plants: list[str]) -> Any:
+def _run_duplicate_step(plants: list[str], before_step: str = "") -> Any:
     """The migration's own SQL against planted rows, in a transaction that is rolled back."""
     sql = (
         "begin; drop index core.approvals_one_open; "
         "alter table core.approvals disable trigger approvals_bounds; "
         "alter table core.approvals disable trigger approvals_guard; "
         + "".join(plants)
+        + before_step
         + migration.CLOSE_DUPLICATES
         + " select summary || '=' || status from core.approvals "
         "where requested_by = 'service.mig' order by summary; rollback;"
@@ -741,4 +742,21 @@ def test_the_migration_still_refuses_two_live_approved_requests_and_says_what_to
     )
     assert result.returncode != 0
     assert "live approved requests share" in result.stderr
-    assert "disable approvals_guard" in result.stderr
+    assert "DISABLE TRIGGER approvals_guard" in result.stderr
+
+
+def test_the_statements_the_refusal_gives_really_clear_the_way() -> None:
+    """Follow the error's instructions to the letter, on the schema as it stood before core_0012."""
+    instructed = (
+        "alter table core.approvals disable trigger approvals_guard; "
+        "update core.approvals set status = 'cancelled', closed_at = now(), decision = NULL, "
+        "resolved_by = NULL, resolved_at = NULL where summary = 'D-2'; "
+        "alter table core.approvals enable always trigger approvals_guard; "
+    )
+    result = _run_duplicate_step(
+        [_plant("D", 1, "approved", lapsed=False), _plant("D", 2, "approved", lapsed=False)],
+        before_step=instructed,
+    )
+    assert result.returncode == 0, result.stderr
+    stored = [line for line in result.stdout.splitlines() if "=" in line]
+    assert stored == ["D-1=approved", "D-2=cancelled"]
