@@ -866,6 +866,7 @@ def test_purge_refuses_a_principal_without_the_approver_or_admin_role_and_audits
     request_id = _cancelled_request()
     backdate_finish(request_id)
     before = audit_count("approval.purge_denied")
+    actor = f"ops.nobody-{uuid4().hex[:8]}"  # a rerun on the same database must not see old rows
     out = in_api(
         """
         async def main(queue, audit):
@@ -882,7 +883,7 @@ def test_purge_refuses_a_principal_without_the_approver_or_admin_role_and_audits
                 )
                 for name, who in nobody.items()
             }
-        """
+        """.replace("ops.nobody", actor)
     )
     assert {name: got["error"] for name, got in out.items()} == {
         "service": "NotAuthorizedToPurgeError",
@@ -895,7 +896,7 @@ def test_purge_refuses_a_principal_without_the_approver_or_admin_role_and_audits
     assert (
         one(
             "select count(*) from core.audit_log where action = 'approval.purge_denied' "
-            "and actor_id = 'ops.nobody' and subject_id is null"
+            f"and actor_id = '{actor}' and subject_id is null"
         )
         == "1"
     )
