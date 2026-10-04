@@ -22,6 +22,8 @@ n8n orchestrates. A small Python helper API does the work. Everything runs in re
 
 **Watch the walkthrough, about a minute and a half (captions on):** YouTube link to be added here <!-- YOUTUBE_URL -->. The captions are in [docs/media/](docs/media/) as `walkthrough.vtt` and `walkthrough.srt`.
 
+**Read the case study** (one page: the problem, the architecture, the evals with their caveats, cost and latency, and what the safeguards caught): [docs/case-study.md](docs/case-study.md).
+
 ## What it looks like
 
 <table>
