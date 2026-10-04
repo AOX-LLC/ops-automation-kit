@@ -273,7 +273,9 @@
       "parameters": {
         "emailFormat": "text",
         "fromEmail": "inbox@kit.example",
-        "options": {},
+        "options": {
+          "appendAttribution": false
+        },
         "subject": "={{ $json.subject }}",
         "text": "={{ $json.body }}",
         "toEmail": "={{ $json.to }}"

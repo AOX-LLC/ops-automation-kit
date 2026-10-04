@@ -549,7 +549,9 @@
       "parameters": {
         "emailFormat": "text",
         "fromEmail": "receipts@kit.example",
-        "options": {},
+        "options": {
+          "appendAttribution": false
+        },
         "subject": "=Receipts reconciled: {{ $('Reconcile').first().json.summary.flagged }} item(s) need a look",
         "text": "={{ 'The receipts run finished.\\n\\n' + 'Matched: ' + $('Reconcile').first().json.summary.matched + '\\n' + 'Amount off: ' + $('Reconcile').first().json.summary.amount_mismatch + '\\n' + 'Date drift: ' + $('Reconcile').first().json.summary.date_drift + '\\n' + 'Missing from the bank statement: ' + $('Reconcile').first().json.summary.missing_in_bank + '\\n' + 'Duplicate receipts: ' + $('Reconcile').first().json.summary.duplicate_receipt + '\\n' + 'Duplicate charges: ' + $('Reconcile').first().json.summary.duplicate_charge + '\\n' + 'Charges with no receipt: ' + $('Reconcile').first().json.summary.unreceipted_charge + '\\n' + 'Needs review: ' + $('Reconcile').first().json.summary.needs_review + '\\n\\n' + 'Spreadsheet: exports/' + $('Spreadsheet').first().binary.data.fileName }}",
         "toEmail": "owner@kit.example"
