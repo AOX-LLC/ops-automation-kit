@@ -43,6 +43,9 @@ interface Scene {
   gif?: boolean;
 }
 const scenes: Scene[] = [];
+// A scene starts when its page has settled, not when navigation began: settle() moves the mark, so
+// the edit never shows a loading spinner or a half-drawn page.
+let sceneStart = 0;
 const stills: { name: string; file: string }[] = [];
 let videoStart = 0;
 const now = () => Date.now() - videoStart;
@@ -52,11 +55,25 @@ async function scene(
   meta: Pick<Scene, "id" | "workflow" | "caption"> & Partial<Pick<Scene, "kind" | "speed" | "loop" | "gif">>,
   body: () => Promise<void>,
 ): Promise<void> {
-  const startMs = now();
+  sceneStart = now();
   await body();
-  scenes.push({ kind: "show", speed: 1, ...meta, startMs, endMs: now() });
+  scenes.push({ kind: "show", speed: 1, ...meta, startMs: sceneStart, endMs: now() });
 }
 const pause = (page: Page, ms: number) => page.waitForTimeout(ms);
+
+/** Wait until the page is quiet (network idle where the app allows it, no visible spinner), then
+ *  mark the scene's start. `ready` is the element that proves the right content is there. */
+async function settle(page: Page, ready?: ReturnType<Page["locator"]>): Promise<void> {
+  await ready?.waitFor({ timeout: 30000 });
+  await page.waitForLoadState("networkidle", { timeout: 8000 }).catch(() => {}); // n8n keeps a socket open
+  await page
+    .locator("[class*='spinner' i]:visible, [class*='loading' i]:visible")
+    .first()
+    .waitFor({ state: "hidden", timeout: 15000 })
+    .catch(() => {});
+  await pause(page, 400);
+  sceneStart = now();
+}
 
 async function still(page: Page, name: string): Promise<void> {
   const file = `stills/${name}.png`;
@@ -159,8 +176,7 @@ async function untilTruthy<T>(page: Page, what: string, seconds: number, probe: 
 
 async function openCanvas(page: Page, workflowId: string): Promise<void> {
   await page.goto(`${N8N}/workflow/${workflowId}`);
-  await page.locator("[data-test-id='canvas']").first().waitFor({ timeout: 30000 });
-  await pause(page, 1500);
+  await settle(page, page.locator("[data-test-id='canvas-node']").first());
   await page.keyboard.press("1"); // zoom to fit
   await pause(page, 800);
 }
@@ -187,7 +203,7 @@ async function openMail(page: Page, query: string): Promise<void> {
   const first = page.locator("a[href^='/view/']").first();
   await first.waitFor({ timeout: 20000 });
   await click(page, first);
-  await pause(page, 1500);
+  await settle(page, page.getByText("Link Check"));
 }
 
 async function runWorkflow(
@@ -199,7 +215,7 @@ async function runWorkflow(
   await scene({ id: `${workflow}-run`, workflow, caption: `${label}: running in replay, no key and no spend`, kind: "wait", speed: 8 }, async () => {
     const since = Date.now() - 1000;
     await page.goto(`${N8N}/workflow/${workflowId}/executions`);
-    await pause(page, 1500);
+    await settle(page);
     const res = await hook(api, webhook);
     if (!res.ok()) throw new Error(`${webhook} returned ${res.status()}`);
     executionId = await untilTruthy(page, `${webhook} to finish`, 300, () => finishedExecution(api, workflowId, since));
@@ -232,8 +248,7 @@ async function main(): Promise<void> {
   const receiptsExecution = await runWorkflow(page, api, { workflowId: "receipts00000001", webhook: "receipts-run", workflow: "receipts", label: "Receipts" });
   await scene({ id: "receipts-execution", workflow: "receipts", caption: "30 receipts extracted, then reconciled against the bank file" }, async () => {
     await page.goto(`${N8N}/workflow/receipts00000001/executions/${receiptsExecution}`);
-    await page.locator("[data-test-id='canvas']").first().waitFor({ timeout: 30000 });
-    await pause(page, 2500);
+    await settle(page, page.locator("[data-test-id='canvas-node']").first());
     await page.keyboard.press("1");
     await pause(page, 800);
     await tourCanvas(page, 34);
@@ -258,8 +273,7 @@ async function main(): Promise<void> {
   const inboxExecution = await runWorkflow(page, api, { workflowId: "inbox00000000001", webhook: "inbox-run", workflow: "inbox", label: "Inbox" });
   await scene({ id: "inbox-execution", workflow: "inbox", caption: "Injection attempts take the held branch and are never drafted" }, async () => {
     await page.goto(`${N8N}/workflow/inbox00000000001/executions/${inboxExecution}`);
-    await page.locator("[data-test-id='canvas']").first().waitFor({ timeout: 30000 });
-    await pause(page, 2500);
+    await settle(page, page.locator("[data-test-id='canvas-node']").first());
     await page.keyboard.press("1");
     await pause(page, 800);
     await tourCanvas(page, 44);
@@ -302,7 +316,8 @@ async function main(): Promise<void> {
       return (await page.locator("a[href^='/view/']").count()) > 0;
     });
     await click(page, page.locator("a[href^='/view/']").first());
-    await pause(page, 4500);
+    await settle(page, page.getByText("Link Check"));
+    await pause(page, 4000);
   });
 
   // ---- Leads
@@ -313,8 +328,7 @@ async function main(): Promise<void> {
   const leadsExecution = await runWorkflow(page, api, { workflowId: "leads00000000001", webhook: "leads-run", workflow: "leads", label: "Leads" });
   await scene({ id: "leads-execution", workflow: "leads", caption: "17 companies researched, 3 reported as having no website" }, async () => {
     await page.goto(`${N8N}/workflow/leads00000000001/executions/${leadsExecution}`);
-    await page.locator("[data-test-id='canvas']").first().waitFor({ timeout: 30000 });
-    await pause(page, 2500);
+    await settle(page, page.locator("[data-test-id='canvas-node']").first());
     await page.keyboard.press("1");
     await pause(page, 800);
     await tourCanvas(page, 24);
