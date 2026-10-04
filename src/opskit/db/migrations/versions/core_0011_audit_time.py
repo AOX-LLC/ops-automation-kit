@@ -1,4 +1,4 @@
-"""core: the audit insert trigger bounds `occurred_at` and stamps `recorded_at` (agent-core a6).
+"""core: the audit insert trigger bounds `occurred_at` and stamps `recorded_at` (agent-core v0.1.0).
 
 - `recorded_at` is when the database wrote the row: set by the insert trigger from the database
   clock whatever the writer sent, like `db_role`. It is outside the record hash. Rows written

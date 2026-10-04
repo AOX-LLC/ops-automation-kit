@@ -1,4 +1,4 @@
-"""core: what agent-core v0.1.0a4 to a6 added to approvals, enforced by the database.
+"""core: what agent-core v0.1.0 added to approvals, enforced by the database.
 
 Four rules, one replaced guard (`core.approvals_guard`, as `core_0009` left it, with these changes
 only):
