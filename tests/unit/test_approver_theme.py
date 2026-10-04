@@ -21,6 +21,12 @@ def _block_after(opening: str) -> str:
     return CSS[body_start : end - 1]
 
 
+def _token_values(block: str) -> dict[str, str]:
+    return {
+        name: value.strip() for name, value in re.findall(r"(--pui-[a-z-]+)\s*:\s*([^;]+);", block)
+    }
+
+
 def _color_tokens(block: str) -> set[str]:
     return {name for name in TOKEN_NAME.findall(block) if name.startswith("--pui-")}
 
@@ -71,3 +77,9 @@ def test_a_custom_logo_serves_both_themes_unless_given_a_dark_twin() -> None:
     )
     assert mine.brand_logo_dark_url_resolved == "/static/brand/mine-dark.png"
     assert Settings().brand_logo_dark_url_resolved == "/static/brand/aox-logo-white.png"
+
+
+def test_the_two_dark_blocks_hold_the_same_values() -> None:
+    by_preference = _token_values(_block_after("@media (prefers-color-scheme: dark)"))
+    by_attribute = _token_values(_block_after(':root[data-theme="dark"]'))
+    assert by_preference == by_attribute
