@@ -92,6 +92,17 @@ def approver_password() -> str:
     raise RuntimeError("KIT_APPROVER_PASSWORD not found in show_login output")
 
 
+@pytest.fixture(scope="session")
+def webhook_token() -> str:
+    result = compose(
+        "run", "--rm", "-T", "kit-login", "python", "-m", "opskit.bootstrap.show_login", "--env"
+    )
+    for line in result.stdout.splitlines():
+        if line.startswith("KIT_WEBHOOK_TOKEN="):
+            return line.split("=", 1)[1].strip().strip("'\"")
+    raise RuntimeError("KIT_WEBHOOK_TOKEN not found in show_login output")
+
+
 @pytest.fixture
 def service(api_url: str, service_token: str) -> Iterator[httpx.Client]:
     with httpx.Client(

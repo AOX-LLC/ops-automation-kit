@@ -17,8 +17,8 @@ def test_committed_workflows_pass(path: Path) -> None:
     assert check_workflow(json.loads(path.read_text())) == []
 
 
-def test_there_are_five_workflows() -> None:
-    assert len(WORKFLOWS) == 5
+def test_there_are_six_workflows() -> None:
+    assert len(WORKFLOWS) == 6
 
 
 def test_code_node_is_rejected() -> None:
@@ -51,3 +51,13 @@ def test_localhost_url_is_rejected() -> None:
 
 def test_missing_fixed_id_is_rejected() -> None:
     assert check_workflow({"nodes": [], "connections": {}})
+
+
+def test_the_run_workflows_name_the_error_workflow_that_closes_failed_runs() -> None:
+    by_name = {path.name: json.loads(path.read_text()) for path in WORKFLOWS}
+    error_workflow_id = by_name["05-run-error.json"]["id"]
+    for name in ("01-receipts.json", "02-leads.json", "03-inbox.json"):
+        assert by_name[name]["settings"]["errorWorkflow"] == error_workflow_id, name
+    types = {node["type"] for node in by_name["05-run-error.json"]["nodes"]}
+    assert "n8n-nodes-base.errorTrigger" in types
+    assert by_name["05-run-error.json"]["active"] is False

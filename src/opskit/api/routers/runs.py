@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, HTTPException, Path, Request, Response, status
 from pydantic import BaseModel, Field
 
 from opskit.api.auth import ServiceAuth
@@ -64,3 +64,20 @@ async def finish_run(request: Request, run_id: UUID, body: FinishRun) -> None:
         await core.runs.finish(run_id, succeeded=body.status == "succeeded")
     except NotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such run") from exc
+
+
+class ClosedRun(BaseModel):
+    closed: bool
+
+
+@router.post("/by-execution/{n8n_execution_id}/finish")
+async def fail_run_of_execution(
+    request: Request,
+    body: FinishRun,
+    n8n_execution_id: str = Path(max_length=64, pattern=N8N_ID_PATTERN),
+) -> ClosedRun:
+    """Called by the error workflow. It can only mark a running run failed, never succeeded."""
+    if body.status != "failed":
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "only failed is accepted")
+    core: Core = request.app.state.core
+    return ClosedRun(closed=await core.runs.fail_by_execution(n8n_execution_id))

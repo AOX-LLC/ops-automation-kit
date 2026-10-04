@@ -105,7 +105,7 @@ curl -sf -c "$WORK/n8n.jar" -H 'content-type: application/json' \
     "$N8N/rest/login" >/dev/null || fail "n8n owner login failed"
 curl -sf -b "$WORK/n8n.jar" "$N8N/rest/workflows" > "$WORK/workflows.json"
 ids=$(json '",".join(sorted(w["id"] for w in d["data"]))' < "$WORK/workflows.json")
-[ "$ids" = "inbox00000000001,inboxReply000001,kitSmoke00000001,leads00000000001,receipts00000001" ] || fail "unexpected workflows: $ids"
+[ "$ids" = "inbox00000000001,inboxReply000001,kitSmoke00000001,leads00000000001,receipts00000001,runError00000001" ] || fail "unexpected workflows: $ids"
 active=$(json '",".join(sorted(w["id"] for w in d["data"] if w.get("active")))' < "$WORK/workflows.json")
 [ "$active" = "inbox00000000001,inboxReply000001,kitSmoke00000001,leads00000000001,receipts00000001" ] || fail "unexpected published workflows: $active"
 echo "workflows: $ids (published: $active)"

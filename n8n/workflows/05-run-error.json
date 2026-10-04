@@ -1,0 +1,79 @@
+{
+  "active": false,
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "Close failed run",
+            "type": "main"
+          }
+        ]
+      ]
+    }
+  },
+  "id": "runError00000001",
+  "name": "Close a failed run",
+  "nodes": [
+    {
+      "id": "runerror-note-01",
+      "name": "Note 01",
+      "parameters": {
+        "content": "## Close a failed run\nThe error workflow of receipts, leads and inbox. When one of them fails after its run started, n8n starts this workflow, which tells the helper to mark that run failed. Without it the run would stay running and the helper would refuse the next run of that workflow until the run timed out. A failure before the run started has nothing to close, and the helper says so.",
+        "height": 200,
+        "width": 560
+      },
+      "position": [
+        -60,
+        -300
+      ],
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1
+    },
+    {
+      "id": "runerror-trigger-01",
+      "name": "Error Trigger",
+      "parameters": {},
+      "position": [
+        0,
+        0
+      ],
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1
+    },
+    {
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kitApiAuth000001",
+          "name": "Helper API (service token)"
+        }
+      },
+      "id": "runerror-close-01",
+      "name": "Close failed run",
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "jsonBody": "={{ { \"status\": \"failed\" } }}",
+        "method": "POST",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "=http://api:8000/v1/runs/by-execution/{{ String($json.execution.id) }}/finish"
+      },
+      "position": [
+        260,
+        0
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all"
+  },
+  "tags": []
+}

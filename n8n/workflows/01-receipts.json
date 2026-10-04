@@ -639,6 +639,7 @@
     }
   ],
   "settings": {
+    "errorWorkflow": "runError00000001",
     "executionOrder": "v1",
     "saveDataSuccessExecution": "all"
   },

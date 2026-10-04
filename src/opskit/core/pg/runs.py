@@ -106,3 +106,15 @@ class PgRunStore:
         async with self._session_factory.begin() as session:
             if (await session.execute(statement)).one_or_none() is None:
                 raise NotFound("run", run_id)
+
+    async def fail_by_execution(self, n8n_execution_id: str) -> bool:
+        """Close the still-running run of a failed n8n execution. False when there is none: the
+        failure came before the run started, or the run had already finished."""
+        statement = (
+            update(runs)
+            .where(runs.c.n8n_execution_id == n8n_execution_id, runs.c.status == "running")
+            .values(status="failed", finished_at=func.now())
+            .returning(runs.c.id)
+        )
+        async with self._session_factory.begin() as session:
+            return (await session.execute(statement)).first() is not None

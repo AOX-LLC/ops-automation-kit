@@ -151,6 +151,8 @@ class RunStore(Protocol):
 
     async def finish(self, run_id: UUID, *, succeeded: bool) -> None: ...
 
+    async def fail_by_execution(self, n8n_execution_id: str) -> bool: ...
+
 
 @dataclass(frozen=True, slots=True)
 class Core:
