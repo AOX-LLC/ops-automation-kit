@@ -242,6 +242,42 @@ Money is stored as integer cents. Dates the business sees use `date`; event time
 | `leads` | created in Phase 3b by `leads_0002`: `research` (id, run_id, company_name, city_hint, website, domain, status researched/unresolved, reason, fields jsonb of value/source_url/quote, findings jsonb, raw_cites, valid_cites, cost, latency, crm_action, account_id; unique on run, company, city). `crm_0002` adds `crm.accounts.founded_year` and makes `crm.account_sources` unique on (account, field); see A12 | 3b |
 | `inbox` | created in Phase 3 by `inbox_0002`: `messages` (message_id PK, mailpit_id, from_header, reply_to_header, subject, received_at, body_text), `triage` (message_id PK/FK, run_id, category, priority, needs_reply, escalate, route, quarantined, injection_reasons jsonb, cost, latency), `drafts` (id, message_id unique FK, run_id, approval_id, to_addr, subject, in_reply_to, body, facts_used, grounding jsonb, reply_to_differs, status, failure_reason, sent_at); see A11 | 3 |
 
+### agent-core v0.1.0 rules (Phase 3e)
+
+The kit keeps its own `PgAuditLog` and `PgApprovalQueue` and ports what agent-core v0.1.0 (and the
+alphas before it) added to its own tables. Each rule is a database rule first, in `core_0011` to
+`core_0013`; every 3d bound stays.
+
+- **Audit.** `append_many` writes a batch all or nothing, in order, under one lock. `occurred_at` is
+  the caller's if given, else the database clock; the insert trigger refuses a time more than 24
+  hours back or 5 minutes ahead. The trigger sets `recorded_at`, `db_role` (`current_user`) and
+  `db_login` (`session_user`); none of the three is in the hash, which still covers `occurred_at`.
+  New records are schema 4; records at 2 and 3 still verify.
+- **One open approval per requester, action and payload hash** (unique index
+  `approvals_one_open`). An exact repeat of a submit returns the open request and writes no audit
+  record. A repeat with another summary, role, lifetime, delegate list or resume URL raises
+  `ApprovalConflictError`, shown as a 409 that names the open approval. The resume URL is a term
+  because a retried n8n execution has a new one; handing it the old approval would resume the dead
+  execution.
+- **An approver is neither the requester nor a listed delegate**, in the guard trigger as well as in
+  code, and a delegate is not offered the request.
+- **An approval that lapses unused expires** and keeps its decision (`approved -> expired`).
+- **Stored payloads are checked on every read** against `payload_sha256` (`get`, `payload_of`, the
+  pending listing, the decision). Withdrawing, using and expiring never check, so a requester can
+  always close a request.
+- **Purging.** `purge_payloads` sets the payload of a finished request (consumed, rejected,
+  cancelled or expired) to NULL once its finish time is at least 24 hours old; the finish times and
+  `payload_purged_at` are the database's, and only the approver role's connection may write them.
+  The caller must hold the approver or admin role, or the call is refused and the refusal audited
+  (`approval.purge_denied`). `payload_sha256` stays, so what the payload was stays bound.
+
+**Retention is the deployer's decision.** Nothing runs `purge_payloads` on a schedule; a deployment
+chooses how long approval payloads are kept and runs it. A purge removes only `core.approvals.payload`.
+It does not remove personal data kept elsewhere: an approval's `summary` (an inbox reply's reads
+"Reply to <address>: <subject>") is fixed by the guard and stays, and the inbox drafts
+(`inbox.drafts`) keep their full text. The audit log is append-only and holds no payloads, but it
+records actor and login names.
+
 ## A5. Workflows as code: export, import, first boot
 
 - The source of truth is `n8n/workflows/*.json`. Every workflow and credential has a fixed ID. Credentials are referenced by ID, `pinData` is stripped, and no secret is ever inline.
