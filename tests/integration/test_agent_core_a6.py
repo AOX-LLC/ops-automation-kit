@@ -509,10 +509,11 @@ def test_a_stored_payload_that_is_not_the_one_hashed_is_never_shown_or_decided(
         async def main(queue, audit):
             id = UUID("{approval_id}")
             page = await queue.list_pending_page(HUMAN, limit=500)
+            unverified = (await queue.get(id, verify_payload=False)).status.value
             closed = await queue.close_pending(id, principal=N8N_SERVICE)
             return {{
                 "get": await attempt(queue.get(id)),
-                "unverified_get": (await queue.get(id, verify_payload=False)).status.value,
+                "unverified_get": unverified,
                 "payload_of": await attempt(queue.payload_of(id)),
                 "listed": str(id) in {{str(r.id) for r in page.items}},
                 "closed": closed.status.value,
