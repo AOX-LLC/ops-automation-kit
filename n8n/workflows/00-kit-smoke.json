@@ -300,7 +300,9 @@
       "parameters": {
         "emailFormat": "text",
         "fromEmail": "kit@kit.example",
-        "options": {},
+        "options": {
+          "appendAttribution": false
+        },
         "subject": "Kit smoke: approved",
         "text": "={{ 'The kit smoke run ' + $('Start run').item.json.run_id + ' was approved and resumed.' }}",
         "toEmail": "approver@kit.example"

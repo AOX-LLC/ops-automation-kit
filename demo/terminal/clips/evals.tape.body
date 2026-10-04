@@ -1,0 +1,13 @@
+# Clip: evals. Replay mode, free, no stack. Real output, reduced to one line per eval by `s`.
+Hide
+Type "bash --noprofile --norc" Enter
+Type "export PS1='$ ' && cd @REPO@" Enter
+Type `summarize() { jq -r 'del(.cost_per_receipt_usd,.cost_per_email_usd,.cost_per_company_usd)|to_entries|map("\(.key|sub("cost_total_usd";"cost_usd"))=\(.value)")|join(" ")' | fold -s -w 100; echo; }` Enter
+Type "export UV_NO_PROGRESS=1" Enter
+Type "clear" Enter
+Sleep 300ms
+Show
+Sleep 800ms
+Type "make evals 2>&1 | grep '^{' | summarize" Sleep 600ms Enter
+Wait+Screen@60s /cost_usd=0.049046/
+Sleep 4s

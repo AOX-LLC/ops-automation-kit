@@ -67,7 +67,7 @@ Hardening for every service except Postgres: `cap_drop: [ALL]`, `security_opt: [
 | `approver_password` + `.bcrypt` | api gets the hash only; the plaintext is shown by `make login` |
 | `approver_session_secret` | api (signs the approver session cookie) |
 | `api_service_token` (n8n → api) | api, n8n-import (rendered into an n8n Header Auth credential) |
-| `n8n_webhook_token` (callers → n8n webhooks) | n8n-import (Header Auth credential on the smoke webhook), smoke script |
+| `n8n_webhook_token` (callers → n8n webhooks) | n8n-import (Header Auth credential on the webhooks), smoke script, `make login` (so the quickstart can call a workflow) |
 
 n8n reads `N8N_ENCRYPTION_KEY_FILE` and `DB_POSTGRESDB_PASSWORD_FILE` natively. The owner variables have no `_FILE` form, so a short wrapper entrypoint exports `N8N_INSTANCE_OWNER_PASSWORD_HASH` from its file and then `exec`s the stock entrypoint.
 
@@ -345,7 +345,7 @@ reversible.
 
   The skeleton `pending` endpoints only listed inputs: files found, companies in the CSV, Mailpit messages not yet triaged. They show that the mounts and Mailpit access work. No workflow logic.
 
-  Later phases replace the skeletons: receipts (A10), the inbox (A11) and leads (A12) are now published, and the inbox adds `inboxReply000001`, a published sub-workflow. n8n refuses to run an unpublished sub-workflow through Execute Workflow, so it must be in the import's published set.
+  Later phases replace the skeletons: receipts (A10), the inbox (A11) and leads (A12) are now published, and the inbox adds `inboxReply000001`, a published sub-workflow. n8n refuses to run an unpublished sub-workflow through Execute Workflow, so it must be in the import's published set. The same goes for the error workflow: n8n logs "is not active and cannot be executed" for an unpublished one, so `runError00000001` (`05-run-error.json`, an Error Trigger that calls `POST /v1/runs/by-execution/{id}/finish`) is published too, and `receipts`, `leads` and `inbox` name it as their `errorWorkflow`.
 
 ## A6. How an n8n execution waits on a human approval and resumes
 
@@ -461,6 +461,12 @@ The Phase 1 audit table is kept read-only as `core.audit_log_v1`; migration `cor
 
 Every paired row carries `delta_cents` (bank amount minus receipt amount, both absolute) and `delta_days` (posting date minus receipt date). Rows with no pair leave both empty. The summary counts each status and a `flagged` total: every status except `matched` and `out_of_scope`.
 
+### One run at a time, and the schedules
+
+A run of `receipts`, `leads` or `inbox` is refused with a 409 while another run of the same workflow is going (a per-workflow advisory lock makes two simultaneous starts take turns). Without it, a schedule firing beside a webhook call read the same pending items and the summary email went out twice. A retry of the same n8n execution is not an overlap, `kit_smoke` is exempt (it waits for a human), and a run that has not finished after 15 minutes stops blocking. A failure inside n8n closes the run at once: `receipts`, `leads` and `inbox` name `runError00000001` (`05-run-error.json`) as their error workflow, which marks the failed execution's run failed through the helper. The 15 minutes matter only if that workflow fails too, or n8n dies mid-run.
+
+`KIT_SCHEDULED_RUNS=false` (`OPSKIT_SCHEDULED_RUNS` in the api) makes the helper answer a scheduled start with `skipped: true`, and the `Run allowed?` branch in `01-receipts` and `03-inbox` stops there. Webhook calls are unaffected. Smoke and the demo recorder turn the schedules off so a run happens when the script triggers it and not when a clock boundary falls; the default is on.
+
 ### Workflow node chain
 
 `n8n/workflows/01-receipts.json`, with no Code nodes. A schedule trigger (every 15 minutes) and a header-authenticated webhook (`receipts-run`) both start it.
@@ -468,6 +474,7 @@ Every paired row carries `delta_cents` (bank amount minus receipt amount, both a
 ```
 Every 15 minutes / Webhook
   -> Start run (POST /v1/runs)
+  -> Run allowed?  -- no -> Scheduled runs are off
   -> List new receipts (GET /v1/receipts/pending)
   -> Anything new?  -- no -> Finish run (nothing new)
   -> One item per receipt (Split Out)
@@ -494,6 +501,7 @@ New mail in Mailpit is triaged; replies are drafted only for categories the kit 
 ```
 Every 5 minutes / Webhook
   -> Start run (POST /v1/runs)
+  -> Run allowed?  -- no -> Scheduled runs are off
   -> List new mail (POST /v1/inbox/pending)
   -> Anything new?  -- no -> Finish run (nothing new)
   -> One item per message (Split Out)

@@ -29,7 +29,7 @@ from tests.integration.conftest import (
 )
 from tests.integration.test_inbox_drafts import _draft_status, _take_pending_draft
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("finish_test_runs")]
 
 PRELUDE = textwrap.dedent(
     """

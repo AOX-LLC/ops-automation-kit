@@ -25,7 +25,7 @@ from tests.integration.conftest import (
     psql,
 )
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("finish_test_runs")]
 
 MESSAGES = REPO_ROOT / "samples" / "inbox" / "messages"
 MAILPIT = f"http://127.0.0.1:{os.environ.get('KIT_MAILPIT_WEB_PORT', '4303')}"

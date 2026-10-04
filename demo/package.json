@@ -1,0 +1,20 @@
+{
+  "name": "ops-automation-kit-demo",
+  "private": true,
+  "type": "module",
+  "description": "Walkthrough recording pipeline: Playwright drives the seeded stack, ffmpeg edits, VHS records terminal clips.",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "setup": "./setup-tools.sh && playwright install chromium",
+    "record": "node walkthrough.ts",
+    "edit": "node edit.ts",
+    "check": "node check-frames.ts"
+  },
+  "devDependencies": {
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "@fontsource/ibm-plex-sans": "5.3.0",
+    "@fontsource/space-grotesk": "5.3.0",
+    "@types/node": "^22.0.0",
+    "playwright": "1.63.0"
+  }
+}

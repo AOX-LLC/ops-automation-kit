@@ -8,6 +8,9 @@
 # Secrets stay in shell variables and are never echoed.
 set -euo pipefail
 
+# The schedules fire on clock boundaries, which would run a workflow before this script asks it to.
+export KIT_SCHEDULED_RUNS=false
+
 N8N="http://127.0.0.1:${KIT_N8N_PORT:-4300}"
 API="http://127.0.0.1:${KIT_API_PORT:-4301}"
 MAILPIT="http://127.0.0.1:${KIT_MAILPIT_WEB_PORT:-4303}"
@@ -50,13 +53,22 @@ wait_for() {  # wait_for <seconds> <description> <command...>
     done
 }
 mail_count() { curl -sf "$MAILPIT/api/v1/messages?limit=1" | json 'd["total"]'; }
-mail_count_is() { [ "$(mail_count)" = "$1" ]; }
-wait_for_mail_count() {  # wait_for_mail_count <seconds> <description> <expected count>
-    local deadline=$((SECONDS + $1)) what=$2 expected=$3
-    until mail_count_is "$expected" >/dev/null 2>&1; do
-        [ $SECONDS -lt $deadline ] || fail "timed out waiting for $what: Mailpit holds $(mail_count 2>/dev/null || echo '?') messages, expected $expected"
+# How many messages match a Mailpit search ('from:...', 'subject:"..."'). The waits below look for
+# the specific email a step should produce, so a stray extra message cannot hang them.
+mail_matching() { curl -sf -G "$MAILPIT/api/v1/search" --data-urlencode "query=$1" | json 'd["messages_count"]'; }
+mail_matching_is_at_least() { [ "$(mail_matching "$1")" -ge "$2" ]; }
+wait_for_mail() {  # wait_for_mail <seconds> <description> <search query> [at least N, default 1]
+    local deadline=$((SECONDS + $1)) what=$2 query=$3 want=${4:-1}
+    until mail_matching_is_at_least "$query" "$want" >/dev/null 2>&1; do
+        [ $SECONDS -lt $deadline ] || fail "timed out waiting for $what: $(mail_matching "$query" 2>/dev/null || echo '?') message(s) match [$query], wanted $want"
         sleep 2
     done
+}
+# The duplicate check, kept apart from the waits: exactly this many messages, never more.
+assert_mail_exactly() {  # assert_mail_exactly <description> <search query> <count>
+    local got
+    got=$(mail_matching "$2") || fail "Mailpit search failed for $1"
+    [ "$got" = "$3" ] || fail "$1: expected exactly $3 message(s) matching [$2], found $got (a duplicate was sent?)"
 }
 expected_sample_files() {
     find samples -type f \( -path 'samples/receipts/*' -o -path 'samples/leads/*' -o -path 'samples/crm/*' -o -path 'samples/inbox/*' \) | wc -l
@@ -93,9 +105,9 @@ curl -sf -c "$WORK/n8n.jar" -H 'content-type: application/json' \
     "$N8N/rest/login" >/dev/null || fail "n8n owner login failed"
 curl -sf -b "$WORK/n8n.jar" "$N8N/rest/workflows" > "$WORK/workflows.json"
 ids=$(json '",".join(sorted(w["id"] for w in d["data"]))' < "$WORK/workflows.json")
-[ "$ids" = "inbox00000000001,inboxReply000001,kitSmoke00000001,leads00000000001,receipts00000001" ] || fail "unexpected workflows: $ids"
+[ "$ids" = "inbox00000000001,inboxReply000001,kitSmoke00000001,leads00000000001,receipts00000001,runError00000001" ] || fail "unexpected workflows: $ids"
 active=$(json '",".join(sorted(w["id"] for w in d["data"] if w.get("active")))' < "$WORK/workflows.json")
-[ "$active" = "inbox00000000001,inboxReply000001,kitSmoke00000001,leads00000000001,receipts00000001" ] || fail "unexpected published workflows: $active"
+[ "$active" = "inbox00000000001,inboxReply000001,kitSmoke00000001,leads00000000001,receipts00000001,runError00000001" ] || fail "unexpected published workflows: $active"
 echo "workflows: $ids (published: $active)"
 
 step "approval round-trip"
@@ -122,7 +134,7 @@ wait_for 90 "the smoke run to resume and finish" run_done
 for action in approval.requested approval.decided approval.resumed model.call; do
     [ "$(sql "select count(*) from core.audit_log where action = '$action'")" -ge 1 ] || fail "no $action audit row"
 done
-wait_for_mail_count 30 "the Send Email node's message in Mailpit" 29
+wait_for_mail 30 "the Send Email node's message in Mailpit" 'subject:"Kit smoke: approved"'
 echo "approved on the page, n8n resumed, audit rows written, confirmation email captured"
 
 step "receipts workflow end to end (replay)"
@@ -135,7 +147,7 @@ wait_for 240 "the receipts run to finish" receipts_done
 flagged=$(sql "select summary->>'flagged' from receipts.reconciliations order by created_at desc limit 1")
 [ -n "$flagged" ] || fail "no reconciliation was stored"
 ls exports/reconciliation-*.xlsx >/dev/null 2>&1 || fail "no spreadsheet in exports/"
-wait_for_mail_count 30 "the receipts summary email" 30
+wait_for_mail 30 "the receipts summary email" 'subject:"Receipts reconciled"'
 echo "30 receipts extracted from recordings, reconciled ($flagged flagged), spreadsheet written, summary emailed"
 
 step "inbox workflow end to end (replay)"
@@ -203,7 +215,7 @@ wait_for 120 "the rejected draft to be closed" rejected
 reply_to=$(sql "select to_addr from inbox.drafts where approval_id = '$approve_id'")
 replied() { [ "$(curl -sf -G "$MAILPIT/api/v1/search" --data-urlencode "query=from:inbox@kit.example to:$reply_to" | json 'd["messages_count"]')" -ge 1 ]; }
 wait_for 30 "the approved reply in Mailpit" replied
-wait_for_mail_count 30 "the inbox summary and the reply in Mailpit" 32
+wait_for_mail 30 "the inbox summary email" 'subject:"Inbox:"'
 echo "28 messages triaged, 3 held and never drafted, 1 reply approved and sent, 1 rejected and left unsent"
 
 step "leads workflow end to end (replay)"
@@ -221,7 +233,7 @@ wait_for 240 "the leads run to finish" leads_done
 [ "$(sql "select count(*) from crm.account_sources s join crm.accounts a on a.id = s.account_id where a.domain = 'northfield.example' and s.field = 'employee_band' and s.excerpt like '%11-50%'")" = "1" ] \
     || fail "Northfield's band should be sourced as 11-50"
 [ "$(sql "select count(*) from crm.account_sources where source_ref = '' or excerpt = ''")" = "0" ] || fail "a CRM field has no source"
-wait_for_mail_count 30 "the leads summary email" 33
+wait_for_mail 30 "the leads summary email" 'subject:"Leads:"'
 echo "17 companies researched with sources, 3 reported as no website given, Ironwood updated not duplicated"
 
 step "leads run again (no duplicates)"
@@ -231,8 +243,17 @@ wait_for 240 "the second leads run to finish" leads_runs
 [ "$(sql 'select count(*) from crm.accounts')" = "21" ] || fail "a re-run changed the number of CRM accounts"
 [ "$(sql 'select count(*) from (select account_id, field from crm.account_sources group by 1, 2 having count(*) > 1) d')" = "0" ] \
     || fail "a re-run duplicated a source row"
-wait_for_mail_count 30 "the second leads summary email" 34
+wait_for_mail 30 "the second leads summary email" 'subject:"Leads:"' 2
 echo "re-run updated the same records: still 21 accounts, one source row per field"
+
+step "no workflow sent a duplicate email"
+assert_mail_exactly "the smoke confirmation" 'subject:"Kit smoke: approved"' 1
+assert_mail_exactly "the receipts summary" 'subject:"Receipts reconciled"' 1
+assert_mail_exactly "the inbox summary" 'subject:"Inbox:"' 1
+assert_mail_exactly "the approved reply" "from:inbox@kit.example to:$reply_to -subject:\"Inbox:\"" 1
+assert_mail_exactly "the leads summaries (two runs)" 'subject:"Leads:"' 2
+[ "$(mail_count)" = "34" ] || fail "Mailpit should hold 34 messages (28 seeded + 6 sent), has $(mail_count)"
+echo "one email per trigger: smoke 1, receipts 1, inbox summary 1, approved reply 1, leads 2; 34 in all"
 
 step "second boot without -v"
 docker compose up -d --wait || fail "second boot did not become healthy"

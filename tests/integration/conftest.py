@@ -92,6 +92,17 @@ def approver_password() -> str:
     raise RuntimeError("KIT_APPROVER_PASSWORD not found in show_login output")
 
 
+@pytest.fixture(scope="session")
+def webhook_token() -> str:
+    result = compose(
+        "run", "--rm", "-T", "kit-login", "python", "-m", "opskit.bootstrap.show_login", "--env"
+    )
+    for line in result.stdout.splitlines():
+        if line.startswith("KIT_WEBHOOK_TOKEN="):
+            return line.split("=", 1)[1].strip().strip("'\"")
+    raise RuntimeError("KIT_WEBHOOK_TOKEN not found in show_login output")
+
+
 @pytest.fixture
 def service(api_url: str, service_token: str) -> Iterator[httpx.Client]:
     with httpx.Client(
@@ -224,6 +235,19 @@ def psql(
         )
         args = ["sh", "-c", script, "_", sql]
     return compose("exec", "-T", "postgres", *args, check=False)
+
+
+@pytest.fixture
+def finish_test_runs() -> Iterator[None]:
+    """Close the runs a test opened. A run of receipts, leads or inbox is refused while another is
+    running, and these tests start runs as fixtures without ever finishing them. n8n's own
+    execution ids are numbers; every test id is prefixed."""
+    yield
+    result = psql(
+        "update core.runs set status = 'failed', finished_at = now() "
+        "where status = 'running' and n8n_execution_id !~ '^[0-9]+$'"
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def age_approval(approval_id: str) -> None:

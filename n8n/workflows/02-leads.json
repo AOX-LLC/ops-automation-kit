@@ -381,7 +381,9 @@
       "parameters": {
         "emailFormat": "text",
         "fromEmail": "leads@kit.example",
-        "options": {},
+        "options": {
+          "appendAttribution": false
+        },
         "subject": "=Leads: {{ $json.created.length }} added, {{ $json.updated.length }} updated, {{ $json.no_website.length }} with no website",
         "text": "={{ 'Researched ' + $json.researched + ' compan' + ($json.researched === 1 ? 'y' : 'ies') + '.\\n\\n' + 'Records added (' + $json.created.length + '):\\n' + ($json.created.length === 0 ? '- none' : $json.created.map(c => '- ' + c).join('\\n')) + '\\n\\nRecords updated (' + $json.updated.length + '):\\n' + ($json.updated.length === 0 ? '- none' : $json.updated.map(c => '- ' + c).join('\\n')) + '\\n\\nFields left empty because no source supports them:\\n' + ($json.null_fields.length === 0 ? '- none' : $json.null_fields.map(n => '- ' + n.company + ': ' + n.fields.join(', ')).join('\\n')) + ($json.conflicts.length === 0 ? '' : '\\n\\nSources that disagree (left empty):\\n' + $json.conflicts.map(c => '- ' + c.company + ': ' + c.field).join('\\n')) + '\\n\\nNo website given (' + $json.no_website.length + '), so not researched:\\n' + ($json.no_website.length === 0 ? '- none' : $json.no_website.map(c => '- ' + c).join('\\n')) + ($json.unresolved.length === 0 ? '' : '\\n\\nCould not be researched:\\n' + $json.unresolved.map(u => '- ' + u.company + ': ' + u.reason).join('\\n')) + '\\n\\nEvery value in a record has a source URL and a quoted line; see the CRM table.' }}",
         "toEmail": "owner@kit.example"
@@ -423,6 +425,7 @@
     }
   ],
   "settings": {
+    "errorWorkflow": "runError00000001",
     "executionOrder": "v1",
     "saveDataSuccessExecution": "all"
   },

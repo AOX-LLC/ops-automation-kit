@@ -1,0 +1,5 @@
+{
+  "evals": {
+    "caption": "make evals in replay mode: recorded model responses, no API key, no spend. Output is the real JSON from each eval, reformatted to one line each. Runs in about 5 seconds; not sped up."
+  }
+}

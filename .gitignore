@@ -68,3 +68,9 @@ dropbox/
 exports/
 smoke-logs.txt
 .kit-export/
+demo/.bin/
+demo/out/
+demo/.cache/
+demo/terminal/out/
+# Walkthrough videos go to YouTube (unlisted), not into git. publish.sh writes them to media-out/.
+docs/media/*.mp4

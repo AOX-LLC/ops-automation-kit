@@ -15,7 +15,7 @@ import pytest
 
 from tests.integration.conftest import compose, psql
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("finish_test_runs")]
 
 # Runs one scenario in the api container. argv[1] is a JSON list of steps; each step is
 # {"op": "upsert"|"save"|"summary", "outcome": {...}, "run_id": "..."}; results are printed as JSON.

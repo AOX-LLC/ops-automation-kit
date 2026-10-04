@@ -61,7 +61,7 @@ All ports bind `127.0.0.1`. The Compose project is `ops-automation-kit` (`COMPOS
 | Command | What it does |
 | --- | --- |
 | `make up` / `make down` | start or stop the stack (`down` keeps volumes; `make clean` removes them) |
-| `make login` | print the n8n owner and approver passwords; the only way to see generated secrets |
+| `make login` | print the n8n owner and approver passwords and the webhook token; the only way to see generated secrets |
 | `make check` | ruff, mypy, import-linter, workflow lint, unit tests |
 | `make test` | unit tests, then integration tests against the running stack (`make up` first); the integration tests pin the approval state machine, CSRF, token separation, lockout, append-only audit and role isolation |
 | `make smoke` | clean compose boot, seeded-data checks, approval round-trip, second boot |
