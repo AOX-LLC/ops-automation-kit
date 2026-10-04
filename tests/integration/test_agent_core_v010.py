@@ -10,11 +10,13 @@ from __future__ import annotations
 import json
 import secrets
 import textwrap
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
 import httpx
 import pytest
+from aox_agent_core.audit import UnsealedAuditRecord, compute_record_hash
 
 from opskit.db.migrations.versions import core_0012_approvals as migration
 from tests.integration.conftest import (
@@ -256,6 +258,66 @@ def test_the_database_sets_db_login_to_the_real_login_whatever_the_writer_sends(
         result = psql(sql, role=role)
         assert result.returncode == 0, result.stderr
         assert f"{role}|{role}" in result.stdout.splitlines()
+
+
+def test_db_login_stays_the_real_login_after_set_role() -> None:
+    sql = INSERT_AUDIT.format(
+        occurred="now()", extra_cols="", extra_vals="", returning="db_role, db_login"
+    ).replace("begin; ", "begin; set role opskit_app; ", 1)
+    result = psql(sql)  # as the postgres login, then switched to the app role
+    assert result.returncode == 0, result.stderr
+    assert "opskit_app|postgres" in result.stdout.splitlines()
+
+
+def test_a_chain_that_mixes_schema_3_and_4_records_verifies() -> None:
+    """A schema 3 row, as an upgraded database holds, then a schema 4 record through the log."""
+    head = one("select seq || ' ' || record_hash from core.audit_log order by seq desc limit 1")
+    seq, head_hash = head.split()
+    unsealed = UnsealedAuditRecord(
+        schema_version=3,
+        seq=int(seq) + 1,
+        event_id=uuid4(),
+        occurred_at=datetime.now(UTC),
+        action="itest.legacy",
+        actor_id="itest",
+        subject_id=None,
+        payload={},
+        run_context=None,
+        prev_hash=head_hash,
+    )
+    # The trigger would make it schema 4 and refuse 3, so it is off for this one transaction,
+    # which also holds the chain's append lock and checks that the head is still the one hashed.
+    result = psql(
+        "begin; select pg_advisory_xact_lock(7302118421); "
+        "alter table core.audit_log disable trigger audit_log_db_role; "
+        "insert into core.audit_log (seq, schema_version, event_id, occurred_at, action, "
+        "actor_id, payload, prev_hash, record_hash, db_role) "
+        f"select {unsealed.seq}, 3, '{unsealed.event_id}', "
+        f"'{unsealed.occurred_at.isoformat()}', 'itest.legacy', 'itest', '{{}}', "
+        f"'{head_hash}', '{compute_record_hash(unsealed)}', 'opskit_app' "
+        f"where (select max(seq) from core.audit_log) = {seq}; "
+        "alter table core.audit_log enable always trigger audit_log_db_role; commit;"
+    )
+    assert result.returncode == 0, result.stderr
+    assert "INSERT 0 1" in result.stdout, "the chain moved while the legacy row was prepared"
+    out = in_api(
+        """
+        async def main(queue, audit):
+            record = await audit.append(
+                AuditEvent(action="itest.after_legacy", actor_id="itest", payload={})
+            )
+            return {"schema": record.schema_version, "verified_to": (await audit.verify()).seq,
+                    "seq": record.seq}
+        """
+    )
+    assert out["schema"] == 4
+    assert out["seq"] == unsealed.seq + 1
+    assert out["verified_to"] >= out["seq"]
+    versions = one(
+        "select string_agg(distinct schema_version::text, ',' order by schema_version::text) "
+        "from core.audit_log"
+    )
+    assert "3" in versions.split(",") and "4" in versions.split(",")
 
 
 def test_a_record_through_the_queue_carries_its_login_outside_the_hash() -> None:
