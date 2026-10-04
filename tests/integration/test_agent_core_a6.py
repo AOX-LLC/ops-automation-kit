@@ -512,6 +512,7 @@ def test_a_stored_payload_that_is_not_the_one_hashed_is_never_shown_or_decided(
             closed = await queue.close_pending(id, principal=N8N_SERVICE)
             return {{
                 "get": await attempt(queue.get(id)),
+                "unverified_get": (await queue.get(id, verify_payload=False)).status.value,
                 "payload_of": await attempt(queue.payload_of(id)),
                 "listed": str(id) in {{str(r.id) for r in page.items}},
                 "closed": closed.status.value,
@@ -522,6 +523,7 @@ def test_a_stored_payload_that_is_not_the_one_hashed_is_never_shown_or_decided(
     assert out["get"]["error"] == "ApprovalIntegrityError"
     assert out["payload_of"]["error"] == "ApprovalIntegrityError"
     assert out["listed"] is False
+    assert out["unverified_get"] == "pending"  # what closing a draft reads, payload untouched
     assert out["closed"] == "cancelled"  # a requester can always withdraw
 
     second = in_api(
