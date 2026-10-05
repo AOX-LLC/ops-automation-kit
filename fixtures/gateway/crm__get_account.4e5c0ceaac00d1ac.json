@@ -1,0 +1,19 @@
+{
+  "arguments": {
+    "account_id": "ACC-00003"
+  },
+  "format": 1,
+  "outcomes": [
+    {
+      "kind": "http_status",
+      "status": 401
+    }
+  ],
+  "recorded_with": {
+    "gateway": "ai-gateway v0.1.0",
+    "mcp_sdk": "2.2.0",
+    "protocol": "2025-11-25"
+  },
+  "scenario": "unauthorized",
+  "tool": "crm__get_account"
+}

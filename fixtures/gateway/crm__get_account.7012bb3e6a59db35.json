@@ -1,0 +1,129 @@
+{
+  "arguments": {
+    "account_id": "ACC-00003"
+  },
+  "format": 1,
+  "outcomes": [
+    {
+      "kind": "result",
+      "structured": {
+        "about": "Family-run business that buys in bulk before the summer season. Operates a small fleet out of a sheltered harbor and restocks every spring.",
+        "account_manager": "luka.brine",
+        "contacts": [
+          {
+            "email": "dara.brine@acc-00003.example",
+            "full_name": "Dara Brine",
+            "id": "CON-00003",
+            "phone": "555-0111",
+            "title": "Harbor Master"
+          },
+          {
+            "email": "petra.galloway@acc-00003.example",
+            "full_name": "Petra Galloway",
+            "id": "CON-00042",
+            "phone": "555-0134",
+            "title": "Bookkeeper"
+          }
+        ],
+        "created_at": "2024-08-16T08:00:00Z",
+        "id": "ACC-00003",
+        "industry": "dive and tour operator",
+        "name": "Driftwood Marina",
+        "notes": [
+          {
+            "author": "una.quay",
+            "body": "Left a message about the renewal; will try again on Thursday.",
+            "deal_id": "DEAL-00038",
+            "id": 188,
+            "kind": "email",
+            "occurred_at": "2026-08-27T05:23:00Z"
+          },
+          {
+            "author": "luka.brine",
+            "body": "Met on site to review the fleet's current fenders and lines.",
+            "deal_id": null,
+            "id": 177,
+            "kind": "meeting",
+            "occurred_at": "2026-08-22T16:18:00Z"
+          },
+          {
+            "author": "luka.brine",
+            "body": "Discussed the upcoming season order and confirmed the delivery dock.",
+            "deal_id": "DEAL-00038",
+            "id": 166,
+            "kind": "email",
+            "occurred_at": "2026-08-18T00:58:00Z"
+          },
+          {
+            "author": "joss.cormorant",
+            "body": "Left a message about the renewal; will try again on Thursday.",
+            "deal_id": "DEAL-00038",
+            "id": 160,
+            "kind": "note",
+            "occurred_at": "2026-08-14T22:29:00Z"
+          },
+          {
+            "author": "odell.fenwick",
+            "body": "Left a message about the renewal; will try again on Thursday.",
+            "deal_id": null,
+            "id": 152,
+            "kind": "email",
+            "occurred_at": "2026-08-11T19:03:00Z"
+          },
+          {
+            "author": "joss.cormorant",
+            "body": "Left a message about the renewal; will try again on Thursday.",
+            "deal_id": "DEAL-00038",
+            "id": 147,
+            "kind": "meeting",
+            "occurred_at": "2026-08-10T05:27:00Z"
+          },
+          {
+            "author": "luka.brine",
+            "body": "Left a message about the renewal; will try again on Thursday.",
+            "deal_id": null,
+            "id": 144,
+            "kind": "note",
+            "occurred_at": "2026-08-07T12:21:00Z"
+          },
+          {
+            "author": "una.quay",
+            "body": "Left a message about the renewal; will try again on Thursday.",
+            "deal_id": null,
+            "id": 132,
+            "kind": "note",
+            "occurred_at": "2026-08-02T23:37:00Z"
+          },
+          {
+            "author": "orrin.lowry",
+            "body": "Reviewed last quarter's orders and agreed on a standing delivery day.",
+            "deal_id": "DEAL-00038",
+            "id": 125,
+            "kind": "call",
+            "occurred_at": "2026-07-29T14:10:00Z"
+          },
+          {
+            "author": "tobias.galloway",
+            "body": "Walked through the safety equipment checklist with the harbor master.",
+            "deal_id": "DEAL-00038",
+            "id": 123,
+            "kind": "call",
+            "occurred_at": "2026-07-28T12:05:00Z"
+          }
+        ],
+        "notes_total": 19,
+        "notice": "Harborline Supply Co. is fictional; all of this data is synthetic.",
+        "region": "gulf-coast",
+        "tier": "gold"
+      },
+      "text": "{\n  \"notice\": \"Harborline Supply Co. is fictional; all of this data is synthetic.\",\n  \"id\": \"ACC-00003\",\n  \"name\": \"Driftwood Marina\",\n  \"industry\": \"dive and tour operator\",\n  \"region\": \"gulf-coast\",\n  \"tier\": \"gold\",\n  \"account_manager\": \"luka.brine\",\n  \"about\": \"Family-run business that buys in bulk before the summer season. Operates a small fleet out of a sheltered harbor and restocks every spring.\",\n  \"created_at\": \"2024-08-16T08:00:00Z\",\n  \"contacts\": [\n    {\n      \"id\": \"CON-00003\",\n      \"full_name\": \"Dara Brine\",\n      \"title\": \"Harbor Master\",\n      \"email\": \"dara.brine@acc-00003.example\",\n      \"phone\": \"555-0111\"\n    },\n    {\n      \"id\": \"CON-00042\",\n      \"full_name\": \"Petra Galloway\",\n      \"title\": \"Bookkeeper\",\n      \"email\": \"petra.galloway@acc-00003.example\",\n      \"phone\": \"555-0134\"\n    }\n  ],\n  \"notes\": [\n    {\n      \"id\": 188,\n      \"kind\": \"email\",\n      \"author\": \"una.quay\",\n      \"deal_id\": \"DEAL-00038\",\n      \"body\": \"Left a message about the renewal; will try again on Thursday.\",\n      \"occurred_at\": \"2026-08-27T05:23:00Z\"\n    },\n    {\n      \"id\": 177,\n      \"kind\": \"meeting\",\n      \"author\": \"luka.brine\",\n      \"deal_id\": null,\n      \"body\": \"Met on site to review the fleet's current fenders and lines.\",\n      \"occurred_at\": \"2026-08-22T16:18:00Z\"\n    },\n    {\n      \"id\": 166,\n      \"kind\": \"email\",\n      \"author\": \"luka.brine\",\n      \"deal_id\": \"DEAL-00038\",\n      \"body\": \"Discussed the upcoming season order and confirmed the delivery dock.\",\n      \"occurred_at\": \"2026-08-18T00:58:00Z\"\n    },\n    {\n      \"id\": 160,\n      \"kind\": \"note\",\n      \"author\": \"joss.cormorant\",\n      \"deal_id\": \"DEAL-00038\",\n      \"body\": \"Left a message about the renewal; will try again on Thursday.\",\n      \"occurred_at\": \"2026-08-14T22:29:00Z\"\n    },\n    {\n      \"id\": 152,\n      \"kind\": \"email\",\n      \"author\": \"odell.fenwick\",\n      \"deal_id\": null,\n      \"body\": \"Left a message about the renewal; will try again on Thursday.\",\n      \"occurred_at\": \"2026-08-11T19:03:00Z\"\n    },\n    {\n      \"id\": 147,\n      \"kind\": \"meeting\",\n      \"author\": \"joss.cormorant\",\n      \"deal_id\": \"DEAL-00038\",\n      \"body\": \"Left a message about the renewal; will try again on Thursday.\",\n      \"occurred_at\": \"2026-08-10T05:27:00Z\"\n    },\n    {\n      \"id\": 144,\n      \"kind\": \"note\",\n      \"author\": \"luka.brine\",\n      \"deal_id\": null,\n      \"body\": \"Left a message about the renewal; will try again on Thursday.\",\n      \"occurred_at\": \"2026-08-07T12:21:00Z\"\n    },\n    {\n      \"id\": 132,\n      \"kind\": \"note\",\n      \"author\": \"una.quay\",\n      \"deal_id\": null,\n      \"body\": \"Left a message about the renewal; will try again on Thursday.\",\n      \"occurred_at\": \"2026-08-02T23:37:00Z\"\n    },\n    {\n      \"id\": 125,\n      \"kind\": \"call\",\n      \"author\": \"orrin.lowry\",\n      \"deal_id\": \"DEAL-00038\",\n      \"body\": \"Reviewed last quarter's orders and agreed on a standing delivery day.\",\n      \"occurred_at\": \"2026-07-29T14:10:00Z\"\n    },\n    {\n      \"id\": 123,\n      \"kind\": \"call\",\n      \"author\": \"tobias.galloway\",\n      \"deal_id\": \"DEAL-00038\",\n      \"body\": \"Walked through the safety equipment checklist with the harbor master.\",\n      \"occurred_at\": \"2026-07-28T12:05:00Z\"\n    }\n  ],\n  \"notes_total\": 19\n}"
+    }
+  ],
+  "recorded_with": {
+    "gateway": "ai-gateway v0.1.0",
+    "mcp_sdk": "2.2.0",
+    "protocol": "2025-11-25"
+  },
+  "scenario": "",
+  "tool": "crm__get_account"
+}

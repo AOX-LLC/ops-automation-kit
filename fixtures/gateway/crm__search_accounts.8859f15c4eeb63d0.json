@@ -1,0 +1,24 @@
+{
+  "arguments": {
+    "limit": 5,
+    "query": "Pier Nine"
+  },
+  "format": 1,
+  "outcomes": [
+    {
+      "kind": "result",
+      "structured": {
+        "accounts": [],
+        "notice": "Harborline Supply Co. is fictional; all of this data is synthetic."
+      },
+      "text": "{\n  \"notice\": \"Harborline Supply Co. is fictional; all of this data is synthetic.\",\n  \"accounts\": []\n}"
+    }
+  ],
+  "recorded_with": {
+    "gateway": "ai-gateway v0.1.0",
+    "mcp_sdk": "2.2.0",
+    "protocol": "2025-11-25"
+  },
+  "scenario": "",
+  "tool": "crm__search_accounts"
+}
