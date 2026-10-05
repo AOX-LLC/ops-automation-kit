@@ -7,7 +7,7 @@ under fixtures/gateway/ and one `gateway.call` audit row per call through the re
     GATEWAY_TOKEN_FILE=... OPSKIT_GATEWAY_ENABLED=true OPSKIT_GATEWAY_MODE=record \\
     OPSKIT_SECRETS_DIR=<dir holding opskit_app_password> OPSKIT_DB_HOST=127.0.0.1 \\
     OPSKIT_DB_PORT=4302 AGENT_CORE_CONFIG=config/agent-core.toml \\
-    uv run python scripts/gateway_live_run.py --steps read,probe,failures,ticket
+    uv run python scripts/gateway_live_run.py --steps read,probe,unauthorized,failures,ticket
 
 The ticket step opens the story's ticket, which the gateway holds for a person. The script then
 waits for the file named by --wait-for to appear (touch it after you have rejected the request
@@ -53,6 +53,7 @@ def _show(label: str, raw: RawOutcome) -> None:
             "kind": "result",
             "text_chars": len(raw.text),
             "structured_keys": sorted(raw.structured or {}),
+            "result_meta": raw.meta,
         }
     print(f"{label}: {type(classify(raw)).__name__} {summary}")
 
@@ -72,10 +73,15 @@ async def _probe_step(live: McpTransport, store: RecordingStore, ctx: RunContext
     _show("meta probe", raw)
 
 
-async def _failure_steps(settings: Settings, live: McpTransport, store: RecordingStore) -> None:
+async def _unauthorized_step(settings: Settings, store: RecordingStore) -> None:
+    """A call with a token the gateway does not know, to record how a refusal at login looks."""
     bad = McpTransport(settings.gateway_url, SecretStr(NOT_A_TOKEN), settings.gateway_timeout_s)
     unauthorized = RecordingTransport(bad, store, scenario="unauthorized")
-    _show("bad token", await unauthorized.call("crm__get_account", {"account_id": ACCOUNT_ID}))
+    raw = await unauthorized.call("crm__get_account", {"account_id": ACCOUNT_ID})
+    _show("bad token", raw)
+
+
+async def _failure_steps(live: McpTransport, store: RecordingStore) -> None:
     # The client would refuse a search without a limit, so this goes around it, to record the
     # gateway's own refusal.
     no_limit = RecordingTransport(live, store, scenario="no-limit")
@@ -127,19 +133,22 @@ async def main(steps: set[str], wait_for: Path) -> None:
             await _read_steps(client, ctx)
         if "probe" in steps:
             await _probe_step(live, store, ctx)
+        if "unauthorized" in steps:
+            await _unauthorized_step(settings, store)
         if "failures" in steps:
-            await _failure_steps(settings, live, store)
+            await _failure_steps(live, store)
         if "ticket" in steps:
             await _ticket_step(client, ctx, wait_for)
     finally:
         await core.runs.finish(run_uuid(ctx), succeeded=True)
         await engine.dispose()
+    print("protocol version the SDK reports:", live.protocol_version)
     print("last transport failure types:", live.last_failure_types)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--steps", default="read,probe,failures,ticket")
+    parser.add_argument("--steps", default="read,probe,unauthorized,failures,ticket")
     parser.add_argument("--wait-for", type=Path, required=True)
     args = parser.parse_args()
     asyncio.run(main(set(args.steps.split(",")), args.wait_for))
