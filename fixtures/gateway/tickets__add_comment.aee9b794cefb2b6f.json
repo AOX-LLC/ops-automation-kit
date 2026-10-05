@@ -1,0 +1,21 @@
+{
+  "arguments": {
+    "body": "x",
+    "ticket_id": "TKT-000001"
+  },
+  "format": 1,
+  "outcomes": [
+    {
+      "code": -32602,
+      "kind": "rpc_error",
+      "message": "Tool 'tickets__add_comment' is not available to this client."
+    }
+  ],
+  "recorded_with": {
+    "gateway": "ai-gateway v0.1.0",
+    "mcp_sdk": "2.2.0",
+    "protocol": "2025-11-25"
+  },
+  "scenario": "out-of-scope",
+  "tool": "tickets__add_comment"
+}

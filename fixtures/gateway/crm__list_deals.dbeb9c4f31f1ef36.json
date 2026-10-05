@@ -1,0 +1,34 @@
+{
+  "arguments": {
+    "account_id": "ACC-00003",
+    "limit": 5
+  },
+  "format": 1,
+  "outcomes": [
+    {
+      "kind": "result",
+      "structured": {
+        "deals": [
+          {
+            "account_id": "ACC-00003",
+            "amount_cents": 18400000,
+            "close_date": "2026-12-27",
+            "id": "DEAL-00038",
+            "name": "Navigation Lighting Refit for Driftwood Marina",
+            "owner": "luka.brine",
+            "stage": "negotiation"
+          }
+        ],
+        "notice": "Harborline Supply Co. is fictional; all of this data is synthetic."
+      },
+      "text": "{\n  \"notice\": \"Harborline Supply Co. is fictional; all of this data is synthetic.\",\n  \"deals\": [\n    {\n      \"id\": \"DEAL-00038\",\n      \"account_id\": \"ACC-00003\",\n      \"name\": \"Navigation Lighting Refit for Driftwood Marina\",\n      \"stage\": \"negotiation\",\n      \"amount_cents\": 18400000,\n      \"close_date\": \"2026-12-27\",\n      \"owner\": \"luka.brine\"\n    }\n  ]\n}"
+    }
+  ],
+  "recorded_with": {
+    "gateway": "ai-gateway v0.1.0",
+    "mcp_sdk": "2.2.0",
+    "protocol": "2025-11-25"
+  },
+  "scenario": "",
+  "tool": "crm__list_deals"
+}

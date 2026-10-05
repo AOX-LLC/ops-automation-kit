@@ -1,0 +1,23 @@
+{
+  "arguments": {
+    "query": "Pier Nine"
+  },
+  "format": 1,
+  "outcomes": [
+    {
+      "code": -32010,
+      "data": {
+        "request_id": "9d3b557f-51cf-431c-ac7d-da83d9e1c125"
+      },
+      "kind": "rpc_error",
+      "message": "Request blocked by gateway policy."
+    }
+  ],
+  "recorded_with": {
+    "gateway": "ai-gateway v0.1.0",
+    "mcp_sdk": "2.2.0",
+    "protocol": "2025-11-25"
+  },
+  "scenario": "no-limit",
+  "tool": "crm__search_accounts"
+}

@@ -1,0 +1,36 @@
+{
+  "arguments": {
+    "account_id": "ACC-00003",
+    "description": "Customer Marta (Pier Nine Supply, ACC-00003) reports that two of four pallets on order HS-48213 arrived damaged: torn shrink wrap and crushed cartons. She asks for replacements and return instructions.",
+    "priority": "normal",
+    "subject": "Damaged pallets on order HS-48213"
+  },
+  "format": 1,
+  "outcomes": [
+    {
+      "is_error": true,
+      "kind": "result",
+      "structured": {
+        "approval_id": "1b6a971e-6a09-46f9-b88a-165af1440df3",
+        "retry": "the same tool with the same arguments",
+        "status": "approval_pending"
+      },
+      "text": "This call needs a person's approval. It has been submitted; retry the same call (same tool, same arguments) shortly."
+    },
+    {
+      "code": -32010,
+      "data": {
+        "request_id": "591d4e17-d795-411d-b472-b80c0878a6b0"
+      },
+      "kind": "rpc_error",
+      "message": "An approver rejected this call."
+    }
+  ],
+  "recorded_with": {
+    "gateway": "ai-gateway v0.1.0",
+    "mcp_sdk": "2.2.0",
+    "protocol": "2025-11-25"
+  },
+  "scenario": "",
+  "tool": "tickets__create_ticket"
+}

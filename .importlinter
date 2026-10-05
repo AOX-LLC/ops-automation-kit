@@ -12,6 +12,7 @@ source_modules =
     opskit.bootstrap
     opskit.config
     opskit.db
+    opskit.gateway
     opskit.receipts
     opskit.seed
 forbidden_modules =
@@ -29,4 +30,29 @@ source_modules =
     opskit.seed
 forbidden_modules =
     opskit.core.pg
+allow_indirect_imports = True
+
+[importlinter:contract:mcp-sdk-only-in-the-gateway-transport]
+name = Only opskit.gateway.mcp_transport may import the MCP SDK or its HTTP client
+type = forbidden
+source_modules =
+    opskit.api
+    opskit.approvals
+    opskit.bootstrap
+    opskit.config
+    opskit.core
+    opskit.db
+    opskit.evals
+    opskit.inbox
+    opskit.leads
+    opskit.receipts
+    opskit.seed
+    opskit.gateway.client
+    opskit.gateway.factory
+    opskit.gateway.outcomes
+    opskit.gateway.recordings
+    opskit.gateway.transport
+forbidden_modules =
+    mcp
+    httpx2
 allow_indirect_imports = True
