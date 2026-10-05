@@ -40,6 +40,7 @@ from pydantic import JsonValue, ValidationError
 from sqlalchemy import func, insert, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from opskit.core.secrets import GATEWAY_TOKEN_PATTERNS
 from opskit.db.engine import SessionFactory
 from opskit.db.tables import audit_log
 
@@ -49,7 +50,7 @@ ITER_BATCH = 500
 # The most events one append_many takes; agent-core's SQLAuditLog sets the same cap.
 MAX_APPEND_BATCH = 1000
 
-_scrubber = PatternScrubber()
+_scrubber = PatternScrubber(extra_patterns=GATEWAY_TOKEN_PATTERNS)
 
 
 def checked_event(event: AuditEvent) -> AuditEvent:

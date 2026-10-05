@@ -8,6 +8,8 @@ fixed phrase, never the SDK's exception text.
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from collections.abc import Iterator
 from typing import cast
 
@@ -22,6 +24,15 @@ from opskit.gateway.transport import JsonObject, RawOutcome
 
 # Longer than the gateway's 45 s approval hold, so a held write answers before we give up.
 MIN_TIMEOUT_S = 50.0
+# Each call is a fresh session (initialize, tools/list, tools/call, close), and the timeout bounds
+# each HTTP round, so the whole call also has a deadline of its own.
+CALL_DEADLINE_MARGIN_S = 15.0
+# A result longer than this is not read: it would go whole into a result and a recording.
+MAX_TEXT_CHARS = 1_000_000
+
+# The SDK logs tool arguments, and results, at DEBUG. Keep both loggers quiet whatever the app sets.
+for _name in ("mcp", "httpx2"):
+    logging.getLogger(_name).setLevel(logging.WARNING)
 
 
 # HTTP statuses the gateway answers before any JSON-RPC: 401 for a bad, revoked or expired token,
@@ -63,33 +74,38 @@ class McpTransport:
             statuses.append(response.status_code)  # the status only, never a header
 
         try:
-            async with (
-                httpx2.AsyncClient(
-                    headers={"Authorization": f"Bearer {self._token.get_secret_value()}"},
-                    timeout=self._timeout_s,
-                    event_hooks={"response": [note_status]},
-                    transport=self._http_transport,
-                ) as http_client,
-                Client(
-                    streamable_http_client(self._url, http_client=http_client),
-                    mode="legacy",
-                    read_timeout_seconds=self._timeout_s,
-                ) as client,
-            ):
-                self.protocol_version = str(client.protocol_version)
-                result = await client.call_tool(
-                    tool,
-                    arguments,
-                    read_timeout_seconds=self._timeout_s,
-                    meta=cast(RequestParamsMeta | None, meta),
-                )
-        except (Exception, BaseExceptionGroup) as error:
+            async with asyncio.timeout(self._timeout_s + CALL_DEADLINE_MARGIN_S):
+                async with (
+                    httpx2.AsyncClient(
+                        headers={"Authorization": f"Bearer {self._token.get_secret_value()}"},
+                        timeout=self._timeout_s,
+                        event_hooks={"response": [note_status]},
+                        transport=self._http_transport,
+                        trust_env=False,  # no proxy from the environment sees the bearer header
+                    ) as http_client,
+                    Client(
+                        streamable_http_client(self._url, http_client=http_client),
+                        mode="legacy",
+                        read_timeout_seconds=self._timeout_s,
+                    ) as client,
+                ):
+                    self.protocol_version = str(client.protocol_version)
+                    result = await client.call_tool(
+                        tool,
+                        arguments,
+                        read_timeout_seconds=self._timeout_s,
+                        meta=cast(RequestParamsMeta | None, meta),
+                    )
+        except Exception as error:  # ExceptionGroup is one; cancellation and exit are not
             self.last_failure_types = tuple(type(leaf).__name__ for leaf in _leaves(error))
             return _outcome_of_failure(error, statuses)
+        text = "\n".join(b.text for b in result.content if isinstance(b, TextContent))
+        if len(text) > MAX_TEXT_CHARS:
+            return RawOutcome(kind="unreachable", reason="response too large")
         return RawOutcome(
             kind="result",
             is_error=bool(result.is_error),
-            text="\n".join(b.text for b in result.content if isinstance(b, TextContent)),
+            text=text,
             structured=result.structured_content,
             meta=dict(result.meta) if result.meta else None,
         )
@@ -109,7 +125,8 @@ def _outcome_of_failure(error: BaseException, statuses: list[int]) -> RawOutcome
     gateway_answered = any(
         isinstance(leaf, MCPError) and leaf.code in GATEWAY_RPC_CODES for leaf in leaves
     )
-    refusal = next((status for status in statuses if status in HTTP_REFUSALS), None)
+    # The token is checked on the first request of a session, so a 401 or 429 is that one's status.
+    refusal = statuses[0] if statuses and statuses[0] in HTTP_REFUSALS else None
     if refusal is not None and not gateway_answered:
         return RawOutcome(kind="http_status", status=refusal)
     for leaf in leaves:

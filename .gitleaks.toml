@@ -32,5 +32,5 @@ keywords = ["aig_"]
 [[rules]]
 id = "ai-gateway-token-gw"
 description = "AI Gateway client bearer token, gw_ form"
-regex = '''gw_[A-Za-z0-9_-]{30,}'''
+regex = '''gw_[A-Za-z0-9_-]{20,}'''
 keywords = ["gw_"]

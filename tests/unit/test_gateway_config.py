@@ -104,3 +104,24 @@ def test_a_timeout_below_50_seconds_is_rejected(monkeypatch: pytest.MonkeyPatch)
 def test_the_transport_refuses_a_timeout_below_the_approval_hold() -> None:
     with pytest.raises(ValueError, match="timeout"):
         McpTransport("http://127.0.0.1:4401/mcp", SecretStr(FAKE_TOKEN), 10)
+
+
+@pytest.mark.parametrize("url", ["http://gateway.example/mcp", "http://10.0.0.5:4401/mcp"])
+def test_a_gateway_off_this_machine_must_use_https(
+    monkeypatch: pytest.MonkeyPatch, url: str
+) -> None:
+    monkeypatch.setenv("OPSKIT_GATEWAY_URL", url)
+
+    with pytest.raises(ValueError, match="https"):
+        Settings()
+
+
+@pytest.mark.parametrize(
+    "url", ["http://127.0.0.1:4401/mcp", "http://localhost:4401/mcp", "https://gateway.example/mcp"]
+)
+def test_loopback_http_and_any_https_gateway_url_are_accepted(
+    monkeypatch: pytest.MonkeyPatch, url: str
+) -> None:
+    monkeypatch.setenv("OPSKIT_GATEWAY_URL", url)
+
+    assert Settings().gateway_url == url

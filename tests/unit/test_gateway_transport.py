@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import httpx2
+import pytest
 from pydantic import SecretStr
 
 from opskit.gateway.client import classify
@@ -68,3 +69,39 @@ async def test_a_server_error_that_is_not_a_login_refusal_is_not_called_unauthor
     raw = await _transport_answering(500).call("crm__search_accounts", SEARCH)
 
     assert not isinstance(classify(raw), Unauthorized)
+
+
+def test_only_the_first_response_status_can_make_a_login_refusal() -> None:
+    from mcp.shared.exceptions import MCPError
+
+    from opskit.gateway.mcp_transport import _outcome_of_failure
+
+    generic = MCPError(-32603, "Server returned an error response")
+
+    assert _outcome_of_failure(generic, [401]).status == 401
+    assert _outcome_of_failure(generic, [200, 200, 401]).kind == "rpc_error"
+
+
+def test_a_gateway_rpc_code_is_never_overridden_by_a_status() -> None:
+    from mcp.shared.exceptions import MCPError
+
+    from opskit.gateway.mcp_transport import _outcome_of_failure
+
+    refused = MCPError(-32010, "Request blocked by gateway policy.")
+
+    assert _outcome_of_failure(refused, [401]).kind == "rpc_error"
+
+
+async def test_a_cancelled_call_is_cancelled_not_turned_into_a_result() -> None:
+    import asyncio
+
+    async def slow(request: httpx2.Request) -> httpx2.Response:
+        await asyncio.sleep(30)
+        return httpx2.Response(200)
+
+    transport = McpTransport(
+        "http://gateway.test/mcp", SecretStr(FAKE_TOKEN), http_transport=httpx2.MockTransport(slow)
+    )
+
+    with pytest.raises(TimeoutError):
+        await asyncio.wait_for(transport.call("crm__search_accounts", SEARCH), timeout=0.3)

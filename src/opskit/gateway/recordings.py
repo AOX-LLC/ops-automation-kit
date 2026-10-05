@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from opskit.core.secrets import GATEWAY_TOKEN_PATTERNS
 from opskit.gateway.transport import (
     PROTOCOL_VERSION,
     JsonObject,
@@ -25,7 +26,7 @@ from opskit.gateway.transport import (
 
 FORMAT = 1
 # The gateway's bearer tokens (aig_<lookup id>_<secret>) and the shape its integration notes name.
-TOKEN_PATTERN = re.compile(r"aig_[a-z2-7]{8}_[A-Za-z0-9_-]{20,}|gw_[A-Za-z0-9_-]{20,}")
+TOKEN_PATTERN = re.compile("|".join(GATEWAY_TOKEN_PATTERNS.values()))
 
 
 class RecordingError(Exception):

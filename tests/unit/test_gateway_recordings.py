@@ -95,7 +95,7 @@ async def test_a_new_recording_session_replaces_the_old_outcomes(tmp_path: Path)
     assert recording.outcomes == (REJECTED,)
 
 
-@pytest.mark.parametrize("token", [FAKE_AIG_TOKEN, FAKE_GW_TOKEN])
+@pytest.mark.parametrize("token", [FAKE_AIG_TOKEN, FAKE_GW_TOKEN], ids=["aig", "gw"])
 def test_saving_an_outcome_that_holds_a_token_is_refused(tmp_path: Path, token: str) -> None:
     leaky = RawOutcome(kind="result", text=f"your key is {token}")
     store = RecordingStore(tmp_path)

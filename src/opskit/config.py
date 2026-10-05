@@ -1,9 +1,13 @@
-"""Runtime settings. Secrets are read from files on the kit-secrets volume, never from env."""
+"""Runtime settings. Generated secrets are read from files on the kit-secrets volume. The only
+secrets accepted from the environment are the viewer's own keys: AGENT_CORE_ANTHROPIC_API_KEY and
+the gateway token (GATEWAY_TOKEN_FILE is the better choice: an environment variable shows in
+`docker inspect`)."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Literal, Self
+from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -11,6 +15,7 @@ from sqlalchemy.engine import URL
 
 from opskit.core.ports import Mode
 
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 API_KEY_VARIABLE = "AGENT_CORE_ANTHROPIC_API_KEY"
 
 
@@ -106,6 +111,19 @@ class Settings(BaseSettings):
         if self.leads_retrieval == "web" and self.agent_core_mode is not Mode.LIVE:
             raise ValueError("LEADS_RETRIEVAL=web needs AGENT_CORE_MODE=live")
         return self
+
+    @field_validator("gateway_url")
+    @classmethod
+    def _gateway_url_is_safe_for_a_token(cls, value: str) -> str:
+        parts = urlsplit(value)
+        if parts.scheme not in ("http", "https") or not parts.hostname:
+            raise ValueError("OPSKIT_GATEWAY_URL must be an http(s) URL")
+        if parts.scheme == "http" and parts.hostname not in LOOPBACK_HOSTS:
+            raise ValueError(
+                "OPSKIT_GATEWAY_URL must use https unless the gateway is on this machine: the "
+                "bearer token travels in a header"
+            )
+        return value
 
     @model_validator(mode="after")
     def _live_gateway_needs_a_token(self) -> Self:
