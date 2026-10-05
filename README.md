@@ -279,6 +279,10 @@ Reproduce:
 
 Committed scorecards: [live](evals/scorecards/inbox-live.md) ([summary](evals/scorecards/inbox-live.summary.json)) and [replay](evals/scorecards/inbox-replay.md) ([summary](evals/scorecards/inbox-replay.summary.json)).
 
+## Optional: gateway tool client
+
+An opt-in client lets the helper API call a company's tools through an AI gateway over MCP, with replay recordings so it runs with the gateway down. It is off by default and changes nothing in the demo, workflows, evals or smoke test. See [docs/gateway-client.md](docs/gateway-client.md).
+
 ## Ports and parallel stacks
 
 All ports bind `127.0.0.1`. Set them in `.env`; copy `.env.example` to start.
