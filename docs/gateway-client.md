@@ -39,7 +39,9 @@ Every call returns one of these. Nothing the gateway does raises.
 | `Unavailable(reason)` | No usable answer: unreachable, timed out, or an unexpected reply. `reason` is a fixed phrase, never exception text. |
 
 A held write waits up to 45 seconds at the gateway before it answers pending, so the client's
-timeout is 60 seconds and cannot be set below 50. HTTP 401 and 429 are read from the HTTP status:
+timeout is 60 seconds and cannot be set below 50. Each call opens its own session, so the timeout
+bounds each round trip, and the whole call also has a deadline of that plus 15 seconds. A result
+over 1,000,000 characters is not read (`Unavailable`). HTTP 401 and 429 are read from the HTTP status:
 the MCP SDK folds both into a generic `-32603 Server returned an error response`.
 
 ## Turning it on
@@ -48,10 +50,10 @@ the MCP SDK folds both into a generic `-32603 Server returned an error response`
 | --- | --- | --- |
 | `OPSKIT_GATEWAY_ENABLED` | `false` | Build the client at all. |
 | `OPSKIT_GATEWAY_MODE` | `replay` | `replay` serves recordings and needs no gateway or token. `record` and `live` call the gateway. |
-| `OPSKIT_GATEWAY_URL` | `http://127.0.0.1:4401/mcp` | The gateway's MCP endpoint. |
+| `OPSKIT_GATEWAY_URL` | `http://127.0.0.1:4401/mcp` | The gateway's MCP endpoint. Must be `https` unless the host is this machine, because the token travels in a header; proxy settings in the environment are ignored. |
 | `OPSKIT_GATEWAY_TIMEOUT_S` | `60` | 50 to 300. |
 | `OPSKIT_GATEWAY_RECORDINGS_DIR` | `/app/fixtures/gateway` | Where recordings are read and written. |
-| `GATEWAY_TOKEN` or `GATEWAY_TOKEN_FILE` | unset | The bearer token, for `record` and `live` only. |
+| `GATEWAY_TOKEN_FILE` or `GATEWAY_TOKEN` | unset | The bearer token, for `record` and `live` only. Prefer the file: an environment variable shows in `docker inspect`. |
 
 ```python
 from opskit.gateway import build_gateway_client
@@ -68,7 +70,9 @@ another machine.
 
 - It is read from the environment or a file and held as a secret value. It is sent only as the
   `Authorization` header of one HTTP client. Nothing logs, formats or re-raises it; a failure is
-  reduced to a fixed phrase and an HTTP status, and the SDK's exception text is never kept.
+  reduced to a fixed phrase and an HTTP status. A JSON-RPC error's own message and data are kept as
+  the gateway or the SDK sent them (that is what a recording holds). The SDK's own debug logging,
+  which can include arguments, is held at WARNING.
 - It never appears in a recording: saving one is refused if its text matches a token shape.
   gitleaks has rules for the gateway's `aig_` tokens and for a `gw_` shape named in its notes, and a
   test scans `fixtures/gateway/` for both.
@@ -80,12 +84,16 @@ another machine.
 Each call leaves one `gateway.call` record in the kit's audit log, written through `opskit.core`:
 the tool, a SHA-256 of the arguments, the outcome, the elapsed time, the run id and, when there is
 one, the approval id or the gateway's request id. **No argument or result text is stored.** The
-audit log's own secret scan also refuses a record that holds a token.
+audit log's secret scan knows the gateway's token shapes and refuses a record that holds one. If
+the record cannot be written, the call raises `GatewayAuditError` carrying the gateway's outcome:
+the call happened (a write may have been approved and made), so the caller must not simply repeat it.
 
 ## Recordings
 
-`fixtures/gateway/` holds recordings of a real gateway's answers, so unit and integration tests
-run with the gateway down.
+`fixtures/gateway/` holds recordings of a real gateway's answers, so unit tests run with the
+gateway down: they replay the recordings through the client. The integration test of the audit
+rows uses a stand-in transport, not recordings. Ordering is kept per replay transport, so a client
+rebuilt for every request starts again at the first outcome.
 
 - One file per call, named by the tool and a hash of the tool, the arguments and a scenario name.
   A file holds the outcomes **in the order the gateway gave them**: a write that came back pending
