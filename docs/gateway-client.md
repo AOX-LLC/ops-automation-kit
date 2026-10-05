@@ -99,52 +99,64 @@ run with the gateway down.
 
 ## What 09 needs to know
 
-**`run_id` does not reach the gateway.** The gateway's documentation says it sends only its own
-`_meta` to a tool server and drops every key the client sends, and that it keys its records on its
-own request id, so agent-core's run id cannot be carried to it. A probe call that sent a run id in
-`_meta` was accepted and answered normally, with no sign of the id in the answer. The client
-therefore sends no run id.
+**`run_id` is not kept by the gateway (confirmed against v0.1.0).** Its documentation says it sends
+only its own `_meta` to a tool server, drops every key the client sends, and keys its records on its
+own request id. In the live run a call that sent the run id in `_meta` was accepted and answered
+normally, and afterwards the run id appeared **0 times** in the gateway's database (a data-only
+dump), the gateway's log, and the tool servers' logs. The client therefore sends no run id.
 Correlating the two audit logs has to go through something both sides can see:
 
-- This kit's `gateway.call` record carries the run id, the tool, the argument hash and the time,
-  and the gateway's request id when it gives one. A policy refusal returns one (in the error's
-  `data`). A successful result and a held write expose none in their text or structured content.
-- The gateway's own `requests` table stores a SHA-256 of the arguments, a client name, a tool and
-  a timestamp, and no run id. Matching a call on both sides therefore means the client, the tool,
+- This kit's `gateway.call` record carries the run id, the tool, the argument hash, the outcome and
+  the time, and the gateway's request id when it gives one.
+- **Request ids appear only on policy refusals** (JSON-RPC -32010: a layer's block, or a rejected
+  approval), in the error's `data`. A successful result, a pending write (it carries an approval
+  id), an unknown tool (-32602) and a 401 carry none, and **no result carried a `_meta`** in any
+  recorded call.
+- The gateway's `requests` table stores a SHA-256 of the arguments, the client name, the tool, the
+  outcome and a timestamp, and no run id. Matching a call on both sides means the client, the tool,
   the time and, if the two hashes are computed the same way, the arguments.
 
 For the integrated demo's second phase, the smallest change that closes the gap is on the
-gateway's side: either return the gateway's request id in the result's `_meta` on every call, so
-this kit can record it, or accept one client-supplied correlation key and store it in the decision
-record. Neither is done here, and nothing in the gateway was changed.
+gateway's side: either return the gateway's request id in every result's `_meta`, so this kit can
+record it, or accept one client-supplied correlation key and store it in the decision record. Neither
+is done here, and nothing in the gateway was changed.
 
-**The classifier judges the arguments of a ticket.** It judges each prose string in them: at least
-24 characters and 3 words. A text it has no recording for is recorded as `unclassified` (never
-as clean) and the call goes on. The integrated demo's corpus has a recording for the ticket
-description, and none for a ticket subject of 24 characters or more, so a descriptive subject
-shows as unclassified on the dashboard until its text is added to the gateway's corpus or the
-subject is kept short.
+**The classifier judges the arguments of a ticket, and the demo's ticket subject is unclassified.**
+It judges each prose string in them: at least 24 characters and 3 words. A text it has no recording
+for is recorded as `unclassified` with the code `classifier_unrecorded` (never as clean), and the
+call goes on. In the live run the ticket's description was judged from its recording and its subject
+was not: the gateway recorded the ticket's `before_call` verdict as `unclassified`, and one of the
+two classifier model calls as `unrecorded`. The demo's corpus (`story_09.toml`) has a recording for
+the description and none for the subject, so the integrated demo needs the exact subject it will use
+added to the gateway's corpus (or a subject shorter than 24 characters, which is not judged at all).
+The reads were all judged from recordings.
 
 ## Measured once
 
 On a 7.9 GB host with other workloads running, with this kit's stack and a fresh stack of the
-gateway at v0.1.0 both up:
+gateway at v0.1.0 both up and the other stack on the machine stopped:
 
 | | Container memory |
 | --- | --- |
-| This kit (api, n8n, Postgres, Mailpit) | about 590 MiB |
-| The gateway stack (gateway, dashboard, three tool servers, Postgres, two purge jobs) | about 620 MiB |
+| This kit (api, n8n, Postgres, Mailpit) | about 580 MiB |
+| The gateway stack (gateway, dashboard, three tool servers, Postgres, two purge jobs) | about 570 MiB |
 
-Together about 1.2 GiB of container memory; the host showed 5.1 GB used and 2.8 GB available
-with both up. Adding the MCP SDK grows the helper API's installed environment by about 24 MB,
-nearly all of it the `cryptography` package that the SDK's JWT dependency pulls in.
+The host showed 2.66 GB available with both up. Adding the MCP SDK grows the helper API's installed
+environment by about 24 MB (approximate, from comparing the installed packages), nearly all of it
+the `cryptography` package that the SDK's JWT dependency pulls in.
+
+The live run also showed the gateway recording the client's protocol as 2025-11-25, which is also
+what the SDK reported, and every held write as a block with the code `approval_pending`, then
+`approval_rejected` after the approver's decision.
 
 ## Checked, and not checked
 
 Checked in unit tests: the typed results for every shape above, the limits, the audit record's
 contents, ordered replay, token refusal in recordings, and that only `opskit.gateway.mcp_transport`
 imports the MCP SDK (an import-linter contract and a test). Checked in an integration test: the audit
-rows in the real database, written as the requester role.
+rows in the real database, written as the requester role. Checked once against a real gateway
+(v0.1.0): the recordings, and five `gateway.call` audit rows for a run, written as the requester
+role, with no argument text in any of them.
 
 Not covered: approving or expiring a write (a person's decision at the gateway; an expired
 approval takes 30 minutes to occur, so it is not recorded), a gateway reached over TLS, and live
