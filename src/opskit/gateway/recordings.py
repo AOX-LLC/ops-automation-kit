@@ -53,6 +53,10 @@ class RecordingStore:
         self._directory = directory
         self._recorded_with = recorded_with or {"protocol": PROTOCOL_VERSION}
 
+    def note_protocol(self, version: str) -> None:
+        """The protocol version the live session actually negotiated, for the recordings' header."""
+        self._recorded_with = {**self._recorded_with, "protocol": version}
+
     def _path(self, tool: str, key: str) -> Path:
         return self._directory / f"{tool}.{key[:16]}.json"
 
@@ -131,6 +135,9 @@ class RecordingTransport:
         self, tool: str, arguments: JsonObject, *, meta: JsonObject | None = None
     ) -> RawOutcome:
         outcome = await self.inner.call(tool, arguments, meta=meta)
+        negotiated = getattr(self.inner, "protocol_version", None)
+        if negotiated:
+            self.store.note_protocol(negotiated)
         key = call_key(tool, arguments, self.scenario)
         seen = self._session.setdefault(key, [])
         seen.append(outcome)

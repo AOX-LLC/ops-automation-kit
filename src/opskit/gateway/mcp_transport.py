@@ -24,8 +24,23 @@ from opskit.gateway.transport import JsonObject, RawOutcome
 MIN_TIMEOUT_S = 50.0
 
 
+# HTTP statuses the gateway answers before any JSON-RPC: 401 for a bad, revoked or expired token,
+# 429 for too many failed logins. The SDK folds both into a generic -32603 "Server returned an
+# error response", so they are read from the HTTP layer.
+HTTP_REFUSALS = (401, 429)
+# JSON-RPC codes the gateway itself answers with (HTTP 200): never overridden by an HTTP status.
+GATEWAY_RPC_CODES = (-32010, -32602)
+
+
 class McpTransport:
-    def __init__(self, url: str, token: SecretStr, timeout_s: float = 60.0) -> None:
+    def __init__(
+        self,
+        url: str,
+        token: SecretStr,
+        timeout_s: float = 60.0,
+        *,
+        http_transport: httpx2.AsyncBaseTransport | None = None,
+    ) -> None:
         if timeout_s < MIN_TIMEOUT_S:
             raise ValueError(
                 f"The timeout must exceed the gateway's 45 s approval hold ({MIN_TIMEOUT_S} s)."
@@ -33,17 +48,27 @@ class McpTransport:
         self._url = url
         self._token = token
         self._timeout_s = timeout_s
+        self._http_transport = http_transport  # tests only: a stand-in for the network
+        # The protocol version the last session negotiated, as the SDK reports it.
+        self.protocol_version: str | None = None
         # Class names only, for a person debugging a live run; never a message.
         self.last_failure_types: tuple[str, ...] = ()
 
     async def call(
         self, tool: str, arguments: JsonObject, *, meta: JsonObject | None = None
     ) -> RawOutcome:
+        statuses: list[int] = []
+
+        async def note_status(response: httpx2.Response) -> None:
+            statuses.append(response.status_code)  # the status only, never a header
+
         try:
             async with (
                 httpx2.AsyncClient(
                     headers={"Authorization": f"Bearer {self._token.get_secret_value()}"},
                     timeout=self._timeout_s,
+                    event_hooks={"response": [note_status]},
+                    transport=self._http_transport,
                 ) as http_client,
                 Client(
                     streamable_http_client(self._url, http_client=http_client),
@@ -51,6 +76,7 @@ class McpTransport:
                     read_timeout_seconds=self._timeout_s,
                 ) as client,
             ):
+                self.protocol_version = str(client.protocol_version)
                 result = await client.call_tool(
                     tool,
                     arguments,
@@ -59,12 +85,13 @@ class McpTransport:
                 )
         except (Exception, BaseExceptionGroup) as error:
             self.last_failure_types = tuple(type(leaf).__name__ for leaf in _leaves(error))
-            return _outcome_of_failure(error)
+            return _outcome_of_failure(error, statuses)
         return RawOutcome(
             kind="result",
             is_error=bool(result.is_error),
             text="\n".join(b.text for b in result.content if isinstance(b, TextContent)),
             structured=result.structured_content,
+            meta=dict(result.meta) if result.meta else None,
         )
 
 
@@ -77,8 +104,14 @@ def _leaves(error: BaseException) -> Iterator[BaseException]:
         yield error
 
 
-def _outcome_of_failure(error: BaseException) -> RawOutcome:
+def _outcome_of_failure(error: BaseException, statuses: list[int]) -> RawOutcome:
     leaves = list(_leaves(error))
+    gateway_answered = any(
+        isinstance(leaf, MCPError) and leaf.code in GATEWAY_RPC_CODES for leaf in leaves
+    )
+    refusal = next((status for status in statuses if status in HTTP_REFUSALS), None)
+    if refusal is not None and not gateway_answered:
+        return RawOutcome(kind="http_status", status=refusal)
     for leaf in leaves:
         if isinstance(leaf, MCPError):
             return RawOutcome(

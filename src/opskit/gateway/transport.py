@@ -24,6 +24,8 @@ class RawOutcome:
     is_error: bool = False
     text: str = ""
     structured: JsonObject | None = None
+    # The result's own _meta, when the gateway sent one (a place a request id could appear).
+    meta: JsonObject | None = None
     # kind == "rpc_error": a JSON-RPC error.
     code: int | None = None
     message: str = ""
