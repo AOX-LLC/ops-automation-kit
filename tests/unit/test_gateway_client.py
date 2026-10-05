@@ -17,7 +17,7 @@ from opskit.gateway import (
     Unavailable,
     UpstreamError,
 )
-from opskit.gateway.client import classify, gateway_request_id
+from opskit.gateway.client import GatewayAuditError, classify, gateway_request_id
 from opskit.gateway.transport import JsonObject, RawOutcome
 
 CTX = RunContext(run_id="run-1")
@@ -264,3 +264,34 @@ async def test_no_argument_value_reaches_the_audit_event() -> None:
 async def test_a_client_without_an_audit_log_still_answers() -> None:
     outcome = await GatewayClient(FakeTransport(ok_result()), None).get_account(CTX, "a")
     assert outcome == Ok("fine", None)
+
+
+async def test_a_limit_that_is_not_an_integer_is_refused_before_the_call() -> None:
+    transport = FakeTransport()
+    client = GatewayClient(transport)
+
+    for bad in (True, 2.5):
+        with pytest.raises(GatewayArgumentError):
+            await client.search_accounts(RunContext(run_id="run-1"), "Pier Nine", limit=bad)  # type: ignore[arg-type]
+
+    assert transport.calls == []
+
+
+def test_a_request_id_is_never_searched_for_in_a_result_text() -> None:
+    raw = RawOutcome(kind="result", text="note: request id: dara.brine-555-0111 called back")
+
+    assert gateway_request_id(raw) is None
+
+
+async def test_a_failed_audit_write_raises_with_the_outcome_the_gateway_gave() -> None:
+    class BrokenAudit:
+        async def append(self, event: object) -> None:
+            raise RuntimeError("the database is down")
+
+    client = GatewayClient(FakeTransport(RawOutcome(kind="result", text="done")), BrokenAudit())  # type: ignore[arg-type]
+
+    with pytest.raises(GatewayAuditError) as raised:
+        await client.get_account(RunContext(run_id="run-1"), "ACC-00003")
+
+    assert isinstance(raised.value.outcome, Ok)
+    assert "database is down" not in str(raised.value)

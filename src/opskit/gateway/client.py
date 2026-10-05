@@ -1,10 +1,12 @@
 """The helper API's view of the gateway's four tools, as typed results.
 
 What it enforces for itself, because the gateway would refuse the call anyway: `limit` from 1 to 5
-on every search and deals call, a ticket description of at most 1,000 characters, and a ticket
-opened with an account id and a summary, never pasted contact details. What it never does: retry a
-pending write, or log an argument. Every call leaves one `gateway.call` audit record holding the
-tool, a hash of the arguments, the outcome and the run id, and no argument.
+on every search and deals call, and a ticket description of at most 1,000 characters. A ticket
+should be opened with an account id and a summary, never pasted contact details: nothing here can
+check that, and the gateway's egress layer is the control. What it never does: retry a pending
+write, or log an argument. Every call leaves one `gateway.call` audit record holding the tool, a
+hash of the arguments, the outcome and the run id, and no argument or result text; if that record
+cannot be written the call raises GatewayAuditError carrying the outcome.
 """
 
 from __future__ import annotations
@@ -45,6 +47,16 @@ _REQUEST_ID = re.compile(r"request[ _-]?id[\"':= ]+([A-Za-z0-9._-]{4,64})", re.I
 
 class GatewayArgumentError(ValueError):
     """A call this client will not make because the gateway would refuse it. A bug in the caller."""
+
+
+class GatewayAuditError(Exception):
+    """The gateway answered, but the audit record of the call could not be written. The call
+    happened (a write may have been approved and made): `outcome` is what the gateway said, so the
+    caller can act on it and must not simply repeat the call."""
+
+    def __init__(self, outcome: Outcome) -> None:
+        super().__init__(f"The call finished as {type(outcome).__name__} but could not be audited.")
+        self.outcome = outcome
 
 
 class GatewayClient:
@@ -95,7 +107,10 @@ class GatewayClient:
         started = monotonic()
         raw = await self._transport.call(tool, arguments, meta=meta)
         outcome = classify(raw)
-        await self._record(ctx, tool, arguments, outcome, raw, elapsed_s=monotonic() - started)
+        try:
+            await self._record(ctx, tool, arguments, outcome, raw, elapsed_s=monotonic() - started)
+        except Exception as error:
+            raise GatewayAuditError(outcome) from error
         return outcome
 
     async def _record(
@@ -133,7 +148,7 @@ class GatewayClient:
 
 
 def _checked_limit(limit: int) -> int:
-    if not 1 <= limit <= MAX_LIMIT:
+    if type(limit) is not int or not 1 <= limit <= MAX_LIMIT:
         raise GatewayArgumentError(
             f"limit must be from 1 to {MAX_LIMIT}; the gateway refuses more."
         )
@@ -195,11 +210,14 @@ def _pending_marker(raw: RawOutcome) -> JsonObject | None:
 
 
 def gateway_request_id(raw: RawOutcome) -> str | None:
-    """The request id the gateway puts in a refusal, wherever it put it; None when it gave none."""
+    """The request id the gateway puts in a refusal (a JSON-RPC error), wherever it put it; None
+    when it gave none. Result text is never searched: it can hold a customer's data."""
+    if raw.kind != "rpc_error":
+        return None
     if isinstance(raw.data, dict):
         for key in ("request_id", "requestId", "id"):
             value = raw.data.get(key)
             if isinstance(value, str | int):
                 return str(value)
-    found = _REQUEST_ID.search(raw.message) or _REQUEST_ID.search(raw.text)
+    found = _REQUEST_ID.search(raw.message)
     return found.group(1) if found else None

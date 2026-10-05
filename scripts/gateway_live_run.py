@@ -5,6 +5,7 @@ token in the file GATEWAY_TOKEN_FILE (the file is read, never printed). It write
 under fixtures/gateway/ and one `gateway.call` audit row per call through the requester role.
 
     GATEWAY_TOKEN_FILE=... OPSKIT_GATEWAY_ENABLED=true OPSKIT_GATEWAY_MODE=record \\
+    OPSKIT_GATEWAY_RECORDINGS_DIR=fixtures/gateway \\
     OPSKIT_SECRETS_DIR=<dir holding opskit_app_password> OPSKIT_DB_HOST=127.0.0.1 \\
     OPSKIT_DB_PORT=4302 AGENT_CORE_CONFIG=config/agent-core.toml \\
     uv run python scripts/gateway_live_run.py --steps read,probe,unauthorized,failures,ticket
@@ -19,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from importlib.metadata import version
 from pathlib import Path
 
 from pydantic import SecretStr
@@ -118,7 +120,7 @@ async def main(steps: set[str], wait_for: Path) -> None:
         settings.gateway_recordings_dir,
         recorded_with={
             "gateway": "ai-gateway v0.1.0",
-            "mcp_sdk": "2.2.0",
+            "mcp_sdk": version("mcp"),
             "protocol": PROTOCOL_VERSION,
         },
     )
@@ -128,6 +130,7 @@ async def main(steps: set[str], wait_for: Path) -> None:
     client = GatewayClient(RecordingTransport(live, store), core.audit)
     ctx = await core.runs.start(workflow="inbox", n8n_workflow_id=None, n8n_execution_id=None)
     print("run id:", ctx.run_id)
+    succeeded = False
     try:
         if "read" in steps:
             await _read_steps(client, ctx)
@@ -139,8 +142,9 @@ async def main(steps: set[str], wait_for: Path) -> None:
             await _failure_steps(live, store)
         if "ticket" in steps:
             await _ticket_step(client, ctx, wait_for)
+        succeeded = True
     finally:
-        await core.runs.finish(run_uuid(ctx), succeeded=True)
+        await core.runs.finish(run_uuid(ctx), succeeded=succeeded)
         await engine.dispose()
     print("protocol version the SDK reports:", live.protocol_version)
     print("last transport failure types:", live.last_failure_types)

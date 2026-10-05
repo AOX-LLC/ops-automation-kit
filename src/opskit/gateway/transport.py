@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass
-from typing import Any, Literal, Protocol
+from dataclasses import asdict, dataclass, fields
+from typing import Any, Literal, Protocol, get_args
 
 type JsonObject = dict[str, Any]
 type OutcomeKind = Literal["result", "rpc_error", "http_status", "unreachable"]
@@ -41,6 +41,11 @@ class RawOutcome:
 
     @classmethod
     def from_json(cls, document: JsonObject) -> RawOutcome:
+        known = {f.name for f in fields(cls)}
+        if set(document) - known:
+            raise ValueError(f"unknown outcome fields: {sorted(set(document) - known)}")
+        if document.get("kind") not in get_args(OutcomeKind.__value__):
+            raise ValueError(f"unknown outcome kind: {document.get('kind')!r}")
         return cls(**document)
 
 

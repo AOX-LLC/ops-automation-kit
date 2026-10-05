@@ -4,6 +4,16 @@ from pathlib import Path
 
 import pytest
 
+from opskit.core.ports import RunContext
+from opskit.gateway.client import GatewayClient, classify
+from opskit.gateway.outcomes import (
+    ApprovalRejected,
+    NotAvailable,
+    Ok,
+    Pending,
+    PolicyRefused,
+    Unauthorized,
+)
 from opskit.gateway.recordings import (
     TOKEN_PATTERN,
     Recording,
@@ -151,3 +161,92 @@ def test_only_the_mcp_transport_imports_the_sdk_or_its_http_client() -> None:
         if _imports_mcp_or_httpx2(ast.parse(path.read_text(encoding="utf-8")))
     }
     assert importers == {"gateway/mcp_transport.py"}
+
+
+COMMITTED_RECORDINGS = Path(__file__).resolve().parents[2] / "fixtures" / "gateway"
+
+
+def _replayed_client(scenario: str = "") -> GatewayClient:
+    store = RecordingStore(COMMITTED_RECORDINGS)
+    return GatewayClient(ReplayTransport(store, scenario))
+
+
+async def test_the_recorded_reads_replay_as_ok_through_the_client() -> None:
+    client = _replayed_client()
+    ctx = RunContext(run_id="run-1")
+
+    assert isinstance(await client.search_accounts(ctx, "Pier Nine", limit=5), Ok)
+    assert isinstance(await client.get_account(ctx, "ACC-00003"), Ok)
+    assert isinstance(await client.list_deals(ctx, "ACC-00003", limit=5), Ok)
+
+
+async def test_the_recorded_ticket_replays_as_pending_then_rejected() -> None:
+    client = _replayed_client()
+    ctx = RunContext(run_id="run-1")
+    story = {
+        "account_id": "ACC-00003",
+        "subject": "Damaged pallets on order HS-48213",
+        "description": (
+            "Customer Marta (Pier Nine Supply, ACC-00003) reports that two of four pallets on "
+            "order HS-48213 arrived damaged: torn shrink wrap and crushed cartons. She asks for "
+            "replacements and return instructions."
+        ),
+    }
+
+    first = await client.create_ticket(ctx, **story)
+    second = await client.create_ticket(ctx, **story)
+
+    assert isinstance(first, Pending)
+    assert first.approval_id
+    assert isinstance(second, ApprovalRejected)
+
+
+async def test_the_recorded_bad_token_replays_as_unauthorized() -> None:
+    store = RecordingStore(COMMITTED_RECORDINGS)
+    raw = await ReplayTransport(store, "unauthorized").call(
+        "crm__get_account", {"account_id": "ACC-00003"}
+    )
+
+    assert isinstance(classify(raw), Unauthorized)
+
+
+async def test_the_recorded_refusals_replay_with_their_request_id_and_codes() -> None:
+    store = RecordingStore(COMMITTED_RECORDINGS)
+    no_limit = await ReplayTransport(store, "no-limit").call(
+        "crm__search_accounts", {"query": "Pier Nine"}
+    )
+    out_of_scope = await ReplayTransport(store, "out-of-scope").call(
+        "tickets__add_comment", {"ticket_id": "TKT-000001", "body": "x"}
+    )
+
+    refused = classify(no_limit)
+    assert isinstance(refused, PolicyRefused)
+    assert refused.request_id
+    assert isinstance(classify(out_of_scope), NotAvailable)
+
+
+def test_a_recording_with_an_unknown_kind_or_field_is_refused_not_guessed() -> None:
+    with pytest.raises(ValueError, match="kind"):
+        RawOutcome.from_json({"kind": "bogus"})
+    with pytest.raises(ValueError, match="unknown outcome fields"):
+        RawOutcome.from_json({"kind": "result", "surprise": 1})
+
+
+def test_a_recording_that_holds_another_call_is_not_served(tmp_path: Path) -> None:
+    store = RecordingStore(tmp_path)
+    path = store.save(
+        Recording("crm__get_account", "", {"account_id": "A"}, (RawOutcome(kind="result"),))
+    )
+    document = json.loads(path.read_text(encoding="utf-8"))
+    document["arguments"] = {"account_id": "B"}
+    path.write_text(json.dumps(document), encoding="utf-8")
+
+    with pytest.raises(RecordingError, match="another call"):
+        store.load("crm__get_account", {"account_id": "A"}, "")
+
+
+def test_a_tool_name_cannot_leave_the_recordings_folder(tmp_path: Path) -> None:
+    store = RecordingStore(tmp_path)
+
+    with pytest.raises(RecordingError, match="tool name"):
+        store.load("../escape", {}, "")

@@ -25,6 +25,7 @@ from opskit.gateway.transport import (
 )
 
 FORMAT = 1
+TOOL_NAME = re.compile(r"[a-z][a-z0-9_]{0,63}")
 # The gateway's bearer tokens (aig_<lookup id>_<secret>) and the shape its integration notes name.
 TOKEN_PATTERN = re.compile("|".join(GATEWAY_TOKEN_PATTERNS.values()))
 
@@ -59,6 +60,8 @@ class RecordingStore:
         self._recorded_with = {**self._recorded_with, "protocol": version}
 
     def _path(self, tool: str, key: str) -> Path:
+        if not TOOL_NAME.fullmatch(tool):
+            raise RecordingError(f"{tool!r} is not a tool name a recording can be named after.")
         return self._directory / f"{tool}.{key[:16]}.json"
 
     def load(self, tool: str, arguments: JsonObject, scenario: str) -> Recording | None:
@@ -66,12 +69,19 @@ class RecordingStore:
         if not path.is_file():
             return None
         document = json.loads(path.read_text(encoding="utf-8"))
-        return Recording(
-            tool=document["tool"],
-            scenario=document["scenario"],
-            arguments=document["arguments"],
-            outcomes=tuple(RawOutcome.from_json(o) for o in document["outcomes"]),
-        )
+        try:
+            if document["format"] != FORMAT:
+                raise ValueError(f"format {document['format']!r}")
+            if (document["tool"], document["scenario"], document["arguments"]) != (
+                tool,
+                scenario,
+                arguments,
+            ):
+                raise ValueError("the file holds another call")
+            outcomes = tuple(RawOutcome.from_json(o) for o in document["outcomes"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise RecordingError(f"The recording {path.name} is not usable: {error}") from error
+        return Recording(tool, scenario, arguments, outcomes)
 
     def save(self, recording: Recording) -> Path:
         document: dict[str, Any] = {
