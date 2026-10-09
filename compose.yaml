@@ -152,7 +152,7 @@ services:
     network_mode: none
 
   mailpit:
-    image: axllent/mailpit:v1.31.3@sha256:ed9b00c609e77e99c79b93f1178255ebc271868920f2c69a8d166bd5634ed10d
+    image: axllent/mailpit:v1.31.4@sha256:b68349e3a014b90c5610bfb26b2ae36f3892d7b8cf25ee140c6c71c98d2fcf48
     <<: *hardened
     user: "10002:10002"
     depends_on:
@@ -200,7 +200,7 @@ services:
     networks: [kit]
 
   n8n-import:
-    image: n8nio/n8n:2.41.5@sha256:6f532d3b819cfe66c6a13c5375228f312c53df1abaa11a377eb8c3d3f105c363
+    image: n8nio/n8n:2.42.3@sha256:240eaa2a3d491adac5817aa4c3f1c521bb18ec79f6e448517158d5220ee0f37b
     <<: *hardened
     depends_on:
       postgres: { condition: service_healthy }
@@ -225,7 +225,7 @@ services:
     networks: [kit]
 
   n8n:
-    image: n8nio/n8n:2.41.5@sha256:6f532d3b819cfe66c6a13c5375228f312c53df1abaa11a377eb8c3d3f105c363
+    image: n8nio/n8n:2.42.3@sha256:240eaa2a3d491adac5817aa4c3f1c521bb18ec79f6e448517158d5220ee0f37b
     <<: *hardened
     depends_on:
       n8n-import: { condition: service_completed_successfully }
