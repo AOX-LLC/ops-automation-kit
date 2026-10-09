@@ -1,7 +1,7 @@
 # Helper API image. Also used for the one-shot jobs: secrets, migrate, seed, login.
 ARG PYTHON_IMAGE=python:3.12-slim-bookworm@sha256:54c85f3c47607a77f32adec749d3c81d1348bf25833671f512b26a9b6d778cb3
 
-FROM ghcr.io/astral-sh/uv:0.12.22 AS uv
+FROM ghcr.io/astral-sh/uv:0.12.24 AS uv
 
 FROM ${PYTHON_IMAGE} AS build
 COPY --from=uv /uv /usr/local/bin/uv
