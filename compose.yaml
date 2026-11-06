@@ -48,7 +48,7 @@ services:
     network_mode: none
 
   postgres:
-    image: pgvector/pgvector:0.8.7-pg17-trixie@sha256:7a7e9f22015b67edb4bef5c59daeebcd7e74bfa570df6ce60ae01237c8648a84
+    image: pgvector/pgvector:0.8.7-pg17-trixie@sha256:01215e09bd4bd582d20230e025b6c971deeeffee49ceef1aae167e839cb62a7e
     depends_on:
       kit-secrets: { condition: service_completed_successfully }
     security_opt: ["no-new-privileges:true"]
@@ -152,7 +152,7 @@ services:
     network_mode: none
 
   mailpit:
-    image: axllent/mailpit:v1.31.3@sha256:ed9b00c609e77e99c79b93f1178255ebc271868920f2c69a8d166bd5634ed10d
+    image: axllent/mailpit:v1.33.0@sha256:9b3a463be15354c0f0eba91697d80e3e0d8a5623ef0e627cacc836bc17fd5231
     <<: *hardened
     user: "10002:10002"
     depends_on:
@@ -200,7 +200,7 @@ services:
     networks: [kit]
 
   n8n-import:
-    image: n8nio/n8n:2.41.5@sha256:6f532d3b819cfe66c6a13c5375228f312c53df1abaa11a377eb8c3d3f105c363
+    image: n8nio/n8n:2.46.4@sha256:4384b9ff20a78bc1708c35ce7864f84f724611de7801fb36d715998db7c000f1
     <<: *hardened
     depends_on:
       postgres: { condition: service_healthy }
@@ -225,7 +225,7 @@ services:
     networks: [kit]
 
   n8n:
-    image: n8nio/n8n:2.41.5@sha256:6f532d3b819cfe66c6a13c5375228f312c53df1abaa11a377eb8c3d3f105c363
+    image: n8nio/n8n:2.46.4@sha256:4384b9ff20a78bc1708c35ce7864f84f724611de7801fb36d715998db7c000f1
     <<: *hardened
     depends_on:
       n8n-import: { condition: service_completed_successfully }
